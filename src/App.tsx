@@ -57,6 +57,15 @@ export default function App() {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(expenses));
   }, [expenses]);
 
+  useEffect(() => {
+    const syncViewWithHash = () => {
+      setActiveView(loadInitialView());
+    };
+
+    window.addEventListener('hashchange', syncViewWithHash);
+    return () => window.removeEventListener('hashchange', syncViewWithHash);
+  }, []);
+
   const refreshQuote = async () => {
     setIsQuoteLoading(true);
     setQuoteWarning(null);
