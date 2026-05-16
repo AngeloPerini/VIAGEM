@@ -278,6 +278,7 @@ export default function App() {
                 categories={categories}
                 totalsByCategory={filteredTotalsByCategory}
                 grandTotal={filteredGrandTotal}
+                realValueMode={realValueMode}
               />
               <ExpenseChart
                 categories={categories}
@@ -301,6 +302,7 @@ export default function App() {
                 categories={categories}
                 totalsByCategory={totalsByCategory}
                 grandTotal={grandTotal}
+                realValueMode={realValueMode}
               />
 
               <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_380px]">
@@ -326,18 +328,37 @@ export default function App() {
                   </p>
                   <h2 className="mt-3 text-3xl font-black">Total geral da viagem</h2>
                   <div className="mt-6 space-y-4">
-                    <div>
-                      <p className="text-sm font-semibold text-slate-400">Euro</p>
-                      <p className="text-3xl font-black">
-                        {formatRange(grandTotal.euro, 'EUR', true)}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-sm font-semibold text-slate-400">Real</p>
-                      <p className="text-3xl font-black">
-                        {formatRange(grandTotal.real, 'BRL', true)}
-                      </p>
-                    </div>
+                    <AnimatePresence mode="wait">
+                      <motion.div
+                        key={`${realValueMode}-${grandTotal.euro.min}-${grandTotal.real.min}`}
+                        initial={{ opacity: 0, y: 8 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -8 }}
+                        transition={{ duration: 0.22 }}
+                        className="space-y-4"
+                      >
+                        <div>
+                          <p className="text-sm font-semibold text-slate-400">
+                            {realValueMode === 'converted' ? 'Real convertido' : 'Euro'}
+                          </p>
+                          <p className="text-3xl font-black">
+                            {realValueMode === 'converted'
+                              ? formatRange(grandTotal.real, 'BRL', true)
+                              : formatRange(grandTotal.euro, 'EUR', true)}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-sm font-semibold text-slate-400">
+                            {realValueMode === 'converted' ? 'Euro original' : 'Real'}
+                          </p>
+                          <p className="text-3xl font-black">
+                            {realValueMode === 'converted'
+                              ? formatRange(grandTotal.euro, 'EUR', true)
+                              : formatRange(grandTotal.real, 'BRL', true)}
+                          </p>
+                        </div>
+                      </motion.div>
+                    </AnimatePresence>
                   </div>
                   <button
                     type="button"

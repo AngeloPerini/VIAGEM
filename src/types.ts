@@ -54,7 +54,8 @@ export type ItineraryType =
   | 'food'
   | 'flight'
   | 'train'
-  | 'rest';
+  | 'rest'
+  | 'other';
 
 export type ItineraryItem = {
   id: string;

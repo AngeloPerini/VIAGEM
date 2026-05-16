@@ -88,6 +88,9 @@ Tipos disponiveis:
 - `flight`
 - `train`
 - `rest`
+- `other`
+
+No site, a pagina **Roteiro** tambem permite adicionar, editar, excluir e restaurar o roteiro padrao. As alteracoes ficam salvas no `localStorage` com a chave `europa-budget-itinerary-v1`.
 
 ## Filtros por pais
 
@@ -124,6 +127,8 @@ O estado de cada ponto turistico e salvo no `localStorage` com a chave `europa-b
 - uma foto em base64 por ponto
 
 Antes de salvar, a foto e redimensionada/comprimida por `src/utils/imageCompression.ts` para reduzir o risco de limite do `localStorage`.
+
+A lista de pontos tambem pode ser editada pelo site. Os pontos adicionados/editados/excluidos ficam salvos no `localStorage` com a chave `europa-budget-attractions-list-v1`, e o botao **Restaurar pontos padrão** volta para a lista inicial.
 
 ## Persistencia
 

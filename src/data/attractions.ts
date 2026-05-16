@@ -1,6 +1,7 @@
 import type { Attraction } from '../types';
 
 export const ATTRACTION_STORAGE_KEY = 'europa-budget-attractions-v1';
+export const ATTRACTION_LIST_STORAGE_KEY = 'europa-budget-attractions-list-v1';
 
 export const attractions: Attraction[] = [
   { id: 'rome-coliseu', name: 'Coliseu', country: 'italy', city: 'Roma', day: 'Dia 17', time: '09h00', description: 'Visita ao anfiteatro romano mais iconico da viagem.' },

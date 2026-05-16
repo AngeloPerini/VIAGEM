@@ -1,5 +1,5 @@
 import { AnimatePresence, motion } from 'framer-motion';
-import { Camera, CheckCircle2, ImagePlus, Trash2, X } from 'lucide-react';
+import { Camera, CheckCircle2, Edit3, ImagePlus, Trash2, X } from 'lucide-react';
 import { useRef, useState } from 'react';
 import type { ChangeEvent } from 'react';
 import { countryNames } from '../data/countries';
@@ -11,9 +11,11 @@ type AttractionModalProps = {
   state?: AttractionState;
   onClose: () => void;
   onChange: (id: string, nextState: AttractionState) => void;
+  onEdit: (attraction: Attraction) => void;
+  onDelete: (id: string) => void;
 };
 
-export function AttractionModal({ attraction, state, onClose, onChange }: AttractionModalProps) {
+export function AttractionModal({ attraction, state, onClose, onChange, onEdit, onDelete }: AttractionModalProps) {
   const inputRef = useRef<HTMLInputElement | null>(null);
   const [warning, setWarning] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -74,14 +76,32 @@ export function AttractionModal({ attraction, state, onClose, onChange }: Attrac
                   {attraction.name}
                 </h2>
               </div>
-              <button
-                type="button"
-                onClick={onClose}
-                aria-label="Fechar"
-                className="rounded-2xl border border-slate-200 p-3 text-slate-500 transition hover:bg-slate-50"
-              >
-                <X className="h-5 w-5" />
-              </button>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => onEdit(attraction)}
+                  aria-label={`Editar ${attraction.name}`}
+                  className="rounded-2xl border border-slate-200 p-3 text-slate-500 transition hover:bg-teal-50 hover:text-teal-700"
+                >
+                  <Edit3 className="h-5 w-5" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onDelete(attraction.id)}
+                  aria-label={`Excluir ${attraction.name}`}
+                  className="rounded-2xl border border-slate-200 p-3 text-slate-500 transition hover:bg-rose-50 hover:text-rose-700"
+                >
+                  <Trash2 className="h-5 w-5" />
+                </button>
+                <button
+                  type="button"
+                  onClick={onClose}
+                  aria-label="Fechar"
+                  className="rounded-2xl border border-slate-200 p-3 text-slate-500 transition hover:bg-slate-50"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
             </div>
 
             <div className="grid gap-5 lg:grid-cols-[1fr_0.9fr]">

@@ -1,6 +1,6 @@
-import { motion } from 'framer-motion';
+import { AnimatePresence, motion } from 'framer-motion';
 import { BedDouble, Landmark, Route, WalletCards } from 'lucide-react';
-import type { CategoryMeta } from '../types';
+import type { CategoryMeta, RealValueMode } from '../types';
 import type { Totals } from '../utils/money';
 import { formatRange } from '../utils/money';
 
@@ -14,9 +14,38 @@ type SummaryCardsProps = {
   categories: CategoryMeta[];
   totalsByCategory: Record<string, Totals>;
   grandTotal: Totals;
+  realValueMode: RealValueMode;
 };
 
-export function SummaryCards({ categories, totalsByCategory, grandTotal }: SummaryCardsProps) {
+function MoneyPriority({ total, mode, inverted = false }: { total: Totals; mode: RealValueMode; inverted?: boolean }) {
+  const primary = mode === 'converted'
+    ? formatRange(total.real, 'BRL', true)
+    : formatRange(total.euro, 'EUR', true);
+  const secondary = mode === 'converted'
+    ? formatRange(total.euro, 'EUR', true)
+    : formatRange(total.real, 'BRL', true);
+
+  return (
+    <AnimatePresence mode="wait">
+      <motion.div
+        key={`${mode}-${primary}-${secondary}`}
+        initial={{ opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: -8 }}
+        transition={{ duration: 0.22 }}
+      >
+        <strong className={`mt-3 block font-black ${inverted ? 'text-3xl' : 'text-2xl text-slate-950'}`}>
+          {primary}
+        </strong>
+        <span className={`mt-2 block font-semibold ${inverted ? 'text-lg text-teal-100' : 'text-slate-500'}`}>
+          {secondary}
+        </span>
+      </motion.div>
+    </AnimatePresence>
+  );
+}
+
+export function SummaryCards({ categories, totalsByCategory, grandTotal, realValueMode }: SummaryCardsProps) {
   return (
     <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
       <motion.article
@@ -31,12 +60,7 @@ export function SummaryCards({ categories, totalsByCategory, grandTotal }: Summa
         <p className="text-sm font-semibold uppercase tracking-[0.2em] text-slate-400">
           Total final
         </p>
-        <strong className="mt-3 block text-3xl font-black">
-          {formatRange(grandTotal.euro, 'EUR', true)}
-        </strong>
-        <span className="mt-2 block text-lg font-semibold text-teal-100">
-          {formatRange(grandTotal.real, 'BRL', true)}
-        </span>
+        <MoneyPriority total={grandTotal} mode={realValueMode} inverted />
       </motion.article>
 
       {categories.map((category, index) => {
@@ -61,12 +85,7 @@ export function SummaryCards({ categories, totalsByCategory, grandTotal }: Summa
             <p className="text-sm font-semibold uppercase tracking-[0.18em] text-slate-500">
               {category.name}
             </p>
-            <strong className="mt-3 block text-2xl font-black text-slate-950">
-              {formatRange(total.euro, 'EUR', true)}
-            </strong>
-            <span className="mt-2 block font-semibold text-slate-500">
-              {formatRange(total.real, 'BRL', true)}
-            </span>
+            <MoneyPriority total={total} mode={realValueMode} />
           </motion.article>
         );
       })}

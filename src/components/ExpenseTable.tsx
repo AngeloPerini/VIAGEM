@@ -30,6 +30,14 @@ export function ExpenseTable({
       : expense.real;
   const getCountryName = (expense: Expense) =>
     expense.country ? countryNames[expense.country] : 'Nao definido';
+  const primaryTotal =
+    realValueMode === 'converted'
+      ? formatRange(total.real, 'BRL', true)
+      : formatRange(total.euro, 'EUR', true);
+  const secondaryTotal =
+    realValueMode === 'converted'
+      ? formatRange(total.euro, 'EUR', true)
+      : formatRange(total.real, 'BRL', true);
 
   return (
     <motion.section
@@ -50,12 +58,22 @@ export function ExpenseTable({
           </h2>
         </div>
         <div className="text-left md:text-right">
-          <strong className="block text-xl font-black text-slate-950">
-            {formatRange(total.euro, 'EUR', true)}
-          </strong>
-          <span className="font-semibold text-slate-500">
-            {formatRange(total.real, 'BRL', true)}
-          </span>
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={`${realValueMode}-${primaryTotal}-${secondaryTotal}`}
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.22 }}
+            >
+              <strong className="block text-xl font-black text-slate-950">
+                {primaryTotal}
+              </strong>
+              <span className="font-semibold text-slate-500">
+                {secondaryTotal}
+              </span>
+            </motion.div>
+          </AnimatePresence>
           {realValueMode === 'converted' ? (
             <span className="mt-1 block text-xs font-black uppercase tracking-[0.12em] text-teal-700">
               Convertido pela cotacao

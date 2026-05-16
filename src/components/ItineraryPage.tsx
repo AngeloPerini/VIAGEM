@@ -3,17 +3,23 @@ import {
   BedDouble,
   ChevronDown,
   Coffee,
+  Edit3,
   MapPin,
   Plane,
+  Plus,
+  RotateCcw,
   Route,
   Sparkles,
   Train,
+  Trash2,
   Utensils,
+  X,
 } from 'lucide-react';
-import { useMemo, useState } from 'react';
-import { countryNames } from '../data/countries';
-import { itineraryItems } from '../data/itinerary';
-import type { CountryFilterId, ItineraryItem, ItineraryType } from '../types';
+import { useEffect, useMemo, useState } from 'react';
+import type { FormEvent } from 'react';
+import { countries, countryNames } from '../data/countries';
+import { ITINERARY_STORAGE_KEY, itineraryItems } from '../data/itinerary';
+import type { CountryFilterId, CountryId, ItineraryItem, ItineraryType } from '../types';
 import { CountryFilter } from './CountryFilter';
 
 type ItineraryPageProps = {
@@ -30,6 +36,7 @@ const typeIcons: Record<ItineraryType, typeof MapPin> = {
   flight: Plane,
   train: Train,
   rest: Coffee,
+  other: Sparkles,
 };
 
 const typeLabels: Record<ItineraryType, string> = {
@@ -41,7 +48,19 @@ const typeLabels: Record<ItineraryType, string> = {
   flight: 'Voo',
   train: 'Trem',
   rest: 'Descanso',
+  other: 'Outro',
 };
+
+const editableTypes: Array<{ id: ItineraryType; label: string }> = [
+  { id: 'tour', label: 'Passeio' },
+  { id: 'transport', label: 'Transporte' },
+  { id: 'food', label: 'Alimentacao' },
+  { id: 'lodging', label: 'Hospedagem' },
+  { id: 'flight', label: 'Voo' },
+  { id: 'train', label: 'Trem' },
+  { id: 'rest', label: 'Descanso' },
+  { id: 'other', label: 'Outro' },
+];
 
 const countryStyles = {
   italy: 'bg-teal-50 text-teal-700 ring-teal-100',
@@ -50,21 +69,163 @@ const countryStyles = {
   international: 'bg-slate-50 text-slate-700 ring-slate-100',
 };
 
+const blankItem = (): ItineraryItem => ({
+  id: crypto.randomUUID(),
+  day: '',
+  country: 'italy',
+  city: '',
+  time: '',
+  title: '',
+  description: '',
+  type: 'tour',
+});
+
+const loadItineraryItems = () => {
+  const stored = localStorage.getItem(ITINERARY_STORAGE_KEY);
+  if (!stored) return itineraryItems;
+
+  try {
+    return JSON.parse(stored) as ItineraryItem[];
+  } catch {
+    return itineraryItems;
+  }
+};
+
 const groupByDay = (items: ItineraryItem[]) =>
   items.reduce<Record<string, ItineraryItem[]>>((groups, item) => {
     groups[item.day] = [...(groups[item.day] ?? []), item];
     return groups;
   }, {});
 
+function ItineraryFormModal({
+  item,
+  onClose,
+  onSave,
+}: {
+  item: ItineraryItem | null;
+  onClose: () => void;
+  onSave: (item: ItineraryItem) => void;
+}) {
+  const [draft, setDraft] = useState<ItineraryItem>(blankItem);
+
+  useEffect(() => {
+    setDraft(item ?? blankItem());
+  }, [item]);
+
+  const updateDraft = <K extends keyof ItineraryItem>(key: K, value: ItineraryItem[K]) => {
+    setDraft((current) => ({ ...current, [key]: value }));
+  };
+
+  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    onSave({
+      ...draft,
+      day: draft.day.trim(),
+      city: draft.city.trim(),
+      time: draft.time.trim(),
+      title: draft.title.trim(),
+      description: draft.description.trim(),
+    });
+  };
+
+  return (
+    <AnimatePresence>
+      {item ? (
+        <motion.div
+          className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/45 p-3 backdrop-blur-sm md:items-center"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          onMouseDown={onClose}
+        >
+          <motion.form
+            onSubmit={handleSubmit}
+            className="max-h-[92vh] w-full max-w-3xl overflow-y-auto rounded-[2rem] bg-white p-5 shadow-2xl shadow-slate-950/30 md:p-7"
+            initial={{ opacity: 0, y: 40, scale: 0.98 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 30, scale: 0.98 }}
+            transition={{ type: 'spring', stiffness: 260, damping: 24 }}
+            onMouseDown={(event) => event.stopPropagation()}
+          >
+            <div className="mb-6 flex items-start justify-between gap-4">
+              <div>
+                <p className="text-sm font-bold uppercase tracking-[0.2em] text-slate-400">
+                  Roteiro
+                </p>
+                <h2 className="mt-1 text-2xl font-black text-slate-950">
+                  {item.title ? 'Editar item' : 'Novo item'}
+                </h2>
+              </div>
+              <button type="button" onClick={onClose} aria-label="Fechar" className="rounded-2xl border border-slate-200 p-3 text-slate-500 transition hover:bg-slate-50">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-2">
+              <label>
+                <span className="mb-2 block text-sm font-bold text-slate-600">Dia</span>
+                <input required value={draft.day} onChange={(event) => updateDraft('day', event.target.value)} className="h-12 w-full rounded-2xl border border-slate-200 px-4 font-semibold outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-100" />
+              </label>
+              <label>
+                <span className="mb-2 block text-sm font-bold text-slate-600">Pais</span>
+                <select value={draft.country} onChange={(event) => updateDraft('country', event.target.value as CountryId)} className="h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 font-semibold outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-100">
+                  {countries.filter((country) => country.id !== 'all').map((country) => (
+                    <option key={country.id} value={country.id}>{country.name}</option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                <span className="mb-2 block text-sm font-bold text-slate-600">Cidade</span>
+                <input required value={draft.city} onChange={(event) => updateDraft('city', event.target.value)} className="h-12 w-full rounded-2xl border border-slate-200 px-4 font-semibold outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-100" />
+              </label>
+              <label>
+                <span className="mb-2 block text-sm font-bold text-slate-600">Horario</span>
+                <input value={draft.time} onChange={(event) => updateDraft('time', event.target.value)} className="h-12 w-full rounded-2xl border border-slate-200 px-4 font-semibold outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-100" />
+              </label>
+              <label className="md:col-span-2">
+                <span className="mb-2 block text-sm font-bold text-slate-600">Titulo</span>
+                <input required value={draft.title} onChange={(event) => updateDraft('title', event.target.value)} className="h-12 w-full rounded-2xl border border-slate-200 px-4 font-semibold outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-100" />
+              </label>
+              <label>
+                <span className="mb-2 block text-sm font-bold text-slate-600">Tipo</span>
+                <select value={draft.type} onChange={(event) => updateDraft('type', event.target.value as ItineraryType)} className="h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 font-semibold outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-100">
+                  {editableTypes.map((type) => (
+                    <option key={type.id} value={type.id}>{type.label}</option>
+                  ))}
+                </select>
+              </label>
+              <label className="md:col-span-2">
+                <span className="mb-2 block text-sm font-bold text-slate-600">Descricao</span>
+                <textarea required value={draft.description} onChange={(event) => updateDraft('description', event.target.value)} rows={4} className="w-full rounded-2xl border border-slate-200 px-4 py-3 font-semibold outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-100" />
+              </label>
+            </div>
+
+            <div className="mt-7 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+              <button type="button" onClick={onClose} className="h-12 rounded-2xl border border-slate-200 px-5 font-bold text-slate-600 transition hover:bg-slate-50">Cancelar</button>
+              <button type="submit" className="h-12 rounded-2xl bg-slate-950 px-6 font-bold text-white shadow-xl shadow-slate-900/20 transition hover:bg-teal-700">Salvar item</button>
+            </div>
+          </motion.form>
+        </motion.div>
+      ) : null}
+    </AnimatePresence>
+  );
+}
+
 export function ItineraryPage({ selectedCountry, onCountryChange }: ItineraryPageProps) {
+  const [items, setItems] = useState<ItineraryItem[]>(loadItineraryItems);
   const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
+  const [editingItem, setEditingItem] = useState<ItineraryItem | null>(null);
+
+  useEffect(() => {
+    localStorage.setItem(ITINERARY_STORAGE_KEY, JSON.stringify(items));
+  }, [items]);
 
   const filteredItems = useMemo(
     () =>
       selectedCountry === 'all'
-        ? itineraryItems
-        : itineraryItems.filter((item) => item.country === selectedCountry),
-    [selectedCountry],
+        ? items
+        : items.filter((item) => item.country === selectedCountry),
+    [items, selectedCountry],
   );
 
   const groupedItems = useMemo(() => groupByDay(filteredItems), [filteredItems]);
@@ -72,134 +233,86 @@ export function ItineraryPage({ selectedCountry, onCountryChange }: ItineraryPag
   const toggleExpanded = (id: string) => {
     setExpandedItems((current) => {
       const next = new Set(current);
-      if (next.has(id)) {
-        next.delete(id);
-      } else {
-        next.add(id);
-      }
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
       return next;
     });
   };
 
+  const saveItem = (item: ItineraryItem) => {
+    setItems((current) =>
+      current.some((currentItem) => currentItem.id === item.id)
+        ? current.map((currentItem) => (currentItem.id === item.id ? item : currentItem))
+        : [...current, item],
+    );
+    setEditingItem(null);
+  };
+
   return (
-    <motion.div
-      className="space-y-6"
-      initial={{ opacity: 0, y: 16 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -12 }}
-    >
+    <motion.div className="space-y-6" initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -12 }}>
       <section className="rounded-[2rem] border border-white/70 bg-white/80 p-6 shadow-xl shadow-slate-900/10 backdrop-blur-xl md:p-8">
-        <p className="text-sm font-bold uppercase tracking-[0.2em] text-slate-500">
-          Roteiro
-        </p>
+        <p className="text-sm font-bold uppercase tracking-[0.2em] text-slate-500">Roteiro</p>
         <div className="mt-3 grid gap-4 md:grid-cols-[1fr_auto] md:items-end">
           <div>
-            <h1 className="text-4xl font-black tracking-tight text-slate-950 md:text-5xl">
-              Roteiro da Viagem Europa
-            </h1>
-            <p className="mt-4 max-w-3xl leading-7 text-slate-600">
-              Roma, Milao, Bernina, St. Moritz e Paris organizados em uma linha
-              do tempo simples, com transporte, passeios, hospedagens e pausas.
-            </p>
+            <h1 className="text-4xl font-black tracking-tight text-slate-950 md:text-5xl">Roteiro da Viagem Europa</h1>
+            <p className="mt-4 max-w-3xl leading-7 text-slate-600">Roma, Milao, Bernina, St. Moritz e Paris organizados em uma linha do tempo simples, com transporte, passeios, hospedagens e pausas.</p>
           </div>
-          <div className="rounded-3xl bg-slate-950 px-5 py-4 text-white">
-            <span className="block text-sm font-bold text-teal-200">Periodo</span>
-            <strong className="text-2xl font-black">Dias 16 a 21</strong>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <button type="button" onClick={() => setEditingItem(blankItem())} className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl bg-slate-950 px-5 font-bold text-white shadow-xl shadow-slate-900/20 transition hover:bg-teal-700">
+              <Plus className="h-5 w-5" /> Novo item
+            </button>
+            <button type="button" onClick={() => setItems(itineraryItems)} className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-5 font-bold text-slate-700 transition hover:bg-slate-50">
+              <RotateCcw className="h-5 w-5" /> Restaurar roteiro padrão
+            </button>
           </div>
         </div>
       </section>
 
-      <CountryFilter
-        value={selectedCountry}
-        onChange={onCountryChange}
-        label="Filtrar roteiro por pais"
-      />
+      <CountryFilter value={selectedCountry} onChange={onCountryChange} label="Filtrar roteiro por pais" />
 
       <div className="space-y-6">
         <AnimatePresence mode="popLayout">
-          {Object.entries(groupedItems).map(([day, items]) => (
-            <motion.section
-              layout
-              key={day}
-              className="rounded-[2rem] border border-white/70 bg-white/85 p-5 shadow-xl shadow-slate-900/10 backdrop-blur-xl md:p-7"
-              initial={{ opacity: 0, y: 18 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -12 }}
-              transition={{ duration: 0.28 }}
-            >
+          {Object.entries(groupedItems).map(([day, dayItems]) => (
+            <motion.section layout key={day} className="rounded-[2rem] border border-white/70 bg-white/85 p-5 shadow-xl shadow-slate-900/10 backdrop-blur-xl md:p-7" initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -12 }} transition={{ duration: 0.28 }}>
               <div className="mb-6 flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
                 <div>
-                  <p className="text-sm font-bold uppercase tracking-[0.2em] text-slate-400">
-                    Timeline
-                  </p>
+                  <p className="text-sm font-bold uppercase tracking-[0.2em] text-slate-400">Timeline</p>
                   <h2 className="text-2xl font-black text-slate-950">{day}</h2>
                 </div>
-                <span className="text-sm font-bold text-slate-500">
-                  {items.length} itens
-                </span>
+                <span className="text-sm font-bold text-slate-500">{dayItems.length} itens</span>
               </div>
 
               <div className="relative space-y-3 before:absolute before:bottom-4 before:left-5 before:top-4 before:w-px before:bg-slate-200 md:before:left-6">
-                {items.map((item) => {
+                {dayItems.map((item) => {
                   const Icon = typeIcons[item.type];
                   const expanded = expandedItems.has(item.id);
 
                   return (
-                    <motion.article
-                      layout
-                      key={item.id}
-                      className="relative ml-11 rounded-3xl border border-slate-200 bg-white p-4 shadow-sm transition hover:border-teal-200 hover:shadow-lg hover:shadow-slate-900/10 md:ml-14 md:p-5"
-                      initial={{ opacity: 0, x: -14 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      exit={{ opacity: 0, x: 14 }}
-                    >
+                    <motion.article layout key={item.id} className="relative ml-11 rounded-3xl border border-slate-200 bg-white p-4 shadow-sm transition hover:border-teal-200 hover:shadow-lg hover:shadow-slate-900/10 md:ml-14 md:p-5" initial={{ opacity: 0, x: -14 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 14 }}>
                       <span className="absolute -left-[2.95rem] top-4 flex h-10 w-10 items-center justify-center rounded-2xl bg-slate-950 text-white shadow-lg md:-left-[3.45rem]">
                         <Icon className="h-5 w-5" />
                       </span>
-
-                      <button
-                        type="button"
-                        onClick={() => toggleExpanded(item.id)}
-                        className="flex w-full flex-col gap-3 text-left md:flex-row md:items-start md:justify-between"
-                      >
-                        <div>
-                          <div className="flex flex-wrap items-center gap-2">
-                            <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-black text-slate-600">
-                              {item.time}
-                            </span>
-                            <span
-                              className={`rounded-full px-3 py-1 text-xs font-black ring-1 ${
-                                countryStyles[item.country]
-                              }`}
-                            >
-                              {countryNames[item.country]}
-                            </span>
-                            <span className="rounded-full bg-white px-3 py-1 text-xs font-black text-slate-400 ring-1 ring-slate-200">
-                              {typeLabels[item.type]}
-                            </span>
+                      <div className="flex gap-3">
+                        <button type="button" onClick={() => toggleExpanded(item.id)} className="flex min-w-0 flex-1 flex-col gap-3 text-left md:flex-row md:items-start md:justify-between">
+                          <div>
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-black text-slate-600">{item.time || 'Sem horario'}</span>
+                              <span className={`rounded-full px-3 py-1 text-xs font-black ring-1 ${countryStyles[item.country]}`}>{countryNames[item.country]}</span>
+                              <span className="rounded-full bg-white px-3 py-1 text-xs font-black text-slate-400 ring-1 ring-slate-200">{typeLabels[item.type]}</span>
+                            </div>
+                            <h3 className="mt-3 text-lg font-black text-slate-950">{item.title}</h3>
+                            <p className="mt-1 text-sm font-semibold text-slate-500">{item.city}</p>
                           </div>
-                          <h3 className="mt-3 text-lg font-black text-slate-950">
-                            {item.title}
-                          </h3>
-                          <p className="mt-1 text-sm font-semibold text-slate-500">
-                            {item.city}
-                          </p>
+                          <ChevronDown className={`h-5 w-5 shrink-0 text-slate-400 transition ${expanded ? 'rotate-180' : ''}`} />
+                        </button>
+                        <div className="flex shrink-0 gap-2">
+                          <button type="button" aria-label={`Editar ${item.title}`} onClick={() => setEditingItem(item)} className="h-10 rounded-xl border border-slate-200 p-2 text-slate-500 transition hover:bg-teal-50 hover:text-teal-700"><Edit3 className="h-4 w-4" /></button>
+                          <button type="button" aria-label={`Excluir ${item.title}`} onClick={() => setItems((current) => current.filter((currentItem) => currentItem.id !== item.id))} className="h-10 rounded-xl border border-slate-200 p-2 text-slate-500 transition hover:bg-rose-50 hover:text-rose-700"><Trash2 className="h-4 w-4" /></button>
                         </div>
-                        <ChevronDown
-                          className={`h-5 w-5 shrink-0 text-slate-400 transition ${
-                            expanded ? 'rotate-180' : ''
-                          }`}
-                        />
-                      </button>
-
+                      </div>
                       <AnimatePresence>
                         {expanded ? (
-                          <motion.p
-                            className="mt-4 rounded-2xl bg-slate-50 p-4 leading-7 text-slate-600"
-                            initial={{ opacity: 0, height: 0 }}
-                            animate={{ opacity: 1, height: 'auto' }}
-                            exit={{ opacity: 0, height: 0 }}
-                          >
+                          <motion.p className="mt-4 rounded-2xl bg-slate-50 p-4 leading-7 text-slate-600" initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }}>
                             {item.description}
                           </motion.p>
                         ) : null}
@@ -212,6 +325,8 @@ export function ItineraryPage({ selectedCountry, onCountryChange }: ItineraryPag
           ))}
         </AnimatePresence>
       </div>
+
+      <ItineraryFormModal item={editingItem} onClose={() => setEditingItem(null)} onSave={saveItem} />
     </motion.div>
   );
 }

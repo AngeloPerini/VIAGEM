@@ -1,5 +1,7 @@
 import type { ItineraryItem } from '../types';
 
+export const ITINERARY_STORAGE_KEY = 'europa-budget-itinerary-v1';
+
 export const itineraryItems: ItineraryItem[] = [
   { id: 'd16-1730-fiumicino', day: 'Dia 16', country: 'italy', city: 'Roma', time: '17h30', title: 'Chegada em Fiumicino', description: 'Entrada na Italia pelo aeroporto de Roma Fiumicino.', type: 'arrival' },
   { id: 'd16-1930-hospedagem', day: 'Dia 16', country: 'italy', city: 'Roma', time: '19h30-20h00', title: 'Chegada na hospedagem', description: 'Via della Consulta 1B, Monti.', type: 'lodging' },
