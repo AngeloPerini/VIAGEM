@@ -4,6 +4,8 @@ Dashboard responsivo para controlar os gastos da viagem Europa, com valores em e
 
 Tambem inclui uma pagina de roteiro em timeline, com filtro por pais, baseada no roteiro oficial da viagem.
 
+Agora o app tambem tem a pagina **Pontos Turisticos**, focada apenas em visitas e lugares do roteiro, com status de visita confirmada e uma foto local por ponto.
+
 ## Stack
 
 - React + Vite
@@ -97,6 +99,31 @@ As paginas **Gastos** e **Roteiro** usam o mesmo componente de filtro por pais:
 - França
 
 Na pagina **Gastos**, o filtro atualiza tabelas, cards, totais e grafico. Na pagina **Roteiro**, o filtro atualiza a timeline mantendo a ordem cronologica.
+
+## Pontos Turisticos
+
+Os pontos turisticos ficam em `src/data/attractions.ts`. Essa lista deve conter apenas visitas e lugares de interesse, sem itens logisticos como check-in, hospedagem, aeroportos, metro, trem, taxi ou refeicoes.
+
+Cada ponto segue este formato:
+
+```ts
+{
+  id: 'paris-torre-eiffel',
+  name: 'Torre Eiffel',
+  country: 'france',
+  city: 'Paris',
+  day: 'Dia 19',
+  time: '16h50',
+  description: 'Principal marco visual de Paris no fim da tarde.',
+}
+```
+
+O estado de cada ponto turistico e salvo no `localStorage` com a chave `europa-budget-attractions-v1`:
+
+- visitado ou pendente
+- uma foto em base64 por ponto
+
+Antes de salvar, a foto e redimensionada/comprimida por `src/utils/imageCompression.ts` para reduzir o risco de limite do `localStorage`.
 
 ## Persistencia
 

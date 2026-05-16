@@ -13,6 +13,7 @@ import { QuotePage } from './components/QuotePage';
 import { QuoteStatusCard } from './components/QuoteStatusCard';
 import { SummaryCards } from './components/SummaryCards';
 import { categories, initialExpenses, STORAGE_KEY } from './data/initialExpenses';
+import { AttractionsPage } from './pages/AttractionsPage';
 import {
   appendQuoteHistory,
   fetchEuroToBrlQuote,
@@ -56,7 +57,9 @@ function loadExpenses() {
 
 function loadInitialView(): AppView {
   const hash = window.location.hash.replace('#', '');
-  return hash === 'expenses' || hash === 'itinerary' || hash === 'quote' ? hash : 'dashboard';
+  return hash === 'expenses' || hash === 'itinerary' || hash === 'attractions' || hash === 'quote'
+    ? hash
+    : 'dashboard';
 }
 
 export default function App() {
@@ -67,6 +70,7 @@ export default function App() {
   const [realValueMode, setRealValueMode] = useState<RealValueMode>('original');
   const [expenseCountryFilter, setExpenseCountryFilter] = useState<CountryFilterId>('all');
   const [itineraryCountryFilter, setItineraryCountryFilter] = useState<CountryFilterId>('all');
+  const [attractionCountryFilter, setAttractionCountryFilter] = useState<CountryFilterId>('all');
   const [quote, setQuote] = useState<CurrencyQuote | null>(loadStoredQuote);
   const [quoteHistory, setQuoteHistory] = useState<QuoteHistoryPoint[]>(loadQuoteHistory);
   const [isQuoteLoading, setIsQuoteLoading] = useState(false);
@@ -231,6 +235,12 @@ export default function App() {
               key="itinerary"
               selectedCountry={itineraryCountryFilter}
               onCountryChange={setItineraryCountryFilter}
+            />
+          ) : activeView === 'attractions' ? (
+            <AttractionsPage
+              key="attractions"
+              selectedCountry={attractionCountryFilter}
+              onCountryChange={setAttractionCountryFilter}
             />
           ) : activeView === 'expenses' ? (
             <motion.div

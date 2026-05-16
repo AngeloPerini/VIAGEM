@@ -66,3 +66,21 @@ export type ItineraryItem = {
   description: string;
   type: ItineraryType;
 };
+
+export type Attraction = {
+  id: string;
+  name: string;
+  country: CountryId;
+  city: string;
+  day: string;
+  time?: string;
+  description: string;
+};
+
+export type AttractionState = {
+  visited: boolean;
+  photo?: string;
+  updatedAt?: number;
+};
+
+export type AttractionStateMap = Record<string, AttractionState>;

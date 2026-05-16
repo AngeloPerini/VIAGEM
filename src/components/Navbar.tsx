@@ -1,7 +1,7 @@
 import { motion } from 'framer-motion';
-import { BarChart3, Coins, LayoutDashboard, Map } from 'lucide-react';
+import { BarChart3, Camera, Coins, LayoutDashboard, Map } from 'lucide-react';
 
-export type AppView = 'dashboard' | 'expenses' | 'itinerary' | 'quote';
+export type AppView = 'dashboard' | 'expenses' | 'itinerary' | 'attractions' | 'quote';
 
 type NavbarProps = {
   activeView: AppView;
@@ -12,6 +12,7 @@ const navItems = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { id: 'expenses', label: 'Gastos', icon: BarChart3 },
   { id: 'itinerary', label: 'Roteiro', icon: Map },
+  { id: 'attractions', label: 'Pontos Turísticos', icon: Camera },
   { id: 'quote', label: 'Cotacao', icon: Coins },
 ] as const;
 
