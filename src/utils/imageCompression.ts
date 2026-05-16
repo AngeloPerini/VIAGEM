@@ -23,7 +23,22 @@ const dataUrlSize = (dataUrl: string) => {
   return Math.ceil((base64.length * 3) / 4);
 };
 
-export async function compressImageToBase64(file: File): Promise<string> {
+const canvasToBlob = (canvas: HTMLCanvasElement) =>
+  new Promise<Blob>((resolve, reject) => {
+    canvas.toBlob(
+      (blob) => {
+        if (!blob) {
+          reject(new Error('Nao foi possivel preparar a imagem.'));
+          return;
+        }
+        resolve(blob);
+      },
+      'image/jpeg',
+      JPEG_QUALITY,
+    );
+  });
+
+const createCompressedCanvas = async (file: File) => {
   if (!file.type.startsWith('image/')) {
     throw new Error('Selecione um arquivo de imagem.');
   }
@@ -43,6 +58,11 @@ export async function compressImageToBase64(file: File): Promise<string> {
   }
 
   context.drawImage(image, 0, 0, width, height);
+  return canvas;
+};
+
+export async function compressImageToBase64(file: File): Promise<string> {
+  const canvas = await createCompressedCanvas(file);
   const dataUrl = canvas.toDataURL('image/jpeg', JPEG_QUALITY);
 
   if (dataUrlSize(dataUrl) > MAX_OUTPUT_BYTES) {
@@ -50,4 +70,15 @@ export async function compressImageToBase64(file: File): Promise<string> {
   }
 
   return dataUrl;
+}
+
+export async function compressImageToBlob(file: File): Promise<Blob> {
+  const canvas = await createCompressedCanvas(file);
+  const blob = await canvasToBlob(canvas);
+
+  if (blob.size > MAX_OUTPUT_BYTES) {
+    throw new Error('Imagem muito grande. Use uma foto menor ou mais leve.');
+  }
+
+  return blob;
 }

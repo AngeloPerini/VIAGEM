@@ -18,7 +18,18 @@ import {
 import { useEffect, useMemo, useState } from 'react';
 import type { FormEvent } from 'react';
 import { countries, countryNames } from '../data/countries';
-import { ITINERARY_STORAGE_KEY, itineraryItems } from '../data/itinerary';
+import { itineraryItems } from '../data/itinerary';
+import {
+  cacheItineraryFallback,
+  createItineraryItem,
+  deleteItineraryItem,
+  getCachedItineraryItems,
+  getItineraryItems,
+  resetItineraryToDefault,
+  seedItineraryItemsIfEmpty,
+  subscribeItineraryItems,
+  updateItineraryItem,
+} from '../services/itineraryService';
 import type { CountryFilterId, CountryId, ItineraryItem, ItineraryType } from '../types';
 import { CountryFilter } from './CountryFilter';
 
@@ -52,6 +63,7 @@ const typeLabels: Record<ItineraryType, string> = {
 };
 
 const editableTypes: Array<{ id: ItineraryType; label: string }> = [
+  { id: 'arrival', label: 'Chegada' },
   { id: 'tour', label: 'Passeio' },
   { id: 'transport', label: 'Transporte' },
   { id: 'food', label: 'Alimentacao' },
@@ -79,17 +91,6 @@ const blankItem = (): ItineraryItem => ({
   description: '',
   type: 'tour',
 });
-
-const loadItineraryItems = () => {
-  const stored = localStorage.getItem(ITINERARY_STORAGE_KEY);
-  if (!stored) return itineraryItems;
-
-  try {
-    return JSON.parse(stored) as ItineraryItem[];
-  } catch {
-    return itineraryItems;
-  }
-};
 
 const groupByDay = (items: ItineraryItem[]) =>
   items.reduce<Record<string, ItineraryItem[]>>((groups, item) => {
@@ -212,12 +213,54 @@ function ItineraryFormModal({
 }
 
 export function ItineraryPage({ selectedCountry, onCountryChange }: ItineraryPageProps) {
-  const [items, setItems] = useState<ItineraryItem[]>(loadItineraryItems);
+  const [items, setItems] = useState<ItineraryItem[]>(getCachedItineraryItems);
   const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
   const [editingItem, setEditingItem] = useState<ItineraryItem | null>(null);
+  const [syncWarning, setSyncWarning] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
-    localStorage.setItem(ITINERARY_STORAGE_KEY, JSON.stringify(items));
+    let active = true;
+
+    const syncItems = async () => {
+      try {
+        setIsLoading(true);
+        await seedItineraryItemsIfEmpty();
+        const nextItems = await getItineraryItems();
+        if (active) {
+          setItems(nextItems);
+          setSyncWarning(null);
+        }
+      } catch {
+        if (active) setSyncWarning('Supabase indisponivel. Mostrando cache local do roteiro.');
+      } finally {
+        if (active) setIsLoading(false);
+      }
+    };
+
+    void syncItems();
+    const channel = subscribeItineraryItems(() => {
+      void getItineraryItems()
+        .then((nextItems) => {
+          if (active) {
+            setItems(nextItems);
+            setSyncWarning(null);
+          }
+        })
+        .catch(() => {
+          if (active) setSyncWarning('Nao foi possivel sincronizar o roteiro em tempo real.');
+        });
+    });
+
+    return () => {
+      active = false;
+      void channel.unsubscribe();
+    };
+  }, []);
+
+  useEffect(() => {
+    cacheItineraryFallback(items);
   }, [items]);
 
   const filteredItems = useMemo(
@@ -239,13 +282,59 @@ export function ItineraryPage({ selectedCountry, onCountryChange }: ItineraryPag
     });
   };
 
-  const saveItem = (item: ItineraryItem) => {
-    setItems((current) =>
-      current.some((currentItem) => currentItem.id === item.id)
-        ? current.map((currentItem) => (currentItem.id === item.id ? item : currentItem))
-        : [...current, item],
-    );
-    setEditingItem(null);
+  const saveItem = async (item: ItineraryItem) => {
+    const isEditing = items.some((currentItem) => currentItem.id === item.id);
+    setIsSaving(true);
+
+    try {
+      const savedItem = isEditing
+        ? await updateItineraryItem(item)
+        : await createItineraryItem(item, items.length);
+      setItems((current) =>
+        isEditing
+          ? current.map((currentItem) => (currentItem.id === savedItem.id ? savedItem : currentItem))
+          : [...current, savedItem],
+      );
+      setSyncWarning(null);
+      setEditingItem(null);
+    } catch {
+      setItems((current) =>
+        isEditing
+          ? current.map((currentItem) => (currentItem.id === item.id ? item : currentItem))
+          : [...current, item],
+      );
+      setSyncWarning('Nao foi possivel salvar no Supabase. Alteracao mantida no cache local.');
+      setEditingItem(null);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const removeItem = async (id: string) => {
+    const previousItems = items;
+    setItems((current) => current.filter((currentItem) => currentItem.id !== id));
+
+    try {
+      await deleteItineraryItem(id);
+      setSyncWarning(null);
+    } catch {
+      setItems(previousItems);
+      setSyncWarning('Nao foi possivel excluir no Supabase. Tente novamente.');
+    }
+  };
+
+  const restoreDefaults = async () => {
+    setIsSaving(true);
+
+    try {
+      setItems(await resetItineraryToDefault());
+      setSyncWarning(null);
+    } catch {
+      setItems(itineraryItems);
+      setSyncWarning('Nao foi possivel restaurar no Supabase. Restauracao aplicada apenas localmente.');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
@@ -261,7 +350,7 @@ export function ItineraryPage({ selectedCountry, onCountryChange }: ItineraryPag
             <button type="button" onClick={() => setEditingItem(blankItem())} className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl bg-slate-950 px-5 font-bold text-white shadow-xl shadow-slate-900/20 transition hover:bg-teal-700">
               <Plus className="h-5 w-5" /> Novo item
             </button>
-            <button type="button" onClick={() => setItems(itineraryItems)} className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-5 font-bold text-slate-700 transition hover:bg-slate-50">
+            <button type="button" onClick={() => void restoreDefaults()} className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-5 font-bold text-slate-700 transition hover:bg-slate-50">
               <RotateCcw className="h-5 w-5" /> Restaurar roteiro padrão
             </button>
           </div>
@@ -269,6 +358,11 @@ export function ItineraryPage({ selectedCountry, onCountryChange }: ItineraryPag
       </section>
 
       <CountryFilter value={selectedCountry} onChange={onCountryChange} label="Filtrar roteiro por pais" />
+      {syncWarning || isLoading || isSaving ? (
+        <p className="rounded-2xl border border-white/70 bg-white/75 px-4 py-3 text-sm font-semibold text-slate-600 shadow-lg shadow-slate-900/5 backdrop-blur-xl">
+          {isSaving ? 'Salvando roteiro no Supabase...' : isLoading ? 'Sincronizando roteiro...' : syncWarning}
+        </p>
+      ) : null}
 
       <div className="space-y-6">
         <AnimatePresence mode="popLayout">
@@ -307,7 +401,7 @@ export function ItineraryPage({ selectedCountry, onCountryChange }: ItineraryPag
                         </button>
                         <div className="flex shrink-0 gap-2">
                           <button type="button" aria-label={`Editar ${item.title}`} onClick={() => setEditingItem(item)} className="h-10 rounded-xl border border-slate-200 p-2 text-slate-500 transition hover:bg-teal-50 hover:text-teal-700"><Edit3 className="h-4 w-4" /></button>
-                          <button type="button" aria-label={`Excluir ${item.title}`} onClick={() => setItems((current) => current.filter((currentItem) => currentItem.id !== item.id))} className="h-10 rounded-xl border border-slate-200 p-2 text-slate-500 transition hover:bg-rose-50 hover:text-rose-700"><Trash2 className="h-4 w-4" /></button>
+                          <button type="button" aria-label={`Excluir ${item.title}`} onClick={() => void removeItem(item.id)} className="h-10 rounded-xl border border-slate-200 p-2 text-slate-500 transition hover:bg-rose-50 hover:text-rose-700"><Trash2 className="h-4 w-4" /></button>
                         </div>
                       </div>
                       <AnimatePresence>
@@ -326,7 +420,7 @@ export function ItineraryPage({ selectedCountry, onCountryChange }: ItineraryPag
         </AnimatePresence>
       </div>
 
-      <ItineraryFormModal item={editingItem} onClose={() => setEditingItem(null)} onSave={saveItem} />
+      <ItineraryFormModal item={editingItem} onClose={() => setEditingItem(null)} onSave={(item) => void saveItem(item)} />
     </motion.div>
   );
 }

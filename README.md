@@ -1,10 +1,10 @@
 # Europa Budget
 
-Dashboard responsivo para controlar os gastos da viagem Europa, com valores em euro e real, intervalos de custo, grafico por categoria e persistencia em `localStorage`.
+Dashboard responsivo para controlar os gastos da viagem Europa, com valores em euro e real, intervalos de custo, grafico por categoria e sincronizacao via Supabase.
 
 Tambem inclui uma pagina de roteiro em timeline, com filtro por pais, baseada no roteiro oficial da viagem.
 
-Agora o app tambem tem a pagina **Pontos Turisticos**, focada apenas em visitas e lugares do roteiro, com status de visita confirmada e uma foto local por ponto.
+Agora o app tambem tem a pagina **Pontos Turisticos**, focada apenas em visitas e lugares do roteiro, com status de visita confirmada e foto por ponto salva no Supabase Storage.
 
 ## Stack
 
@@ -13,7 +13,8 @@ Agora o app tambem tem a pagina **Pontos Turisticos**, focada apenas em visitas 
 - Tailwind CSS
 - Framer Motion
 - Recharts
-- LocalStorage
+- Supabase Database, Realtime e Storage
+- LocalStorage como cache/fallback
 - AwesomeAPI para cotacao EUR-BRL sem backend
 
 ## Rodar localmente
@@ -23,7 +24,7 @@ npm install
 npm run dev
 ```
 
-Abra o endereco indicado pelo Vite. Como o projeto esta configurado para GitHub Pages, a base de producao e `/VIAGEM/`.
+Abra o endereco indicado pelo Vite. O projeto esta configurado com `base: '/'` para Firebase Hosting.
 
 ## Build
 
@@ -90,7 +91,7 @@ Tipos disponiveis:
 - `rest`
 - `other`
 
-No site, a pagina **Roteiro** tambem permite adicionar, editar, excluir e restaurar o roteiro padrao. As alteracoes ficam salvas no `localStorage` com a chave `europa-budget-itinerary-v1`.
+No site, a pagina **Roteiro** tambem permite adicionar, editar, excluir e restaurar o roteiro padrao. As alteracoes sao salvas no Supabase e sincronizadas em tempo real; o `localStorage` fica apenas como cache com a chave `europa-budget-itinerary-v1`.
 
 ## Filtros por pais
 
@@ -121,18 +122,38 @@ Cada ponto segue este formato:
 }
 ```
 
-O estado de cada ponto turistico e salvo no `localStorage` com a chave `europa-budget-attractions-v1`:
+O estado de cada ponto turistico e salvo no Supabase:
 
 - visitado ou pendente
-- uma foto em base64 por ponto
+- uma foto por ponto no bucket `attraction-photos`
 
-Antes de salvar, a foto e redimensionada/comprimida por `src/utils/imageCompression.ts` para reduzir o risco de limite do `localStorage`.
+Antes do upload, a foto e redimensionada/comprimida por `src/utils/imageCompression.ts`.
 
-A lista de pontos tambem pode ser editada pelo site. Os pontos adicionados/editados/excluidos ficam salvos no `localStorage` com a chave `europa-budget-attractions-list-v1`, e o botao **Restaurar pontos padrão** volta para a lista inicial.
+A lista de pontos tambem pode ser editada pelo site. Os pontos adicionados/editados/excluidos ficam salvos no Supabase, com cache local nas chaves `europa-budget-attractions-list-v1` e `europa-budget-attractions-v1`. O botao **Restaurar pontos padrão** volta para a lista inicial.
 
-## Persistencia
+## Supabase
 
-O app salva alteracoes no navegador com a chave `europa-budget-expenses-v1`. O botao **Resetar dados iniciais** restaura a planilha original.
+O app usa Supabase como fonte principal para:
+
+- Gastos
+- Roteiro
+- Pontos Turisticos
+- Fotos dos pontos turisticos
+- Status de visita confirmada
+
+O arquivo `supabase.sql` contem o schema completo para rodar no Supabase SQL Editor:
+
+- tabelas `expenses`, `itinerary_items` e `attractions`
+- triggers de `updated_at`
+- RLS ativo
+- policies para `anon`
+- bucket publico `attraction-photos`
+- policies de leitura/upload/update/delete no Storage
+- publicacao das tabelas no Supabase Realtime
+
+Como nao ha autenticacao neste momento, qualquer pessoa com acesso ao site e a chave publica pode ler e alterar os dados. Para uso publico ou compartilhado, recomenda-se adicionar login e policies por usuario futuramente.
+
+O `localStorage` continua como cache/fallback. Se o Supabase estiver indisponivel, o app mostra um aviso discreto e preserva os dados locais sempre que possivel.
 
 ## Cotacao Euro -> Real
 
@@ -187,4 +208,4 @@ Configuracao de hosting:
 }
 ```
 
-A URL atual do Firebase Hosting e `https://os-manutencao-efa58.web.app`.
+A URL atual do Firebase Hosting e `https://viagem-europa-angelo.web.app/`.

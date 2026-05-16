@@ -6,11 +6,21 @@ import { AttractionCard } from '../components/AttractionCard';
 import { AttractionModal } from '../components/AttractionModal';
 import { CountryFilter } from '../components/CountryFilter';
 import { countries } from '../data/countries';
+import { attractions } from '../data/attractions';
 import {
-  ATTRACTION_LIST_STORAGE_KEY,
-  ATTRACTION_STORAGE_KEY,
-  attractions,
-} from '../data/attractions';
+  cacheAttractionsFallback,
+  createAttraction,
+  deleteAttraction,
+  deleteAttractionPhoto,
+  getAttractions,
+  getCachedAttractions,
+  resetAttractionsToDefault,
+  seedAttractionsIfEmpty,
+  subscribeAttractions,
+  updateAttraction,
+  updateAttractionVisit,
+  uploadAttractionPhoto,
+} from '../services/attractionsService';
 import type {
   Attraction,
   AttractionState,
@@ -33,28 +43,6 @@ const blankAttraction = (): Attraction => ({
   time: '',
   description: '',
 });
-
-const loadAttractionStates = (): AttractionStateMap => {
-  const stored = localStorage.getItem(ATTRACTION_STORAGE_KEY);
-  if (!stored) return {};
-
-  try {
-    return JSON.parse(stored) as AttractionStateMap;
-  } catch {
-    return {};
-  }
-};
-
-const loadAttractionList = () => {
-  const stored = localStorage.getItem(ATTRACTION_LIST_STORAGE_KEY);
-  if (!stored) return attractions;
-
-  try {
-    return JSON.parse(stored) as Attraction[];
-  } catch {
-    return attractions;
-  }
-};
 
 function AttractionFormModal({
   attraction,
@@ -174,22 +162,64 @@ function AttractionFormModal({
 }
 
 export function AttractionsPage({ selectedCountry, onCountryChange }: AttractionsPageProps) {
-  const [items, setItems] = useState<Attraction[]>(loadAttractionList);
-  const [states, setStates] = useState<AttractionStateMap>(loadAttractionStates);
+  const cachedAttractions = getCachedAttractions();
+  const [items, setItems] = useState<Attraction[]>(cachedAttractions.items);
+  const [states, setStates] = useState<AttractionStateMap>(cachedAttractions.states);
   const [selectedAttraction, setSelectedAttraction] = useState<Attraction | null>(null);
   const [editingAttraction, setEditingAttraction] = useState<Attraction | null>(null);
+  const [syncWarning, setSyncWarning] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [uploadingId, setUploadingId] = useState<string | null>(null);
 
   useEffect(() => {
-    localStorage.setItem(ATTRACTION_LIST_STORAGE_KEY, JSON.stringify(items));
-  }, [items]);
+    let active = true;
+
+    const syncAttractions = async () => {
+      try {
+        setIsLoading(true);
+        await seedAttractionsIfEmpty();
+        const payload = await getAttractions();
+        if (active) {
+          setItems(payload.items);
+          setStates(payload.states);
+          setSyncWarning(null);
+        }
+      } catch {
+        if (active) setSyncWarning('Supabase indisponivel. Mostrando cache local dos pontos.');
+      } finally {
+        if (active) setIsLoading(false);
+      }
+    };
+
+    void syncAttractions();
+    const channel = subscribeAttractions(() => {
+      void getAttractions()
+        .then((payload) => {
+          if (active) {
+            setItems(payload.items);
+            setStates(payload.states);
+            setSyncWarning(null);
+          }
+        })
+        .catch(() => {
+          if (active) setSyncWarning('Nao foi possivel sincronizar os pontos em tempo real.');
+        });
+    });
+
+    return () => {
+      active = false;
+      void channel.unsubscribe();
+    };
+  }, []);
 
   useEffect(() => {
     try {
-      localStorage.setItem(ATTRACTION_STORAGE_KEY, JSON.stringify(states));
+      cacheAttractionsFallback({ items, states });
     } catch {
-      // The modal surfaces image-size problems before they usually reach this point.
+      // Cache failures should not block the Supabase-backed flow.
     }
-  }, [states]);
+  }, [items, states]);
 
   const filteredAttractions = useMemo(
     () =>
@@ -208,19 +238,50 @@ export function AttractionsPage({ selectedCountry, onCountryChange }: Attraction
       ...current,
       [id]: nextState,
     }));
+
+    void updateAttractionVisit(id, nextState.visited).catch(() => {
+      setSyncWarning('Nao foi possivel salvar o status no Supabase. Alteracao mantida no cache local.');
+    });
   };
 
-  const handleSaveAttraction = (attraction: Attraction, nextState: AttractionState) => {
-    setItems((current) =>
-      current.some((item) => item.id === attraction.id)
-        ? current.map((item) => (item.id === attraction.id ? attraction : item))
-        : [...current, attraction],
-    );
-    setStates((current) => ({ ...current, [attraction.id]: nextState }));
-    setEditingAttraction(null);
+  const handleSaveAttraction = async (attraction: Attraction, nextState: AttractionState) => {
+    const isEditing = items.some((item) => item.id === attraction.id);
+    setIsSaving(true);
+
+    try {
+      const payload = isEditing
+        ? await updateAttraction(attraction, nextState.visited)
+        : await createAttraction(attraction, nextState.visited, items.length);
+      const savedAttraction = payload.items[0];
+      const savedState = payload.states[savedAttraction.id];
+
+      setItems((current) =>
+        isEditing
+          ? current.map((item) => (item.id === savedAttraction.id ? savedAttraction : item))
+          : [...current, savedAttraction],
+      );
+      setStates((current) => ({ ...current, [savedAttraction.id]: savedState }));
+      setSyncWarning(null);
+      setEditingAttraction(null);
+    } catch {
+      setItems((current) =>
+        isEditing
+          ? current.map((item) => (item.id === attraction.id ? attraction : item))
+          : [...current, attraction],
+      );
+      setStates((current) => ({ ...current, [attraction.id]: nextState }));
+      setSyncWarning('Nao foi possivel salvar no Supabase. Alteracao mantida no cache local.');
+      setEditingAttraction(null);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
-  const handleDeleteAttraction = (id: string) => {
+  const handleDeleteAttraction = async (id: string) => {
+    const previousItems = items;
+    const previousStates = states;
+    const photoUrl = states[id]?.photo;
+
     setItems((current) => current.filter((item) => item.id !== id));
     setStates((current) => {
       const next = { ...current };
@@ -229,13 +290,64 @@ export function AttractionsPage({ selectedCountry, onCountryChange }: Attraction
     });
     setSelectedAttraction(null);
     setEditingAttraction(null);
+
+    try {
+      await deleteAttraction(id, photoUrl);
+      setSyncWarning(null);
+    } catch {
+      setItems(previousItems);
+      setStates(previousStates);
+      setSyncWarning('Nao foi possivel excluir no Supabase. Tente novamente.');
+    }
   };
 
-  const restoreDefaults = () => {
-    setItems(attractions);
-    setStates({});
-    setSelectedAttraction(null);
-    setEditingAttraction(null);
+  const handleUploadPhoto = async (id: string, file: File) => {
+    setUploadingId(id);
+
+    try {
+      const photoUrl = await uploadAttractionPhoto(id, file);
+      setStates((current) => ({
+        ...current,
+        [id]: { ...(current[id] ?? { visited: false }), photo: photoUrl, updatedAt: Date.now() },
+      }));
+      setSyncWarning(null);
+    } finally {
+      setUploadingId(null);
+    }
+  };
+
+  const handleRemovePhoto = async (id: string) => {
+    setUploadingId(id);
+
+    try {
+      await deleteAttractionPhoto(id);
+      setStates((current) => ({
+        ...current,
+        [id]: { ...(current[id] ?? { visited: false }), photo: undefined, updatedAt: Date.now() },
+      }));
+      setSyncWarning(null);
+    } finally {
+      setUploadingId(null);
+    }
+  };
+
+  const restoreDefaults = async () => {
+    setIsSaving(true);
+
+    try {
+      const payload = await resetAttractionsToDefault();
+      setItems(payload.items);
+      setStates(payload.states);
+      setSyncWarning(null);
+    } catch {
+      setItems(attractions);
+      setStates({});
+      setSyncWarning('Nao foi possivel restaurar no Supabase. Restauracao aplicada apenas localmente.');
+    } finally {
+      setSelectedAttraction(null);
+      setEditingAttraction(null);
+      setIsSaving(false);
+    }
   };
 
   return (
@@ -262,13 +374,24 @@ export function AttractionsPage({ selectedCountry, onCountryChange }: Attraction
           <button type="button" onClick={() => setEditingAttraction(blankAttraction())} className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl bg-slate-950 px-5 font-bold text-white shadow-xl shadow-slate-900/20 transition hover:bg-teal-700">
             <Plus className="h-5 w-5" /> Novo ponto turistico
           </button>
-          <button type="button" onClick={restoreDefaults} className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-5 font-bold text-slate-700 transition hover:bg-slate-50">
+          <button type="button" onClick={() => void restoreDefaults()} className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-5 font-bold text-slate-700 transition hover:bg-slate-50">
             <RotateCcw className="h-5 w-5" /> Restaurar pontos padrão
           </button>
         </div>
       </section>
 
       <CountryFilter value={selectedCountry} onChange={onCountryChange} label="Filtrar pontos por pais" />
+      {syncWarning || isLoading || isSaving || uploadingId ? (
+        <p className="rounded-2xl border border-white/70 bg-white/75 px-4 py-3 text-sm font-semibold text-slate-600 shadow-lg shadow-slate-900/5 backdrop-blur-xl">
+          {uploadingId
+            ? 'Atualizando foto no Supabase...'
+            : isSaving
+              ? 'Salvando pontos no Supabase...'
+              : isLoading
+                ? 'Sincronizando pontos turisticos...'
+                : syncWarning}
+        </p>
+      ) : null}
 
       <div className="flex items-center justify-between rounded-[2rem] border border-white/70 bg-white/70 px-5 py-4 shadow-lg shadow-slate-900/5 backdrop-blur-xl">
         <span className="flex items-center gap-2 text-sm font-bold text-slate-600"><MapPin className="h-4 w-4" />{filteredAttractions.length} pontos nesta selecao</span>
@@ -288,17 +411,19 @@ export function AttractionsPage({ selectedCountry, onCountryChange }: Attraction
         state={selectedAttraction ? states[selectedAttraction.id] : undefined}
         onClose={() => setSelectedAttraction(null)}
         onChange={handleStateChange}
+        onPhotoUpload={handleUploadPhoto}
+        onPhotoRemove={handleRemovePhoto}
         onEdit={(attraction) => {
           setSelectedAttraction(null);
           setEditingAttraction(attraction);
         }}
-        onDelete={handleDeleteAttraction}
+        onDelete={(id) => void handleDeleteAttraction(id)}
       />
       <AttractionFormModal
         attraction={editingAttraction}
         state={editingAttraction ? states[editingAttraction.id] : undefined}
         onClose={() => setEditingAttraction(null)}
-        onSave={handleSaveAttraction}
+        onSave={(attraction, statePatch) => void handleSaveAttraction(attraction, statePatch)}
       />
     </motion.div>
   );

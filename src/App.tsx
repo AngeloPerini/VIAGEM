@@ -12,7 +12,7 @@ import { Navbar, type AppView } from './components/Navbar';
 import { QuotePage } from './components/QuotePage';
 import { QuoteStatusCard } from './components/QuoteStatusCard';
 import { SummaryCards } from './components/SummaryCards';
-import { categories, initialExpenses, STORAGE_KEY } from './data/initialExpenses';
+import { categories, initialExpenses } from './data/initialExpenses';
 import { AttractionsPage } from './pages/AttractionsPage';
 import {
   appendQuoteHistory,
@@ -21,6 +21,17 @@ import {
   loadStoredQuote,
   saveStoredQuote,
 } from './services/currencyService';
+import {
+  cacheExpensesFallback,
+  createExpense,
+  deleteExpense,
+  getCachedExpenses,
+  getExpenses,
+  resetExpensesToDefault,
+  seedExpensesIfEmpty,
+  subscribeExpenses,
+  updateExpense,
+} from './services/expensesService';
 import type {
   CountryFilterId,
   CurrencyQuote,
@@ -35,26 +46,6 @@ import {
   type Totals,
 } from './utils/money';
 
-function loadExpenses() {
-  const migrateExpenses = (items: Expense[]) =>
-    items.map((expense) => ({
-      ...expense,
-      country:
-        expense.country ??
-        initialExpenses.find((initialExpense) => initialExpense.id === expense.id)?.country ??
-        'italy',
-    }));
-
-  const stored = localStorage.getItem(STORAGE_KEY);
-  if (!stored) return initialExpenses;
-
-  try {
-    return migrateExpenses(JSON.parse(stored) as Expense[]);
-  } catch {
-    return initialExpenses;
-  }
-}
-
 function loadInitialView(): AppView {
   const hash = window.location.hash.replace('#', '');
   return hash === 'expenses' || hash === 'itinerary' || hash === 'attractions' || hash === 'quote'
@@ -63,7 +54,7 @@ function loadInitialView(): AppView {
 }
 
 export default function App() {
-  const [expenses, setExpenses] = useState<Expense[]>(loadExpenses);
+  const [expenses, setExpenses] = useState<Expense[]>(getCachedExpenses);
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [activeView, setActiveView] = useState<AppView>(loadInitialView);
@@ -75,9 +66,53 @@ export default function App() {
   const [quoteHistory, setQuoteHistory] = useState<QuoteHistoryPoint[]>(loadQuoteHistory);
   const [isQuoteLoading, setIsQuoteLoading] = useState(false);
   const [quoteWarning, setQuoteWarning] = useState<string | null>(null);
+  const [expenseSyncWarning, setExpenseSyncWarning] = useState<string | null>(null);
+  const [isExpenseLoading, setIsExpenseLoading] = useState(false);
+  const [isExpenseSaving, setIsExpenseSaving] = useState(false);
 
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(expenses));
+    let active = true;
+
+    const syncExpenses = async () => {
+      try {
+        setIsExpenseLoading(true);
+        await seedExpensesIfEmpty();
+        const nextExpenses = await getExpenses();
+        if (active) {
+          setExpenses(nextExpenses);
+          setExpenseSyncWarning(null);
+        }
+      } catch {
+        if (active) {
+          setExpenseSyncWarning('Supabase indisponivel. Mostrando cache local dos gastos.');
+        }
+      } finally {
+        if (active) setIsExpenseLoading(false);
+      }
+    };
+
+    void syncExpenses();
+    const channel = subscribeExpenses(() => {
+      void getExpenses()
+        .then((nextExpenses) => {
+          if (active) {
+            setExpenses(nextExpenses);
+            setExpenseSyncWarning(null);
+          }
+        })
+        .catch(() => {
+          if (active) setExpenseSyncWarning('Nao foi possivel sincronizar os gastos em tempo real.');
+        });
+    });
+
+    return () => {
+      active = false;
+      void channel.unsubscribe();
+    };
+  }, []);
+
+  useEffect(() => {
+    cacheExpensesFallback(expenses);
   }, [expenses]);
 
   useEffect(() => {
@@ -158,21 +193,61 @@ export default function App() {
     [filteredTotalsByCategory],
   );
 
-  const handleSaveExpense = (expense: Expense) => {
-    setExpenses((current) => {
-      const exists = current.some((item) => item.id === expense.id);
-      return exists
-        ? current.map((item) => (item.id === expense.id ? expense : item))
-        : [expense, ...current];
-    });
-    setIsModalOpen(false);
-    setEditingExpense(null);
+  const handleSaveExpense = async (expense: Expense) => {
+    const isEditing = expenses.some((item) => item.id === expense.id);
+    setIsExpenseSaving(true);
+
+    try {
+      const savedExpense = isEditing ? await updateExpense(expense) : await createExpense(expense);
+      setExpenses((current) =>
+        isEditing
+          ? current.map((item) => (item.id === savedExpense.id ? savedExpense : item))
+          : [savedExpense, ...current],
+      );
+      setExpenseSyncWarning(null);
+      setIsModalOpen(false);
+      setEditingExpense(null);
+    } catch {
+      setExpenses((current) =>
+        isEditing
+          ? current.map((item) => (item.id === expense.id ? expense : item))
+          : [expense, ...current],
+      );
+      setExpenseSyncWarning('Nao foi possivel salvar no Supabase. Alteracao mantida no cache local.');
+      setIsModalOpen(false);
+      setEditingExpense(null);
+    } finally {
+      setIsExpenseSaving(false);
+    }
   };
 
-  const handleReset = () => {
-    setExpenses(initialExpenses);
-    setEditingExpense(null);
-    setIsModalOpen(false);
+  const handleReset = async () => {
+    setIsExpenseSaving(true);
+
+    try {
+      setExpenses(await resetExpensesToDefault());
+      setExpenseSyncWarning(null);
+    } catch {
+      setExpenses(initialExpenses);
+      setExpenseSyncWarning('Nao foi possivel restaurar no Supabase. Restauracao aplicada apenas localmente.');
+    } finally {
+      setEditingExpense(null);
+      setIsModalOpen(false);
+      setIsExpenseSaving(false);
+    }
+  };
+
+  const handleDeleteExpense = async (id: string) => {
+    const previousExpenses = expenses;
+    setExpenses((current) => current.filter((item) => item.id !== id));
+
+    try {
+      await deleteExpense(id);
+      setExpenseSyncWarning(null);
+    } catch {
+      setExpenses(previousExpenses);
+      setExpenseSyncWarning('Nao foi possivel excluir no Supabase. Tente novamente.');
+    }
   };
 
   const openNewExpenseModal = () => {
@@ -202,7 +277,7 @@ export default function App() {
             realValueMode={realValueMode}
             quote={quote}
             onEdit={openEditExpenseModal}
-            onDelete={(id) => setExpenses((current) => current.filter((item) => item.id !== id))}
+            onDelete={(id) => void handleDeleteExpense(id)}
           />
         ))}
       </AnimatePresence>
@@ -273,6 +348,15 @@ export default function App() {
                 onChange={setExpenseCountryFilter}
                 label="Filtrar gastos por pais"
               />
+              {expenseSyncWarning || isExpenseLoading || isExpenseSaving ? (
+                <p className="rounded-2xl border border-white/70 bg-white/75 px-4 py-3 text-sm font-semibold text-slate-600 shadow-lg shadow-slate-900/5 backdrop-blur-xl">
+                  {isExpenseSaving
+                    ? 'Salvando gastos no Supabase...'
+                    : isExpenseLoading
+                      ? 'Sincronizando gastos...'
+                      : expenseSyncWarning}
+                </p>
+              ) : null}
               <ConversionToggle mode={realValueMode} quote={quote} onChange={setRealValueMode} />
               <SummaryCards
                 categories={categories}
@@ -297,6 +381,15 @@ export default function App() {
               <Header onAdd={openNewExpenseModal} />
 
               <ConversionToggle mode={realValueMode} quote={quote} onChange={setRealValueMode} />
+              {expenseSyncWarning || isExpenseLoading || isExpenseSaving ? (
+                <p className="rounded-2xl border border-white/70 bg-white/75 px-4 py-3 text-sm font-semibold text-slate-600 shadow-lg shadow-slate-900/5 backdrop-blur-xl">
+                  {isExpenseSaving
+                    ? 'Salvando gastos no Supabase...'
+                    : isExpenseLoading
+                      ? 'Sincronizando gastos...'
+                      : expenseSyncWarning}
+                </p>
+              ) : null}
 
               <SummaryCards
                 categories={categories}
@@ -362,7 +455,7 @@ export default function App() {
                   </div>
                   <button
                     type="button"
-                    onClick={handleReset}
+                    onClick={() => void handleReset()}
                     className="mt-7 inline-flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-white px-5 font-bold text-slate-950 transition hover:bg-teal-100 focus:outline-none focus:ring-4 focus:ring-teal-300"
                   >
                     <RotateCcw className="h-5 w-5" />
@@ -383,7 +476,7 @@ export default function App() {
           setIsModalOpen(false);
           setEditingExpense(null);
         }}
-        onSave={handleSaveExpense}
+        onSave={(expense) => void handleSaveExpense(expense)}
       />
     </main>
   );

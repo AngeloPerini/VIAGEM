@@ -4,18 +4,28 @@ import { useRef, useState } from 'react';
 import type { ChangeEvent } from 'react';
 import { countryNames } from '../data/countries';
 import type { Attraction, AttractionState } from '../types';
-import { compressImageToBase64 } from '../utils/imageCompression';
 
 type AttractionModalProps = {
   attraction: Attraction | null;
   state?: AttractionState;
   onClose: () => void;
   onChange: (id: string, nextState: AttractionState) => void;
+  onPhotoUpload: (id: string, file: File) => Promise<void>;
+  onPhotoRemove: (id: string) => Promise<void>;
   onEdit: (attraction: Attraction) => void;
   onDelete: (id: string) => void;
 };
 
-export function AttractionModal({ attraction, state, onClose, onChange, onEdit, onDelete }: AttractionModalProps) {
+export function AttractionModal({
+  attraction,
+  state,
+  onClose,
+  onChange,
+  onPhotoUpload,
+  onPhotoRemove,
+  onEdit,
+  onDelete,
+}: AttractionModalProps) {
   const inputRef = useRef<HTMLInputElement | null>(null);
   const [warning, setWarning] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -33,14 +43,13 @@ export function AttractionModal({ attraction, state, onClose, onChange, onEdit, 
 
   const handleFileChange = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    if (!file) return;
+    if (!file || !attraction) return;
 
     setWarning(null);
     setIsProcessing(true);
 
     try {
-      const photo = await compressImageToBase64(file);
-      updateState({ photo });
+      await onPhotoUpload(attraction.id, file);
     } catch (error) {
       setWarning(error instanceof Error ? error.message : 'Nao foi possivel salvar a imagem.');
     } finally {
@@ -173,7 +182,16 @@ export function AttractionModal({ attraction, state, onClose, onChange, onEdit, 
                   </button>
                   <button
                     type="button"
-                    onClick={() => updateState({ photo: undefined })}
+                    onClick={() => {
+                      if (!attraction) return;
+                      setWarning(null);
+                      setIsProcessing(true);
+                      void onPhotoRemove(attraction.id)
+                        .catch((error) => {
+                          setWarning(error instanceof Error ? error.message : 'Nao foi possivel remover a imagem.');
+                        })
+                        .finally(() => setIsProcessing(false));
+                    }}
                     disabled={!currentState.photo}
                     className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl border border-slate-200 px-4 font-bold text-slate-700 transition hover:bg-rose-50 hover:text-rose-700 disabled:cursor-not-allowed disabled:opacity-45"
                   >
