@@ -146,38 +146,40 @@ Na interface, a alternancia **Originais / Convertidos** controla apenas os valor
 - **Originais:** usa os valores em Real cadastrados nos dados.
 - **Convertidos:** recalcula dinamicamente o Real usando os valores em Euro e a cotacao atual.
 
-## Publicar no GitHub Pages
+## Publicar no Firebase Hosting
 
-O `vite.config.ts` esta configurado com:
+O app esta configurado para Firebase Hosting frontend-only, sem Authentication e sem Firestore.
+
+Arquivos principais:
+
+- `firebase.json`
+- `.firebaserc`
+- `vite.config.ts`
+
+O `vite.config.ts` usa:
 
 ```ts
-base: '/VIAGEM/'
+base: '/'
 ```
 
-Isso considera que o repositorio no GitHub se chama `VIAGEM`. Se usar outro nome, troque o `base` para `/<nome-do-repositorio>/`.
-
-### Opcao 1: GitHub Actions
-
-O workflow `.github/workflows/pages.yml` publica automaticamente o `dist` quando houver push na branch `main`.
-
-Depois de criar/conectar o repositorio remoto:
+Build e deploy:
 
 ```bash
-git add .
-git commit -m "create europa budget dashboard"
-git branch -M main
-git remote add origin https://github.com/SEU_USUARIO/VIAGEM.git
-git push -u origin main
+npm install
+npm run build
+npm run deploy:firebase
 ```
 
-No GitHub, configure Pages para usar **GitHub Actions**.
+Configuracao de hosting:
 
-### Opcao 2: branch gh-pages
-
-Tambem existe o script:
-
-```bash
-npm run deploy
+```json
+{
+  "hosting": {
+    "public": "dist",
+    "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
+    "rewrites": [{ "source": "**", "destination": "/index.html" }]
+  }
+}
 ```
 
-Nesse caso, configure Pages para usar a branch `gh-pages`.
+A URL atual do Firebase Hosting e `https://os-manutencao-efa58.web.app`.

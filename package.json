@@ -7,8 +7,7 @@
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview",
-    "predeploy": "npm run build",
-    "deploy": "gh-pages -d dist"
+    "deploy:firebase": "npm run build && firebase deploy --only hosting"
   },
   "devDependencies": {
     "typescript": "~6.0.2",
@@ -20,7 +19,6 @@
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.2",
     "framer-motion": "^12.38.0",
-    "gh-pages": "^6.3.0",
     "lucide-react": "^1.16.0",
     "react": "^19.2.6",
     "react-dom": "^19.2.6",
