@@ -2,6 +2,8 @@
 
 Dashboard responsivo para controlar os gastos da viagem Europa, com valores em euro e real, intervalos de custo, grafico por categoria e persistencia em `localStorage`.
 
+Tambem inclui uma pagina de roteiro em timeline, com filtro por pais, baseada no roteiro oficial da viagem.
+
 ## Stack
 
 - React + Vite
@@ -38,6 +40,7 @@ Cada gasto usa este formato:
 {
   id: 'transport-milao-tirano',
   category: 'transport',
+  country: 'italy',
   title: 'Milao -> Tirano',
   detail: '',
   euro: { min: 26, max: 32 },
@@ -46,6 +49,54 @@ Cada gasto usa este formato:
 ```
 
 Para valores fixos, use o mesmo valor em `min` e `max`. Para intervalos, use valores diferentes.
+
+O campo `country` aceita:
+
+- `italy`
+- `switzerland`
+- `france`
+- `international`
+
+## Roteiro
+
+Os itens da pagina **Roteiro** ficam em `src/data/itinerary.ts`.
+
+Cada item segue este formato:
+
+```ts
+{
+  id: 'd19-1650-eiffel',
+  day: 'Dia 19',
+  country: 'france',
+  city: 'Paris',
+  time: '16h50',
+  title: 'Torre Eiffel',
+  description: 'Parada principal do fim de tarde.',
+  type: 'tour',
+}
+```
+
+Tipos disponiveis:
+
+- `arrival`
+- `lodging`
+- `tour`
+- `transport`
+- `food`
+- `flight`
+- `train`
+- `rest`
+
+## Filtros por pais
+
+As paginas **Gastos** e **Roteiro** usam o mesmo componente de filtro por pais:
+
+- Todos
+- Itália
+- Suíça
+- França
+
+Na pagina **Gastos**, o filtro atualiza tabelas, cards, totais e grafico. Na pagina **Roteiro**, o filtro atualiza a timeline mantendo a ordem cronologica.
 
 ## Persistencia
 

@@ -8,6 +8,7 @@ export type ExpenseCategoryId = 'lodging' | 'transport' | 'tours';
 export type Expense = {
   id: string;
   category: ExpenseCategoryId;
+  country?: CountryId;
   title: string;
   detail?: string;
   euro: CurrencyRange;
@@ -33,3 +34,35 @@ export type QuoteHistoryPoint = {
 };
 
 export type RealValueMode = 'original' | 'converted';
+
+export type CountryId = 'italy' | 'switzerland' | 'france' | 'international';
+
+export type CountryFilterId = CountryId | 'all';
+
+export type CountryMeta = {
+  id: CountryFilterId;
+  name: string;
+  shortName: string;
+  accent: string;
+};
+
+export type ItineraryType =
+  | 'arrival'
+  | 'lodging'
+  | 'tour'
+  | 'transport'
+  | 'food'
+  | 'flight'
+  | 'train'
+  | 'rest';
+
+export type ItineraryItem = {
+  id: string;
+  day: string;
+  country: CountryId;
+  city: string;
+  time: string;
+  title: string;
+  description: string;
+  type: ItineraryType;
+};

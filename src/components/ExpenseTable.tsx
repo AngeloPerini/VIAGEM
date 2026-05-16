@@ -1,5 +1,6 @@
 import { AnimatePresence, motion } from 'framer-motion';
 import { Edit3, Trash2 } from 'lucide-react';
+import { countryNames } from '../data/countries';
 import type { CategoryMeta, CurrencyQuote, Expense, RealValueMode } from '../types';
 import type { Totals } from '../utils/money';
 import { convertEuroRangeToReal, formatRange } from '../utils/money';
@@ -27,6 +28,8 @@ export function ExpenseTable({
     realValueMode === 'converted' && quote
       ? convertEuroRangeToReal(expense.euro, quote.bid)
       : expense.real;
+  const getCountryName = (expense: Expense) =>
+    expense.country ? countryNames[expense.country] : 'Nao definido';
 
   return (
     <motion.section
@@ -67,6 +70,7 @@ export function ExpenseTable({
             <tr className="text-xs uppercase tracking-[0.16em] text-slate-400">
               <th className="px-7 py-4 font-black">{category.id === 'lodging' ? 'Cidade' : category.label}</th>
               <th className="px-4 py-4 font-black">Detalhe</th>
+              <th className="px-4 py-4 font-black">Pais</th>
               <th className="px-4 py-4 font-black">Euro</th>
               <th className="px-4 py-4 font-black">Real</th>
               <th className="px-7 py-4 text-right font-black">Acoes</th>
@@ -86,6 +90,11 @@ export function ExpenseTable({
                 >
                   <td className="px-7 py-4 font-bold text-slate-950">{expense.title}</td>
                   <td className="px-4 py-4 text-slate-500">{expense.detail || '-'}</td>
+                  <td className="px-4 py-4">
+                    <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-black text-slate-600">
+                      {getCountryName(expense)}
+                    </span>
+                  </td>
                   <td className="px-4 py-4 font-semibold">{formatRange(expense.euro, 'EUR')}</td>
                   <td className="px-4 py-4 font-semibold">{formatRange(getRealRange(expense), 'BRL')}</td>
                   <td className="px-7 py-4">
@@ -130,6 +139,9 @@ export function ExpenseTable({
                 <div>
                   <h3 className="font-black text-slate-950">{expense.title}</h3>
                   {expense.detail ? <p className="text-sm text-slate-500">{expense.detail}</p> : null}
+                  <span className="mt-2 inline-flex rounded-full bg-slate-100 px-3 py-1 text-xs font-black text-slate-600">
+                    {getCountryName(expense)}
+                  </span>
                 </div>
                 <div className="flex gap-2">
                   <button

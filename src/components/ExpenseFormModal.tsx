@@ -2,7 +2,8 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { X } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import type { FormEvent } from 'react';
-import type { CategoryMeta, Expense, ExpenseCategoryId } from '../types';
+import { countries } from '../data/countries';
+import type { CategoryMeta, CountryId, Expense, ExpenseCategoryId } from '../types';
 import { parseCurrencyInput, stringifyRangeForInput } from '../utils/money';
 
 type ExpenseFormModalProps = {
@@ -16,6 +17,7 @@ type ExpenseFormModalProps = {
 const createBlankExpense = (category: ExpenseCategoryId): Expense => ({
   id: crypto.randomUUID(),
   category,
+  country: 'italy',
   title: '',
   detail: '',
   euro: { min: 0, max: 0 },
@@ -30,6 +32,7 @@ export function ExpenseFormModal({
   onSave,
 }: ExpenseFormModalProps) {
   const [category, setCategory] = useState<ExpenseCategoryId>('lodging');
+  const [country, setCountry] = useState<CountryId>('italy');
   const [title, setTitle] = useState('');
   const [detail, setDetail] = useState('');
   const [euro, setEuro] = useState('');
@@ -38,6 +41,7 @@ export function ExpenseFormModal({
   useEffect(() => {
     const source = expense ?? createBlankExpense('lodging');
     setCategory(source.category);
+    setCountry(source.country ?? 'italy');
     setTitle(source.title);
     setDetail(source.detail ?? '');
     setEuro(stringifyRangeForInput(source.euro));
@@ -50,6 +54,7 @@ export function ExpenseFormModal({
     onSave({
       id: expense?.id ?? crypto.randomUUID(),
       category,
+      country,
       title: title.trim(),
       detail: detail.trim(),
       euro: parseCurrencyInput(euro),
@@ -96,7 +101,7 @@ export function ExpenseFormModal({
             </div>
 
             <div className="grid gap-4 md:grid-cols-2">
-              <label className="md:col-span-2">
+              <label>
                 <span className="mb-2 block text-sm font-bold text-slate-600">Categoria</span>
                 <select
                   value={category}
@@ -108,6 +113,23 @@ export function ExpenseFormModal({
                       {item.name}
                     </option>
                   ))}
+                </select>
+              </label>
+
+              <label>
+                <span className="mb-2 block text-sm font-bold text-slate-600">Pais</span>
+                <select
+                  value={country}
+                  onChange={(event) => setCountry(event.target.value as CountryId)}
+                  className="h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 font-semibold text-slate-900 outline-none transition focus:border-teal-400 focus:ring-4 focus:ring-teal-100"
+                >
+                  {countries
+                    .filter((item) => item.id !== 'all')
+                    .map((item) => (
+                      <option key={item.id} value={item.id}>
+                        {item.name}
+                      </option>
+                    ))}
                 </select>
               </label>
 

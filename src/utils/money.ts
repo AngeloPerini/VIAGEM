@@ -92,6 +92,7 @@ export const calculateCategoryTotal = (
   expenses: Expense[],
   category: ExpenseCategoryId,
   conversionRate?: number,
+  applySourceSheetAdjustment = true,
 ): Totals => {
   const categoryExpenses = expenses.filter((expense) => expense.category === category);
   const euroTotal = addRanges(categoryExpenses.map((expense) => expense.euro));
@@ -106,7 +107,8 @@ export const calculateCategoryTotal = (
   const realTotal = addRanges(categoryExpenses.map((expense) => expense.real));
 
   // The source sheet rounds the transport subtotal above the literal item sum.
-  const sourceSheetAdjustment = category === 'transport' ? { min: 5, max: 6 } : emptyRange();
+  const sourceSheetAdjustment =
+    category === 'transport' && applySourceSheetAdjustment ? { min: 5, max: 6 } : emptyRange();
 
   return {
     euro: euroTotal,

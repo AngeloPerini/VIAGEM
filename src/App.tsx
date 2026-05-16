@@ -2,10 +2,12 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { Plus, RotateCcw } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { ConversionToggle } from './components/ConversionToggle';
+import { CountryFilter } from './components/CountryFilter';
 import { ExpenseChart } from './components/ExpenseChart';
 import { ExpenseFormModal } from './components/ExpenseFormModal';
 import { ExpenseTable } from './components/ExpenseTable';
 import { Header } from './components/Header';
+import { ItineraryPage } from './components/ItineraryPage';
 import { Navbar, type AppView } from './components/Navbar';
 import { QuotePage } from './components/QuotePage';
 import { QuoteStatusCard } from './components/QuoteStatusCard';
@@ -18,7 +20,13 @@ import {
   loadStoredQuote,
   saveStoredQuote,
 } from './services/currencyService';
-import type { CurrencyQuote, Expense, QuoteHistoryPoint, RealValueMode } from './types';
+import type {
+  CountryFilterId,
+  CurrencyQuote,
+  Expense,
+  QuoteHistoryPoint,
+  RealValueMode,
+} from './types';
 import {
   calculateCategoryTotal,
   calculateGrandTotal,
@@ -27,11 +35,20 @@ import {
 } from './utils/money';
 
 function loadExpenses() {
+  const migrateExpenses = (items: Expense[]) =>
+    items.map((expense) => ({
+      ...expense,
+      country:
+        expense.country ??
+        initialExpenses.find((initialExpense) => initialExpense.id === expense.id)?.country ??
+        'italy',
+    }));
+
   const stored = localStorage.getItem(STORAGE_KEY);
   if (!stored) return initialExpenses;
 
   try {
-    return JSON.parse(stored) as Expense[];
+    return migrateExpenses(JSON.parse(stored) as Expense[]);
   } catch {
     return initialExpenses;
   }
@@ -39,7 +56,7 @@ function loadExpenses() {
 
 function loadInitialView(): AppView {
   const hash = window.location.hash.replace('#', '');
-  return hash === 'expenses' || hash === 'quote' ? hash : 'dashboard';
+  return hash === 'expenses' || hash === 'itinerary' || hash === 'quote' ? hash : 'dashboard';
 }
 
 export default function App() {
@@ -48,6 +65,8 @@ export default function App() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [activeView, setActiveView] = useState<AppView>(loadInitialView);
   const [realValueMode, setRealValueMode] = useState<RealValueMode>('original');
+  const [expenseCountryFilter, setExpenseCountryFilter] = useState<CountryFilterId>('all');
+  const [itineraryCountryFilter, setItineraryCountryFilter] = useState<CountryFilterId>('all');
   const [quote, setQuote] = useState<CurrencyQuote | null>(loadStoredQuote);
   const [quoteHistory, setQuoteHistory] = useState<QuoteHistoryPoint[]>(loadQuoteHistory);
   const [isQuoteLoading, setIsQuoteLoading] = useState(false);
@@ -102,9 +121,37 @@ export default function App() {
     }, {});
   }, [expenses, quote, realValueMode]);
 
+  const filteredExpenses = useMemo(
+    () =>
+      expenseCountryFilter === 'all'
+        ? expenses
+        : expenses.filter((expense) => expense.country === expenseCountryFilter),
+    [expenseCountryFilter, expenses],
+  );
+
+  const filteredTotalsByCategory = useMemo(() => {
+    const conversionRate = realValueMode === 'converted' && quote ? quote.bid : undefined;
+    const applySourceSheetAdjustment = expenseCountryFilter === 'all';
+
+    return categories.reduce<Record<string, Totals>>((totals, category) => {
+      totals[category.id] = calculateCategoryTotal(
+        filteredExpenses,
+        category.id,
+        conversionRate,
+        applySourceSheetAdjustment,
+      );
+      return totals;
+    }, {});
+  }, [expenseCountryFilter, filteredExpenses, quote, realValueMode]);
+
   const grandTotal = useMemo(
     () => calculateGrandTotal(categories.map((category) => totalsByCategory[category.id])),
     [totalsByCategory],
+  );
+
+  const filteredGrandTotal = useMemo(
+    () => calculateGrandTotal(categories.map((category) => filteredTotalsByCategory[category.id])),
+    [filteredTotalsByCategory],
   );
 
   const handleSaveExpense = (expense: Expense) => {
@@ -146,8 +193,8 @@ export default function App() {
           <ExpenseTable
             key={category.id}
             category={category}
-            expenses={expenses.filter((expense) => expense.category === category.id)}
-            total={totalsByCategory[category.id]}
+            expenses={filteredExpenses.filter((expense) => expense.category === category.id)}
+            total={filteredTotalsByCategory[category.id]}
             realValueMode={realValueMode}
             quote={quote}
             onEdit={openEditExpenseModal}
@@ -179,6 +226,12 @@ export default function App() {
               warning={quoteWarning}
               onRefresh={() => void refreshQuote()}
             />
+          ) : activeView === 'itinerary' ? (
+            <ItineraryPage
+              key="itinerary"
+              selectedCountry={itineraryCountryFilter}
+              onCountryChange={setItineraryCountryFilter}
+            />
           ) : activeView === 'expenses' ? (
             <motion.div
               key="expenses"
@@ -205,7 +258,21 @@ export default function App() {
                   Novo gasto
                 </button>
               </div>
+              <CountryFilter
+                value={expenseCountryFilter}
+                onChange={setExpenseCountryFilter}
+                label="Filtrar gastos por pais"
+              />
               <ConversionToggle mode={realValueMode} quote={quote} onChange={setRealValueMode} />
+              <SummaryCards
+                categories={categories}
+                totalsByCategory={filteredTotalsByCategory}
+                grandTotal={filteredGrandTotal}
+              />
+              <ExpenseChart
+                categories={categories}
+                totalsByCategory={filteredTotalsByCategory}
+              />
               {tables}
             </motion.div>
           ) : (
