@@ -140,10 +140,13 @@ O app usa Supabase como fonte principal para:
 - Pontos Turisticos
 - Fotos dos pontos turisticos
 - Status de visita confirmada
+- Check de itens concluidos no roteiro
+- Links uteis em gastos, roteiro e pontos turisticos
 
 O arquivo `supabase.sql` contem o schema completo para rodar no Supabase SQL Editor:
 
 - tabelas `expenses`, `itinerary_items` e `attractions`
+- colunas incrementais `completed` e `links` com `alter table ... add column if not exists`
 - triggers de `updated_at`
 - RLS ativo
 - policies para `anon`
@@ -154,6 +157,23 @@ O arquivo `supabase.sql` contem o schema completo para rodar no Supabase SQL Edi
 Como nao ha autenticacao neste momento, qualquer pessoa com acesso ao site e a chave publica pode ler e alterar os dados. Para uso publico ou compartilhado, recomenda-se adicionar login e policies por usuario futuramente.
 
 O `localStorage` continua como cache/fallback. Se o Supabase estiver indisponivel, o app mostra um aviso discreto e preserva os dados locais sempre que possivel.
+
+## Links e horarios
+
+Gastos, Roteiro e Pontos Turisticos aceitam links uteis neste formato:
+
+```json
+[
+  {
+    "label": "Rota para o hotel",
+    "url": "https://maps.google.com/..."
+  }
+]
+```
+
+URLs validas devem comecar com `http://`, `https://`, `maps://` ou `geo:`.
+
+Campos de horario em Roteiro e Pontos Turisticos possuem seletor visual em modal/bottom sheet e tambem aceitam edicao manual para preservar horarios textuais antigos, como `09h00-11h00`.
 
 ## Cotacao Euro -> Real
 

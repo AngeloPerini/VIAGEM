@@ -3,8 +3,10 @@ import { X } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import type { FormEvent } from 'react';
 import { countries } from '../data/countries';
-import type { CategoryMeta, CountryId, Expense, ExpenseCategoryId } from '../types';
+import type { CategoryMeta, CountryId, Expense, ExpenseCategoryId, LinkItem } from '../types';
+import { hasInvalidLinks, normalizeLinks } from '../utils/links';
 import { parseCurrencyInput, stringifyRangeForInput } from '../utils/money';
+import { LinksEditor } from './LinksEditor';
 
 type ExpenseFormModalProps = {
   categories: CategoryMeta[];
@@ -22,6 +24,7 @@ const createBlankExpense = (category: ExpenseCategoryId): Expense => ({
   detail: '',
   euro: { min: 0, max: 0 },
   real: { min: 0, max: 0 },
+  links: [],
 });
 
 export function ExpenseFormModal({
@@ -37,6 +40,7 @@ export function ExpenseFormModal({
   const [detail, setDetail] = useState('');
   const [euro, setEuro] = useState('');
   const [real, setReal] = useState('');
+  const [links, setLinks] = useState<LinkItem[]>([]);
 
   useEffect(() => {
     const source = expense ?? createBlankExpense('lodging');
@@ -46,10 +50,12 @@ export function ExpenseFormModal({
     setDetail(source.detail ?? '');
     setEuro(stringifyRangeForInput(source.euro));
     setReal(stringifyRangeForInput(source.real));
+    setLinks(source.links ?? []);
   }, [expense, isOpen]);
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (hasInvalidLinks(links)) return;
 
     onSave({
       id: expense?.id ?? crypto.randomUUID(),
@@ -59,6 +65,7 @@ export function ExpenseFormModal({
       detail: detail.trim(),
       euro: parseCurrencyInput(euro),
       real: parseCurrencyInput(real),
+      links: normalizeLinks(links),
     });
   };
 
@@ -175,6 +182,7 @@ export function ExpenseFormModal({
                   className="h-12 w-full rounded-2xl border border-slate-200 px-4 font-semibold text-slate-900 outline-none transition focus:border-teal-400 focus:ring-4 focus:ring-teal-100"
                 />
               </label>
+              <LinksEditor links={links} onChange={setLinks} />
             </div>
 
             <div className="mt-7 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">

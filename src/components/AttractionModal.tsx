@@ -4,6 +4,7 @@ import { useRef, useState } from 'react';
 import type { ChangeEvent } from 'react';
 import { countryNames } from '../data/countries';
 import type { Attraction, AttractionState } from '../types';
+import { LinksMenu } from './LinksMenu';
 
 type AttractionModalProps = {
   attraction: Attraction | null;
@@ -143,6 +144,7 @@ export function AttractionModal({
                 </div>
 
                 <p className="leading-7 text-slate-600">{attraction.description}</p>
+                <LinksMenu links={attraction.links} />
 
                 <button
                   type="button"

@@ -3,6 +3,11 @@ export type CurrencyRange = {
   max: number;
 };
 
+export type LinkItem = {
+  label: string;
+  url: string;
+};
+
 export type ExpenseCategoryId = 'lodging' | 'transport' | 'tours';
 
 export type Expense = {
@@ -13,6 +18,7 @@ export type Expense = {
   detail?: string;
   euro: CurrencyRange;
   real: CurrencyRange;
+  links?: LinkItem[];
 };
 
 export type CategoryMeta = {
@@ -66,6 +72,8 @@ export type ItineraryItem = {
   title: string;
   description: string;
   type: ItineraryType;
+  completed?: boolean;
+  links?: LinkItem[];
 };
 
 export type Attraction = {
@@ -76,6 +84,7 @@ export type Attraction = {
   day: string;
   time?: string;
   description: string;
+  links?: LinkItem[];
 };
 
 export type AttractionState = {

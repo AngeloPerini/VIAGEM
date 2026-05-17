@@ -2,6 +2,7 @@ import { motion } from 'framer-motion';
 import { Camera, CheckCircle2, Clock, MapPin } from 'lucide-react';
 import { countryNames } from '../data/countries';
 import type { Attraction, AttractionState } from '../types';
+import { LinksMenu } from './LinksMenu';
 
 type AttractionCardProps = {
   attraction: Attraction;
@@ -13,10 +14,14 @@ export function AttractionCard({ attraction, state, onClick }: AttractionCardPro
   const visited = state?.visited ?? false;
 
   return (
-    <motion.button
-      type="button"
+    <motion.article
+      role="button"
+      tabIndex={0}
       layout
       onClick={() => onClick(attraction)}
+      onKeyDown={(event) => {
+        if (event.key === 'Enter' || event.key === ' ') onClick(attraction);
+      }}
       className="group overflow-hidden rounded-[1.75rem] border border-white/70 bg-white/85 text-left shadow-xl shadow-slate-900/10 backdrop-blur-xl transition hover:-translate-y-1 hover:shadow-2xl hover:shadow-slate-900/15"
       initial={{ opacity: 0, y: 18 }}
       animate={{ opacity: 1, y: 0 }}
@@ -68,7 +73,10 @@ export function AttractionCard({ attraction, state, onClick }: AttractionCardPro
         <p className="mt-4 line-clamp-2 text-sm leading-6 text-slate-600">
           {attraction.description}
         </p>
+        <div className="mt-4">
+          <LinksMenu links={attraction.links} />
+        </div>
       </div>
-    </motion.button>
+    </motion.article>
   );
 }

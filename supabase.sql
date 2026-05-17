@@ -13,6 +13,7 @@ create table if not exists public.expenses (
   euro_max numeric,
   brl_min numeric,
   brl_max numeric,
+  links jsonb default '[]'::jsonb,
   created_at timestamptz default now(),
   updated_at timestamptz default now()
 );
@@ -26,6 +27,8 @@ create table if not exists public.itinerary_items (
   title text not null,
   description text,
   type text,
+  completed boolean default false,
+  links jsonb default '[]'::jsonb,
   order_index int,
   created_at timestamptz default now(),
   updated_at timestamptz default now()
@@ -41,10 +44,23 @@ create table if not exists public.attractions (
   description text,
   visited boolean default false,
   photo_url text,
+  links jsonb default '[]'::jsonb,
   order_index int,
   created_at timestamptz default now(),
   updated_at timestamptz default now()
 );
+
+alter table public.itinerary_items
+add column if not exists completed boolean default false;
+
+alter table public.expenses
+add column if not exists links jsonb default '[]'::jsonb;
+
+alter table public.itinerary_items
+add column if not exists links jsonb default '[]'::jsonb;
+
+alter table public.attractions
+add column if not exists links jsonb default '[]'::jsonb;
 
 create or replace function public.update_updated_at_column()
 returns trigger

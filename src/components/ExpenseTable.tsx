@@ -4,6 +4,7 @@ import { countryNames } from '../data/countries';
 import type { CategoryMeta, CurrencyQuote, Expense, RealValueMode } from '../types';
 import type { Totals } from '../utils/money';
 import { convertEuroRangeToReal, formatRange } from '../utils/money';
+import { LinksMenu } from './LinksMenu';
 
 type ExpenseTableProps = {
   category: CategoryMeta;
@@ -117,6 +118,7 @@ export function ExpenseTable({
                   <td className="px-4 py-4 font-semibold">{formatRange(getRealRange(expense), 'BRL')}</td>
                   <td className="px-7 py-4">
                     <div className="flex justify-end gap-2">
+                      <LinksMenu links={expense.links} align="right" />
                       <button
                         type="button"
                         aria-label={`Editar ${expense.title}`}
@@ -160,6 +162,9 @@ export function ExpenseTable({
                   <span className="mt-2 inline-flex rounded-full bg-slate-100 px-3 py-1 text-xs font-black text-slate-600">
                     {getCountryName(expense)}
                   </span>
+                  <div className="mt-3">
+                    <LinksMenu links={expense.links} />
+                  </div>
                 </div>
                 <div className="flex gap-2">
                   <button

@@ -1,7 +1,8 @@
 import type { RealtimeChannel } from '@supabase/supabase-js';
 import { defaultItineraryItems } from '../data/defaultItinerary';
 import { ITINERARY_STORAGE_KEY } from '../data/itinerary';
-import type { CountryId, ItineraryItem, ItineraryType } from '../types';
+import type { CountryId, ItineraryItem, ItineraryType, LinkItem } from '../types';
+import { normalizeLinks } from '../utils/links';
 import { supabase } from './supabaseClient';
 
 type ItineraryRow = {
@@ -13,6 +14,8 @@ type ItineraryRow = {
   title: string;
   description: string | null;
   type: string | null;
+  completed: boolean | null;
+  links: LinkItem[] | null;
   order_index: number | null;
 };
 
@@ -29,6 +32,8 @@ const toItem = (row: ItineraryRow): ItineraryItem => ({
   title: row.title,
   description: row.description ?? '',
   type: (row.type ?? 'tour') as ItineraryType,
+  completed: row.completed ?? false,
+  links: Array.isArray(row.links) ? row.links : [],
 });
 
 const toPayload = (item: ItineraryItem, orderIndex?: number) => ({
@@ -39,6 +44,8 @@ const toPayload = (item: ItineraryItem, orderIndex?: number) => ({
   title: item.title,
   description: item.description || null,
   type: item.type,
+  completed: item.completed ?? false,
+  links: normalizeLinks(item.links),
   order_index: orderIndex,
 });
 
@@ -103,6 +110,11 @@ export async function updateItineraryItem(item: ItineraryItem) {
 
   if (error) throw error;
   return toItem(data as ItineraryRow);
+}
+
+export async function updateItineraryItemCompleted(id: string, completed: boolean) {
+  const { error } = await supabase.from('itinerary_items').update({ completed }).eq('id', id);
+  if (error) throw error;
 }
 
 export async function deleteItineraryItem(id: string) {

@@ -1,6 +1,8 @@
 import { AnimatePresence, motion } from 'framer-motion';
 import {
   BedDouble,
+  Check,
+  CheckCircle2,
   ChevronDown,
   Coffee,
   Edit3,
@@ -29,9 +31,14 @@ import {
   seedItineraryItemsIfEmpty,
   subscribeItineraryItems,
   updateItineraryItem,
+  updateItineraryItemCompleted,
 } from '../services/itineraryService';
-import type { CountryFilterId, CountryId, ItineraryItem, ItineraryType } from '../types';
+import type { CountryFilterId, CountryId, ItineraryItem, ItineraryType, LinkItem } from '../types';
+import { hasInvalidLinks, normalizeLinks } from '../utils/links';
 import { CountryFilter } from './CountryFilter';
+import { LinksEditor } from './LinksEditor';
+import { LinksMenu } from './LinksMenu';
+import { TimeField } from './TimeField';
 
 type ItineraryPageProps = {
   selectedCountry: CountryFilterId;
@@ -90,6 +97,8 @@ const blankItem = (): ItineraryItem => ({
   title: '',
   description: '',
   type: 'tour',
+  completed: false,
+  links: [],
 });
 
 const groupByDay = (items: ItineraryItem[]) =>
@@ -108,9 +117,12 @@ function ItineraryFormModal({
   onSave: (item: ItineraryItem) => void;
 }) {
   const [draft, setDraft] = useState<ItineraryItem>(blankItem);
+  const [links, setLinks] = useState<LinkItem[]>([]);
 
   useEffect(() => {
-    setDraft(item ?? blankItem());
+    const source = item ?? blankItem();
+    setDraft(source);
+    setLinks(source.links ?? []);
   }, [item]);
 
   const updateDraft = <K extends keyof ItineraryItem>(key: K, value: ItineraryItem[K]) => {
@@ -119,6 +131,7 @@ function ItineraryFormModal({
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (hasInvalidLinks(links)) return;
     onSave({
       ...draft,
       day: draft.day.trim(),
@@ -126,6 +139,7 @@ function ItineraryFormModal({
       time: draft.time.trim(),
       title: draft.title.trim(),
       description: draft.description.trim(),
+      links: normalizeLinks(links),
     });
   };
 
@@ -179,10 +193,7 @@ function ItineraryFormModal({
                 <span className="mb-2 block text-sm font-bold text-slate-600">Cidade</span>
                 <input required value={draft.city} onChange={(event) => updateDraft('city', event.target.value)} className="h-12 w-full rounded-2xl border border-slate-200 px-4 font-semibold outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-100" />
               </label>
-              <label>
-                <span className="mb-2 block text-sm font-bold text-slate-600">Horario</span>
-                <input value={draft.time} onChange={(event) => updateDraft('time', event.target.value)} className="h-12 w-full rounded-2xl border border-slate-200 px-4 font-semibold outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-100" />
-              </label>
+              <TimeField value={draft.time} onChange={(value) => updateDraft('time', value)} label="Horario" />
               <label className="md:col-span-2">
                 <span className="mb-2 block text-sm font-bold text-slate-600">Titulo</span>
                 <input required value={draft.title} onChange={(event) => updateDraft('title', event.target.value)} className="h-12 w-full rounded-2xl border border-slate-200 px-4 font-semibold outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-100" />
@@ -199,6 +210,7 @@ function ItineraryFormModal({
                 <span className="mb-2 block text-sm font-bold text-slate-600">Descricao</span>
                 <textarea required value={draft.description} onChange={(event) => updateDraft('description', event.target.value)} rows={4} className="w-full rounded-2xl border border-slate-200 px-4 py-3 font-semibold outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-100" />
               </label>
+              <LinksEditor links={links} onChange={setLinks} />
             </div>
 
             <div className="mt-7 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
@@ -323,6 +335,24 @@ export function ItineraryPage({ selectedCountry, onCountryChange }: ItineraryPag
     }
   };
 
+  const toggleCompleted = async (item: ItineraryItem) => {
+    const completed = !(item.completed ?? false);
+    const previousItems = items;
+    setItems((current) =>
+      current.map((currentItem) =>
+        currentItem.id === item.id ? { ...currentItem, completed } : currentItem,
+      ),
+    );
+
+    try {
+      await updateItineraryItemCompleted(item.id, completed);
+      setSyncWarning(null);
+    } catch {
+      setItems(previousItems);
+      setSyncWarning('Nao foi possivel salvar o check no Supabase. Tente novamente.');
+    }
+  };
+
   const restoreDefaults = async () => {
     setIsSaving(true);
 
@@ -380,26 +410,40 @@ export function ItineraryPage({ selectedCountry, onCountryChange }: ItineraryPag
                 {dayItems.map((item) => {
                   const Icon = typeIcons[item.type];
                   const expanded = expandedItems.has(item.id);
+                  const completed = item.completed ?? false;
 
                   return (
-                    <motion.article layout key={item.id} className="relative ml-11 rounded-3xl border border-slate-200 bg-white p-4 shadow-sm transition hover:border-teal-200 hover:shadow-lg hover:shadow-slate-900/10 md:ml-14 md:p-5" initial={{ opacity: 0, x: -14 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 14 }}>
-                      <span className="absolute -left-[2.95rem] top-4 flex h-10 w-10 items-center justify-center rounded-2xl bg-slate-950 text-white shadow-lg md:-left-[3.45rem]">
-                        <Icon className="h-5 w-5" />
+                    <motion.article
+                      layout
+                      key={item.id}
+                      className={`relative ml-11 rounded-3xl border p-4 shadow-sm transition md:ml-14 md:p-5 ${
+                        completed
+                          ? 'border-teal-300 bg-teal-50/90 shadow-teal-900/10 hover:border-teal-400'
+                          : 'border-slate-200 bg-white hover:border-teal-200 hover:shadow-lg hover:shadow-slate-900/10'
+                      }`}
+                      initial={{ opacity: 0, x: -14 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      exit={{ opacity: 0, x: 14 }}
+                    >
+                      <span className={`absolute -left-[2.95rem] top-4 flex h-10 w-10 items-center justify-center rounded-2xl text-white shadow-lg md:-left-[3.45rem] ${completed ? 'bg-teal-600' : 'bg-slate-950'}`}>
+                        {completed ? <CheckCircle2 className="h-5 w-5" /> : <Icon className="h-5 w-5" />}
                       </span>
                       <div className="flex gap-3">
                         <button type="button" onClick={() => toggleExpanded(item.id)} className="flex min-w-0 flex-1 flex-col gap-3 text-left md:flex-row md:items-start md:justify-between">
                           <div>
                             <div className="flex flex-wrap items-center gap-2">
-                              <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-black text-slate-600">{item.time || 'Sem horario'}</span>
+                              <span className={`rounded-full px-3 py-1 text-xs font-black ${completed ? 'bg-white/80 text-teal-700' : 'bg-slate-100 text-slate-600'}`}>{item.time || 'Sem horario'}</span>
                               <span className={`rounded-full px-3 py-1 text-xs font-black ring-1 ${countryStyles[item.country]}`}>{countryNames[item.country]}</span>
                               <span className="rounded-full bg-white px-3 py-1 text-xs font-black text-slate-400 ring-1 ring-slate-200">{typeLabels[item.type]}</span>
                             </div>
-                            <h3 className="mt-3 text-lg font-black text-slate-950">{item.title}</h3>
-                            <p className="mt-1 text-sm font-semibold text-slate-500">{item.city}</p>
+                            <h3 className={`mt-3 text-lg font-black ${completed ? 'text-teal-950' : 'text-slate-950'}`}>{item.title}</h3>
+                            <p className={`mt-1 text-sm font-semibold ${completed ? 'text-teal-700' : 'text-slate-500'}`}>{item.city}</p>
                           </div>
                           <ChevronDown className={`h-5 w-5 shrink-0 text-slate-400 transition ${expanded ? 'rotate-180' : ''}`} />
                         </button>
-                        <div className="flex shrink-0 gap-2">
+                        <div className="flex shrink-0 flex-col gap-2 sm:flex-row">
+                          <LinksMenu links={item.links} align="right" />
+                          <button type="button" aria-label={`${completed ? 'Desmarcar' : 'Marcar'} ${item.title}`} onClick={() => void toggleCompleted(item)} className={`h-10 rounded-xl border p-2 transition ${completed ? 'border-teal-200 bg-teal-600 text-white' : 'border-slate-200 text-slate-500 hover:bg-teal-50 hover:text-teal-700'}`}><Check className="h-4 w-4" /></button>
                           <button type="button" aria-label={`Editar ${item.title}`} onClick={() => setEditingItem(item)} className="h-10 rounded-xl border border-slate-200 p-2 text-slate-500 transition hover:bg-teal-50 hover:text-teal-700"><Edit3 className="h-4 w-4" /></button>
                           <button type="button" aria-label={`Excluir ${item.title}`} onClick={() => void removeItem(item.id)} className="h-10 rounded-xl border border-slate-200 p-2 text-slate-500 transition hover:bg-rose-50 hover:text-rose-700"><Trash2 className="h-4 w-4" /></button>
                         </div>

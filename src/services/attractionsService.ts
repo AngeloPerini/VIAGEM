@@ -1,8 +1,9 @@
 import type { RealtimeChannel } from '@supabase/supabase-js';
 import { defaultAttractions } from '../data/defaultAttractions';
 import { ATTRACTION_LIST_STORAGE_KEY, ATTRACTION_STORAGE_KEY } from '../data/attractions';
-import type { Attraction, AttractionStateMap, CountryId } from '../types';
+import type { Attraction, AttractionStateMap, CountryId, LinkItem } from '../types';
 import { compressImageToBlob } from '../utils/imageCompression';
+import { normalizeLinks } from '../utils/links';
 import { supabase } from './supabaseClient';
 
 const PHOTO_BUCKET = 'attraction-photos';
@@ -17,6 +18,7 @@ type AttractionRow = {
   description: string | null;
   visited: boolean | null;
   photo_url: string | null;
+  links: LinkItem[] | null;
   order_index: number | null;
 };
 
@@ -38,6 +40,7 @@ const toAttraction = (row: AttractionRow): Attraction => ({
   day: row.day ?? '',
   time: row.time ?? '',
   description: row.description ?? '',
+  links: Array.isArray(row.links) ? row.links : [],
 });
 
 const toPayload = (attraction: Attraction, orderIndex?: number) => ({
@@ -47,6 +50,7 @@ const toPayload = (attraction: Attraction, orderIndex?: number) => ({
   day: attraction.day || null,
   time: attraction.time || null,
   description: attraction.description || null,
+  links: normalizeLinks(attraction.links),
   order_index: orderIndex,
 });
 

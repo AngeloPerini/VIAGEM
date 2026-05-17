@@ -5,6 +5,8 @@ import type { FormEvent } from 'react';
 import { AttractionCard } from '../components/AttractionCard';
 import { AttractionModal } from '../components/AttractionModal';
 import { CountryFilter } from '../components/CountryFilter';
+import { LinksEditor } from '../components/LinksEditor';
+import { TimeField } from '../components/TimeField';
 import { countries } from '../data/countries';
 import { attractions } from '../data/attractions';
 import {
@@ -28,6 +30,7 @@ import type {
   CountryFilterId,
   CountryId,
 } from '../types';
+import { hasInvalidLinks, normalizeLinks } from '../utils/links';
 
 type AttractionsPageProps = {
   selectedCountry: CountryFilterId;
@@ -42,6 +45,7 @@ const blankAttraction = (): Attraction => ({
   day: '',
   time: '',
   description: '',
+  links: [],
 });
 
 function AttractionFormModal({
@@ -69,6 +73,7 @@ function AttractionFormModal({
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (hasInvalidLinks(draft.links)) return;
     onSave(
       {
         ...draft,
@@ -77,6 +82,7 @@ function AttractionFormModal({
         day: draft.day.trim(),
         time: draft.time?.trim(),
         description: draft.description.trim(),
+        links: normalizeLinks(draft.links),
       },
       { ...(state ?? { visited: false }), visited, updatedAt: Date.now() },
     );
@@ -136,10 +142,7 @@ function AttractionFormModal({
                 <span className="mb-2 block text-sm font-bold text-slate-600">Dia previsto</span>
                 <input required value={draft.day} onChange={(event) => updateDraft('day', event.target.value)} className="h-12 w-full rounded-2xl border border-slate-200 px-4 font-semibold outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-100" />
               </label>
-              <label>
-                <span className="mb-2 block text-sm font-bold text-slate-600">Horario previsto</span>
-                <input value={draft.time ?? ''} onChange={(event) => updateDraft('time', event.target.value)} className="h-12 w-full rounded-2xl border border-slate-200 px-4 font-semibold outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-100" />
-              </label>
+              <TimeField value={draft.time ?? ''} onChange={(value) => updateDraft('time', value)} label="Horario previsto" />
               <label className="md:col-span-2">
                 <span className="mb-2 block text-sm font-bold text-slate-600">Descricao</span>
                 <textarea required value={draft.description} onChange={(event) => updateDraft('description', event.target.value)} rows={4} className="w-full rounded-2xl border border-slate-200 px-4 py-3 font-semibold outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-100" />
@@ -148,6 +151,7 @@ function AttractionFormModal({
                 <input type="checkbox" checked={visited} onChange={(event) => setVisited(event.target.checked)} className="h-5 w-5 accent-teal-600" />
                 Status visitado
               </label>
+              <LinksEditor links={draft.links ?? []} onChange={(links) => updateDraft('links', links)} />
             </div>
 
             <div className="mt-7 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">

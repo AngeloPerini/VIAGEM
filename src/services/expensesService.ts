@@ -1,7 +1,8 @@
 import type { RealtimeChannel } from '@supabase/supabase-js';
 import { STORAGE_KEY } from '../data/initialExpenses';
 import { defaultExpenses } from '../data/defaultExpenses';
-import type { CountryId, Expense, ExpenseCategoryId } from '../types';
+import type { CountryId, Expense, ExpenseCategoryId, LinkItem } from '../types';
+import { normalizeLinks } from '../utils/links';
 import { supabase } from './supabaseClient';
 
 type ExpenseRow = {
@@ -14,6 +15,7 @@ type ExpenseRow = {
   euro_max: number | null;
   brl_min: number | null;
   brl_max: number | null;
+  links: LinkItem[] | null;
   created_at?: string;
 };
 
@@ -40,6 +42,7 @@ const toExpense = (row: ExpenseRow): Expense => ({
   detail: row.details ?? '',
   euro: { min: Number(row.euro_min ?? 0), max: Number(row.euro_max ?? row.euro_min ?? 0) },
   real: { min: Number(row.brl_min ?? 0), max: Number(row.brl_max ?? row.brl_min ?? 0) },
+  links: Array.isArray(row.links) ? row.links : [],
 });
 
 const toExpensePayload = (expense: Expense) => ({
@@ -51,6 +54,7 @@ const toExpensePayload = (expense: Expense) => ({
   euro_max: expense.euro.max,
   brl_min: expense.real.min,
   brl_max: expense.real.max,
+  links: normalizeLinks(expense.links),
 });
 
 export async function getExpenses() {
