@@ -421,7 +421,7 @@ export function ItineraryPage({ selectedCountry, onCountryChange }: ItineraryPag
                           ? 'border-teal-300 bg-teal-50/90 shadow-teal-900/10 hover:border-teal-400'
                           : 'border-slate-200 bg-white hover:border-teal-200 hover:shadow-lg hover:shadow-slate-900/10'
                       }`}
-                      initial={{ opacity: 0, x: -14 }}
+                      initial={{ opacity: 1, x: 0 }}
                       animate={{ opacity: 1, x: 0 }}
                       exit={{ opacity: 0, x: 14 }}
                     >
