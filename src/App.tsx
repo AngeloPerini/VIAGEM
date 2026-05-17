@@ -12,7 +12,7 @@ import { Navbar, type AppView } from './components/Navbar';
 import { QuotePage } from './components/QuotePage';
 import { QuoteStatusCard } from './components/QuoteStatusCard';
 import { SummaryCards } from './components/SummaryCards';
-import { categories, initialExpenses } from './data/initialExpenses';
+import { initialExpenses } from './data/initialExpenses';
 import { AttractionsPage } from './pages/AttractionsPage';
 import {
   appendQuoteHistory,
@@ -41,10 +41,11 @@ import type {
 } from './types';
 import {
   calculateCategoryTotal,
-  calculateGrandTotal,
+  calculateExpensesTotal,
   formatRange,
   type Totals,
 } from './utils/money';
+import { buildExpenseCategories } from './utils/categories';
 
 function loadInitialView(): AppView {
   const hash = window.location.hash.replace('#', '');
@@ -115,6 +116,8 @@ export default function App() {
     cacheExpensesFallback(expenses);
   }, [expenses]);
 
+  const categories = useMemo(() => buildExpenseCategories(expenses), [expenses]);
+
   useEffect(() => {
     const syncViewWithHash = () => {
       setActiveView(loadInitialView());
@@ -158,7 +161,7 @@ export default function App() {
       totals[category.id] = calculateCategoryTotal(expenses, category.id, conversionRate);
       return totals;
     }, {});
-  }, [expenses, quote, realValueMode]);
+  }, [categories, expenses, quote, realValueMode]);
 
   const filteredExpenses = useMemo(
     () =>
@@ -181,16 +184,14 @@ export default function App() {
       );
       return totals;
     }, {});
-  }, [expenseCountryFilter, filteredExpenses, quote, realValueMode]);
+  }, [categories, expenseCountryFilter, filteredExpenses, quote, realValueMode]);
 
-  const grandTotal = useMemo(
-    () => calculateGrandTotal(categories.map((category) => totalsByCategory[category.id])),
-    [totalsByCategory],
-  );
-
-  const filteredGrandTotal = useMemo(
-    () => calculateGrandTotal(categories.map((category) => filteredTotalsByCategory[category.id])),
-    [filteredTotalsByCategory],
+  const activeConversionRate = realValueMode === 'converted' && quote ? quote.bid : undefined;
+  const grandTotal = calculateExpensesTotal(expenses, activeConversionRate);
+  const filteredGrandTotal = calculateExpensesTotal(
+    filteredExpenses,
+    activeConversionRate,
+    expenseCountryFilter === 'all',
   );
 
   const handleSaveExpense = async (expense: Expense) => {

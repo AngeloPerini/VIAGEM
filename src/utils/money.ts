@@ -1,4 +1,4 @@
-import type { CurrencyRange, Expense, ExpenseCategoryId } from '../types';
+import type { CurrencyRange, Expense } from '../types';
 
 export type Totals = {
   euro: CurrencyRange;
@@ -90,7 +90,7 @@ export const stringifyRangeForInput = (range: CurrencyRange) => {
 
 export const calculateCategoryTotal = (
   expenses: Expense[],
-  category: ExpenseCategoryId,
+  category: string,
   conversionRate?: number,
   applySourceSheetAdjustment = true,
 ): Totals => {
@@ -123,3 +123,31 @@ export const calculateGrandTotal = (categoryTotals: Totals[]): Totals => ({
   euro: addRanges(categoryTotals.map((total) => total.euro)),
   real: addRanges(categoryTotals.map((total) => total.real)),
 });
+
+export const calculateExpensesTotal = (
+  expenses: Expense[],
+  conversionRate?: number,
+  applySourceSheetAdjustment = true,
+): Totals => {
+  const euroTotal = addRanges(expenses.map((expense) => expense.euro));
+
+  if (conversionRate) {
+    return {
+      euro: euroTotal,
+      real: convertEuroRangeToReal(euroTotal, conversionRate),
+    };
+  }
+
+  const realTotal = addRanges(expenses.map((expense) => expense.real));
+  const hasTransport = expenses.some((expense) => expense.category === 'transport');
+  const sourceSheetAdjustment =
+    hasTransport && applySourceSheetAdjustment ? { min: 5, max: 6 } : emptyRange();
+
+  return {
+    euro: euroTotal,
+    real: {
+      min: realTotal.min + sourceSheetAdjustment.min,
+      max: realTotal.max + sourceSheetAdjustment.max,
+    },
+  };
+};

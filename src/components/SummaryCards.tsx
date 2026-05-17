@@ -4,7 +4,7 @@ import type { CategoryMeta, RealValueMode } from '../types';
 import type { Totals } from '../utils/money';
 import { formatRange } from '../utils/money';
 
-const icons = {
+const icons: Record<string, typeof WalletCards> = {
   lodging: BedDouble,
   transport: Route,
   tours: Landmark,
@@ -64,7 +64,7 @@ export function SummaryCards({ categories, totalsByCategory, grandTotal, realVal
       </motion.article>
 
       {categories.map((category, index) => {
-        const Icon = icons[category.id];
+        const Icon = icons[category.id] ?? WalletCards;
         const total = totalsByCategory[category.id];
 
         return (

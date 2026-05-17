@@ -1,7 +1,7 @@
 import type { RealtimeChannel } from '@supabase/supabase-js';
 import { STORAGE_KEY } from '../data/initialExpenses';
 import { defaultExpenses } from '../data/defaultExpenses';
-import type { CountryId, Expense, ExpenseCategoryId, LinkItem } from '../types';
+import type { CountryId, Expense, LinkItem } from '../types';
 import { normalizeLinks } from '../utils/links';
 import { supabase } from './supabaseClient';
 
@@ -36,7 +36,7 @@ const cacheExpenses = (expenses: Expense[]) => {
 
 const toExpense = (row: ExpenseRow): Expense => ({
   id: row.id,
-  category: row.category as ExpenseCategoryId,
+  category: row.category,
   country: row.country as CountryId,
   title: row.description,
   detail: row.details ?? '',

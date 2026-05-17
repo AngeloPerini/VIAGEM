@@ -1,4 +1,4 @@
-import type { CategoryMeta, Expense, ExpenseCategoryId } from '../types';
+import type { CategoryMeta, Expense } from '../types';
 
 export const STORAGE_KEY = 'europa-budget-expenses-v1';
 
@@ -8,7 +8,7 @@ export const categories: CategoryMeta[] = [
   { id: 'tours', name: 'Passeios', label: 'Passeio', accent: '#db2777' },
 ];
 
-export const categoryNames: Record<ExpenseCategoryId, string> = {
+export const categoryNames: Record<string, string> = {
   lodging: 'Hospedagens',
   transport: 'Transportes',
   tours: 'Passeios',

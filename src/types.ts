@@ -8,11 +8,9 @@ export type LinkItem = {
   url: string;
 };
 
-export type ExpenseCategoryId = 'lodging' | 'transport' | 'tours';
-
 export type Expense = {
   id: string;
-  category: ExpenseCategoryId;
+  category: string;
   country?: CountryId;
   title: string;
   detail?: string;
@@ -22,7 +20,7 @@ export type Expense = {
 };
 
 export type CategoryMeta = {
-  id: ExpenseCategoryId;
+  id: string;
   name: string;
   label: string;
   accent: string;

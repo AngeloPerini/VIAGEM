@@ -3,7 +3,7 @@ import { X } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import type { FormEvent } from 'react';
 import { countries } from '../data/countries';
-import type { CategoryMeta, CountryId, Expense, ExpenseCategoryId, LinkItem } from '../types';
+import type { CategoryMeta, CountryId, Expense, LinkItem } from '../types';
 import { hasInvalidLinks, normalizeLinks } from '../utils/links';
 import { parseCurrencyInput, stringifyRangeForInput } from '../utils/money';
 import { LinksEditor } from './LinksEditor';
@@ -16,7 +16,7 @@ type ExpenseFormModalProps = {
   onSave: (expense: Expense) => void;
 };
 
-const createBlankExpense = (category: ExpenseCategoryId): Expense => ({
+const createBlankExpense = (category: string): Expense => ({
   id: crypto.randomUUID(),
   category,
   country: 'italy',
@@ -34,7 +34,7 @@ export function ExpenseFormModal({
   onClose,
   onSave,
 }: ExpenseFormModalProps) {
-  const [category, setCategory] = useState<ExpenseCategoryId>('lodging');
+  const [category, setCategory] = useState('lodging');
   const [country, setCountry] = useState<CountryId>('italy');
   const [title, setTitle] = useState('');
   const [detail, setDetail] = useState('');
@@ -56,10 +56,12 @@ export function ExpenseFormModal({
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (hasInvalidLinks(links)) return;
+    const normalizedCategory = category.trim();
+    if (!normalizedCategory) return;
 
     onSave({
       id: expense?.id ?? crypto.randomUUID(),
-      category,
+      category: normalizedCategory,
       country,
       title: title.trim(),
       detail: detail.trim(),
@@ -110,17 +112,24 @@ export function ExpenseFormModal({
             <div className="grid gap-4 md:grid-cols-2">
               <label>
                 <span className="mb-2 block text-sm font-bold text-slate-600">Categoria</span>
-                <select
+                <input
+                  list="expense-categories"
                   value={category}
-                  onChange={(event) => setCategory(event.target.value as ExpenseCategoryId)}
+                  onChange={(event) => setCategory(event.target.value)}
+                  required
+                  placeholder="Selecione ou digite uma nova"
                   className="h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 font-semibold text-slate-900 outline-none transition focus:border-teal-400 focus:ring-4 focus:ring-teal-100"
-                >
+                />
+                <datalist id="expense-categories">
                   {categories.map((item) => (
                     <option key={item.id} value={item.id}>
                       {item.name}
                     </option>
                   ))}
-                </select>
+                </datalist>
+                <p className="mt-2 text-xs font-semibold text-slate-400">
+                  Digite algo novo, como Alimentação, Compras ou Seguro viagem.
+                </p>
               </label>
 
               <label>
