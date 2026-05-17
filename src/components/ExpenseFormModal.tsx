@@ -56,12 +56,10 @@ export function ExpenseFormModal({
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (hasInvalidLinks(links)) return;
-    const normalizedCategory = category.trim();
-    if (!normalizedCategory) return;
 
     onSave({
       id: expense?.id ?? crypto.randomUUID(),
-      category: normalizedCategory,
+      category,
       country,
       title: title.trim(),
       detail: detail.trim(),
@@ -112,24 +110,18 @@ export function ExpenseFormModal({
             <div className="grid gap-4 md:grid-cols-2">
               <label>
                 <span className="mb-2 block text-sm font-bold text-slate-600">Categoria</span>
-                <input
-                  list="expense-categories"
+                <select
                   value={category}
                   onChange={(event) => setCategory(event.target.value)}
                   required
-                  placeholder="Selecione ou digite uma nova"
                   className="h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 font-semibold text-slate-900 outline-none transition focus:border-teal-400 focus:ring-4 focus:ring-teal-100"
-                />
-                <datalist id="expense-categories">
+                >
                   {categories.map((item) => (
                     <option key={item.id} value={item.id}>
                       {item.name}
                     </option>
                   ))}
-                </datalist>
-                <p className="mt-2 text-xs font-semibold text-slate-400">
-                  Digite algo novo, como Alimentação, Compras ou Seguro viagem.
-                </p>
+                </select>
               </label>
 
               <label>

@@ -12,7 +12,7 @@ import { Navbar, type AppView } from './components/Navbar';
 import { QuotePage } from './components/QuotePage';
 import { QuoteStatusCard } from './components/QuoteStatusCard';
 import { SummaryCards } from './components/SummaryCards';
-import { initialExpenses } from './data/initialExpenses';
+import { categories, initialExpenses } from './data/initialExpenses';
 import { AttractionsPage } from './pages/AttractionsPage';
 import {
   appendQuoteHistory,
@@ -45,7 +45,6 @@ import {
   formatRange,
   type Totals,
 } from './utils/money';
-import { buildExpenseCategories } from './utils/categories';
 
 function loadInitialView(): AppView {
   const hash = window.location.hash.replace('#', '');
@@ -115,8 +114,6 @@ export default function App() {
   useEffect(() => {
     cacheExpensesFallback(expenses);
   }, [expenses]);
-
-  const categories = useMemo(() => buildExpenseCategories(expenses), [expenses]);
 
   useEffect(() => {
     const syncViewWithHash = () => {

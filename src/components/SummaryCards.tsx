@@ -82,7 +82,7 @@ export function SummaryCards({ categories, totalsByCategory, grandTotal, realVal
             >
               <Icon className="h-6 w-6" />
             </div>
-            <p className="text-sm font-semibold uppercase tracking-[0.18em] text-slate-500">
+            <p className="text-sm font-semibold tracking-[0.08em] text-slate-500">
               {category.name}
             </p>
             <MoneyPriority total={total} mode={realValueMode} />

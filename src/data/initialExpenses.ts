@@ -6,12 +6,16 @@ export const categories: CategoryMeta[] = [
   { id: 'lodging', name: 'Hospedagens', label: 'Cidade e datas', accent: '#0f766e' },
   { id: 'transport', name: 'Transportes', label: 'Trecho', accent: '#2563eb' },
   { id: 'tours', name: 'Passeios', label: 'Passeio', accent: '#db2777' },
+  { id: 'Alimentação', name: 'Alimentação', label: 'Gasto', accent: '#7c3aed' },
+  { id: 'Comprinhas', name: 'Comprinhas', label: 'Gasto', accent: '#ea580c' },
 ];
 
 export const categoryNames: Record<string, string> = {
   lodging: 'Hospedagens',
   transport: 'Transportes',
   tours: 'Passeios',
+  Alimentação: 'Alimentação',
+  Comprinhas: 'Comprinhas',
 };
 
 export const initialExpenses: Expense[] = [
