@@ -3,9 +3,11 @@ import type { ReactNode } from 'react';
 import {
   acceptInvite as acceptInviteToken,
   claimLegacyTripGroup,
+  claimOwnerTripGroup,
   createGroup as createTravelGroup,
   getStoredActiveGroupId,
   getUserGroups,
+  type InviteDetails,
   inviteMember as createInvite,
   storeActiveGroupId,
 } from '../services/groupsService';
@@ -20,7 +22,7 @@ type GroupContextValue = {
   setActiveGroup: (group: UserTravelGroup | null) => void;
   refreshGroups: () => Promise<UserTravelGroup[]>;
   createGroup: (name: string, description?: string) => Promise<UserTravelGroup>;
-  inviteMember: (email?: string) => Promise<string>;
+  inviteMember: (email?: string, singleUse?: boolean) => Promise<InviteDetails>;
   acceptInvite: (token: string) => Promise<UserTravelGroup>;
 };
 
@@ -52,6 +54,12 @@ export function GroupProvider({ children }: { children: ReactNode }) {
     setError(null);
 
     try {
+      try {
+        await claimOwnerTripGroup();
+      } catch {
+        // The SQL migration may not be applied yet. Loading memberships still gives a useful UI state.
+      }
+
       try {
         await claimLegacyTripGroup();
       } catch {
@@ -96,9 +104,9 @@ export function GroupProvider({ children }: { children: ReactNode }) {
   );
 
   const inviteMember = useCallback(
-    async (email?: string) => {
+    async (email?: string, singleUse = false) => {
       if (!activeGroup) throw new Error('Selecione uma viagem antes de convidar.');
-      return createInvite(activeGroup.id, email);
+      return createInvite(activeGroup.id, email, singleUse);
     },
     [activeGroup],
   );

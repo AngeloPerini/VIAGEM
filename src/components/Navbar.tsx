@@ -14,6 +14,7 @@ import { useMemo, useState } from 'react';
 import type { FormEvent } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useGroup } from '../contexts/GroupContext';
+import type { InviteDetails } from '../services/groupsService';
 
 export type AppView = 'dashboard' | 'expenses' | 'itinerary' | 'attractions' | 'quote';
 
@@ -35,7 +36,8 @@ export function Navbar({ activeView, onNavigate }: NavbarProps) {
   const { activeGroup, inviteMember, setActiveGroup, userGroups } = useGroup();
   const [isInviteOpen, setIsInviteOpen] = useState(false);
   const [inviteEmail, setInviteEmail] = useState('');
-  const [inviteLink, setInviteLink] = useState<string | null>(null);
+  const [singleUseInvite, setSingleUseInvite] = useState(false);
+  const [inviteDetails, setInviteDetails] = useState<InviteDetails | null>(null);
   const [inviteError, setInviteError] = useState<string | null>(null);
   const [isInviting, setIsInviting] = useState(false);
 
@@ -44,15 +46,16 @@ export function Navbar({ activeView, onNavigate }: NavbarProps) {
     () => user?.user_metadata?.full_name ?? user?.user_metadata?.name ?? user?.email ?? 'Conta',
     [user],
   );
+  const displayEmail = user?.email ?? '';
 
   const handleInvite = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setInviteError(null);
-    setInviteLink(null);
+    setInviteDetails(null);
     setIsInviting(true);
 
     try {
-      setInviteLink(await inviteMember(inviteEmail));
+      setInviteDetails(await inviteMember(inviteEmail, singleUseInvite));
       setInviteEmail('');
     } catch (caughtError) {
       setInviteError(caughtError instanceof Error ? caughtError.message : 'Nao foi possivel criar convite.');
@@ -151,7 +154,10 @@ export function Navbar({ activeView, onNavigate }: NavbarProps) {
               <UserRound className="h-4 w-4" />
             </span>
           )}
-          <span className="max-w-36 truncate text-sm font-black text-slate-700">{displayName}</span>
+          <span className="grid max-w-40 text-left leading-tight">
+            <span className="truncate text-sm font-black text-slate-700">{displayName}</span>
+            {displayEmail ? <span className="truncate text-[0.68rem] font-bold text-slate-400">{displayEmail}</span> : null}
+          </span>
         </div>
 
         <button
@@ -179,6 +185,15 @@ export function Navbar({ activeView, onNavigate }: NavbarProps) {
                 className="h-11 w-full rounded-2xl border border-slate-200 px-3 font-semibold outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-100"
               />
             </label>
+            <label className="mt-3 flex items-center gap-3 rounded-2xl bg-slate-50 px-3 py-3 text-sm font-bold text-slate-700">
+              <input
+                type="checkbox"
+                checked={singleUseInvite}
+                onChange={(event) => setSingleUseInvite(event.target.checked)}
+                className="h-5 w-5 accent-teal-600"
+              />
+              Uso unico
+            </label>
             <button
               type="submit"
               disabled={isInviting}
@@ -187,15 +202,29 @@ export function Navbar({ activeView, onNavigate }: NavbarProps) {
               <Send className="h-4 w-4" />
               Gerar link
             </button>
-            {inviteLink ? (
-              <button
-                type="button"
-                onClick={() => void navigator.clipboard.writeText(inviteLink)}
-                className="mt-3 flex w-full items-center gap-2 rounded-2xl bg-teal-50 px-3 py-3 text-left text-xs font-bold text-teal-800"
-              >
-                <Copy className="h-4 w-4 shrink-0" />
-                <span className="break-all">{inviteLink}</span>
-              </button>
+            {inviteDetails ? (
+              <div className="mt-3 space-y-2 rounded-2xl bg-teal-50 p-3 text-xs font-bold text-teal-800">
+                <p className="break-all">Codigo: {inviteDetails.code}</p>
+                <p className="break-all">Link: {inviteDetails.link}</p>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  <button
+                    type="button"
+                    onClick={() => void navigator.clipboard.writeText(inviteDetails.code)}
+                    className="inline-flex h-9 items-center justify-center gap-2 rounded-xl bg-white px-3"
+                  >
+                    <Copy className="h-4 w-4" />
+                    Codigo
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void navigator.clipboard.writeText(inviteDetails.link)}
+                    className="inline-flex h-9 items-center justify-center gap-2 rounded-xl bg-white px-3"
+                  >
+                    <Copy className="h-4 w-4" />
+                    Link
+                  </button>
+                </div>
+              </div>
             ) : null}
             {inviteError ? (
               <p className="mt-3 rounded-2xl bg-rose-50 px-3 py-2 text-sm font-bold text-rose-700">

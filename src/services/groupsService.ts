@@ -24,6 +24,15 @@ type MembershipWithGroupRow = {
 };
 
 const ACTIVE_GROUP_KEY_PREFIX = 'europa-budget-active-group-v1';
+const PENDING_INVITE_KEY = 'europa-budget-pending-invite-v1';
+const INVITE_PREFIX = 'EUROPA2026';
+
+export type InviteDetails = {
+  code: string;
+  link: string;
+  expiresAt: string;
+  singleUse: boolean;
+};
 
 const toGroup = (row: TravelGroupRow): TravelGroup => ({
   id: row.id,
@@ -67,8 +76,50 @@ export function storeActiveGroupId(userId: string, groupId: string | null) {
   }
 }
 
+export function normalizeInviteToken(value: string) {
+  const trimmed = value.trim();
+  if (!trimmed) return '';
+
+  try {
+    const url = new URL(trimmed);
+    return (url.pathname.split('/').filter(Boolean).at(-1) ?? '').trim().toUpperCase();
+  } catch {
+    return trimmed.split('/').filter(Boolean).at(-1)?.trim().toUpperCase() ?? trimmed.toUpperCase();
+  }
+}
+
+export function storePendingInviteToken(token: string) {
+  const normalizedToken = normalizeInviteToken(token);
+  if (normalizedToken) sessionStorage.setItem(PENDING_INVITE_KEY, normalizedToken);
+}
+
+export function getPendingInviteToken() {
+  return sessionStorage.getItem(PENDING_INVITE_KEY);
+}
+
+export function clearPendingInviteToken() {
+  sessionStorage.removeItem(PENDING_INVITE_KEY);
+}
+
+function generateInviteCode() {
+  const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  const bytes = crypto.getRandomValues(new Uint8Array(4));
+  const suffix = Array.from(bytes, (byte) => alphabet[byte % alphabet.length]).join('');
+  return `${INVITE_PREFIX}-${suffix}`;
+}
+
 export async function claimLegacyTripGroup() {
   const { error } = await supabase.rpc('claim_legacy_trip_group', {
+    default_group_name: 'Viagem Europa',
+    owner_email: 'aperini351@gmail.com',
+  });
+
+  if (error) throw error;
+}
+
+export async function claimOwnerTripGroup() {
+  const { error } = await supabase.rpc('claim_owner_trip_group', {
+    owner_email: 'aperini351@gmail.com',
     default_group_name: 'Viagem Europa',
   });
 
@@ -111,40 +162,45 @@ export async function createGroup(name: string, description?: string): Promise<U
 
   if (error) throw error;
 
-  await supabase.from('group_members').upsert(
-    {
-      group_id: data.id,
-      user_id: userId,
-      role: 'owner',
-    },
-    { onConflict: 'group_id,user_id' },
-  );
-
   return { ...toGroup(data as TravelGroupRow), role: 'owner' };
 }
 
-export async function inviteMember(groupId: string, email?: string) {
+export async function inviteMember(groupId: string, email?: string, singleUse = false): Promise<InviteDetails> {
   const userId = await requireUserId();
-  const token = `${crypto.randomUUID()}${crypto.randomUUID()}`.replaceAll('-', '');
-  const expiresAt = new Date(Date.now() + 1000 * 60 * 60 * 24 * 30).toISOString();
+  const expiresAt = new Date(Date.now() + 1000 * 60 * 60 * 24 * 7).toISOString();
 
-  const { error } = await supabase.from('group_invites').insert({
-    group_id: groupId,
-    email: email?.trim() || null,
-    token,
-    role: 'member',
-    created_by: userId,
-    expires_at: expiresAt,
-  });
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    const code = generateInviteCode();
+    const { error } = await supabase.from('group_invites').insert({
+      group_id: groupId,
+      email: email?.trim() || null,
+      token: code,
+      role: 'member',
+      single_use: singleUse,
+      used: false,
+      used_count: 0,
+      created_by: userId,
+      expires_at: expiresAt,
+    });
 
-  if (error) throw error;
+    if (!error) {
+      return {
+        code,
+        link: `${window.location.origin}/invite/${code}`,
+        expiresAt,
+        singleUse,
+      };
+    }
 
-  return `${window.location.origin}/invite/${token}`;
+    if (error.code !== '23505') throw error;
+  }
+
+  throw new Error('Nao foi possivel gerar um codigo unico. Tente novamente.');
 }
 
 export async function acceptInvite(token: string): Promise<UserTravelGroup> {
   const { data, error } = await supabase.rpc('accept_group_invite', {
-    invite_token: token,
+    invite_token: normalizeInviteToken(token),
   });
 
   if (error) throw error;

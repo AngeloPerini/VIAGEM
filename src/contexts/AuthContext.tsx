@@ -4,14 +4,20 @@ import type { ReactNode } from 'react';
 import {
   getCurrentUser,
   onAuthStateChange,
+  resetPassword,
   signInWithGoogle,
+  signInWithPassword,
   signOut as signOutFromSupabase,
+  signUpWithEmail,
 } from '../services/authService';
 
 type AuthContextValue = {
   user: User | null;
   loading: boolean;
   signIn: () => Promise<void>;
+  signInWithEmail: (email: string, password: string) => Promise<User | null>;
+  signUp: (email: string, password: string) => Promise<User | null>;
+  sendPasswordReset: (email: string) => Promise<void>;
   signOut: () => Promise<void>;
 };
 
@@ -51,6 +57,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       user,
       loading,
       signIn: signInWithGoogle,
+      signInWithEmail: signInWithPassword,
+      signUp: signUpWithEmail,
+      sendPasswordReset: resetPassword,
       signOut: signOutFromSupabase,
     }),
     [loading, user],

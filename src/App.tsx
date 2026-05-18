@@ -15,9 +15,11 @@ import { SummaryCards } from './components/SummaryCards';
 import { useAuth } from './contexts/AuthContext';
 import { useGroup } from './contexts/GroupContext';
 import { categories, initialExpenses } from './data/initialExpenses';
+import { AuthPage } from './pages/AuthPage';
 import { GroupsPage } from './pages/GroupsPage';
-import { LoginPage } from './pages/LoginPage';
+import { InvitePage } from './pages/InvitePage';
 import { AttractionsPage } from './pages/AttractionsPage';
+import { getPendingInviteToken } from './services/groupsService';
 import {
   appendQuoteHistory,
   fetchEuroToBrlQuote,
@@ -75,12 +77,24 @@ function LoadingScreen({ message }: { message: string }) {
 export default function App() {
   const { loading: authLoading, user } = useAuth();
   const { activeGroup, loading: groupLoading } = useGroup();
+  const [inviteRefreshKey, setInviteRefreshKey] = useState(0);
   const inviteToken = getInviteToken();
+  const pendingInviteToken = user ? getPendingInviteToken() : null;
+  const activeInviteToken = inviteToken ?? pendingInviteToken;
 
   if (authLoading) return <LoadingScreen message="Verificando sessao..." />;
-  if (!user) return <LoginPage />;
+  if (!user) return <AuthPage initialInviteCode={inviteToken ?? getPendingInviteToken()} />;
+  if (activeInviteToken) {
+    return (
+      <InvitePage
+        key={`${activeInviteToken}-${inviteRefreshKey}`}
+        token={activeInviteToken}
+        onDone={() => setInviteRefreshKey((current) => current + 1)}
+      />
+    );
+  }
   if (groupLoading) return <LoadingScreen message="Carregando suas viagens..." />;
-  if (!activeGroup || inviteToken) return <GroupsPage inviteToken={inviteToken} />;
+  if (!activeGroup) return <GroupsPage />;
 
   return <TravelWorkspace key={activeGroup.id} groupId={activeGroup.id} />;
 }

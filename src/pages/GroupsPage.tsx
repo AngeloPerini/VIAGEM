@@ -1,27 +1,12 @@
 import { motion } from 'framer-motion';
-import { CheckCircle2, Copy, Link2, Plus, Send, Users } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { CalendarDays, CheckCircle2, Copy, Link2, Plus, Send, Ticket, Users } from 'lucide-react';
+import { useMemo, useState } from 'react';
 import type { FormEvent } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useGroup } from '../contexts/GroupContext';
+import { normalizeInviteToken, type InviteDetails } from '../services/groupsService';
 
-type GroupsPageProps = {
-  inviteToken?: string | null;
-};
-
-const parseInviteToken = (value: string) => {
-  const trimmed = value.trim();
-  if (!trimmed) return '';
-
-  try {
-    const url = new URL(trimmed);
-    return url.pathname.split('/').filter(Boolean).at(-1) ?? '';
-  } catch {
-    return trimmed.split('/').filter(Boolean).at(-1) ?? trimmed;
-  }
-};
-
-export function GroupsPage({ inviteToken }: GroupsPageProps) {
+export function GroupsPage() {
   const { user } = useAuth();
   const {
     activeGroup,
@@ -37,7 +22,8 @@ export function GroupsPage({ inviteToken }: GroupsPageProps) {
   const [description, setDescription] = useState('');
   const [inviteInput, setInviteInput] = useState('');
   const [inviteEmail, setInviteEmail] = useState('');
-  const [generatedInvite, setGeneratedInvite] = useState<string | null>(null);
+  const [singleUseInvite, setSingleUseInvite] = useState(false);
+  const [generatedInvite, setGeneratedInvite] = useState<InviteDetails | null>(null);
   const [status, setStatus] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -46,30 +32,6 @@ export function GroupsPage({ inviteToken }: GroupsPageProps) {
     () => user?.user_metadata?.full_name ?? user?.user_metadata?.name ?? user?.email ?? 'viajante',
     [user],
   );
-
-  useEffect(() => {
-    if (!inviteToken) return;
-
-    let active = true;
-    setStatus('Aceitando convite...');
-    setFormError(null);
-
-    void acceptInvite(inviteToken)
-      .then(() => {
-        if (!active) return;
-        setStatus('Convite aceito. Abrindo a viagem...');
-        window.setTimeout(() => window.location.replace('/'), 650);
-      })
-      .catch((caughtError) => {
-        if (!active) return;
-        setStatus(null);
-        setFormError(caughtError instanceof Error ? caughtError.message : 'Nao foi possivel aceitar o convite.');
-      });
-
-    return () => {
-      active = false;
-    };
-  }, [acceptInvite, inviteToken]);
 
   const handleCreateGroup = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -88,7 +50,7 @@ export function GroupsPage({ inviteToken }: GroupsPageProps) {
 
   const handleAcceptInvite = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    const token = parseInviteToken(inviteInput);
+    const token = normalizeInviteToken(inviteInput);
     if (!token) return;
     setFormError(null);
     setIsSubmitting(true);
@@ -110,8 +72,8 @@ export function GroupsPage({ inviteToken }: GroupsPageProps) {
     setIsSubmitting(true);
 
     try {
-      const link = await inviteMember(inviteEmail);
-      setGeneratedInvite(link);
+      const invite = await inviteMember(inviteEmail, singleUseInvite);
+      setGeneratedInvite(invite);
       setStatus('Convite criado.');
     } catch (caughtError) {
       setFormError(caughtError instanceof Error ? caughtError.message : 'Nao foi possivel criar o convite.');
@@ -235,6 +197,15 @@ export function GroupsPage({ inviteToken }: GroupsPageProps) {
                     className="h-12 w-full rounded-2xl border border-slate-200 px-4 font-semibold outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-100"
                   />
                 </label>
+                <label className="mt-4 flex items-center gap-3 rounded-2xl bg-slate-50 p-4 text-sm font-bold text-slate-700">
+                  <input
+                    type="checkbox"
+                    checked={singleUseInvite}
+                    onChange={(event) => setSingleUseInvite(event.target.checked)}
+                    className="h-5 w-5 accent-teal-600"
+                  />
+                  Convite de uso unico
+                </label>
                 <button
                   type="submit"
                   disabled={isSubmitting}
@@ -244,14 +215,38 @@ export function GroupsPage({ inviteToken }: GroupsPageProps) {
                   Gerar convite
                 </button>
                 {generatedInvite ? (
-                  <button
-                    type="button"
-                    onClick={() => void navigator.clipboard.writeText(generatedInvite)}
-                    className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-teal-50 px-4 py-3 text-sm font-bold text-teal-800"
-                  >
-                    <Copy className="h-4 w-4" />
-                    {generatedInvite}
-                  </button>
+                  <div className="mt-4 space-y-3 rounded-3xl bg-teal-50 p-4 text-sm font-bold text-teal-900">
+                    <div className="flex items-center gap-2">
+                      <Ticket className="h-4 w-4" />
+                      <span className="break-all">{generatedInvite.code}</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-teal-800">
+                      <Link2 className="h-4 w-4" />
+                      <span className="break-all">{generatedInvite.link}</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-teal-700">
+                      <CalendarDays className="h-4 w-4" />
+                      <span>Valido por 7 dias</span>
+                    </div>
+                    <div className="grid gap-2 sm:grid-cols-2">
+                      <button
+                        type="button"
+                        onClick={() => void navigator.clipboard.writeText(generatedInvite.code)}
+                        className="inline-flex h-10 items-center justify-center gap-2 rounded-2xl bg-white px-3 text-teal-800"
+                      >
+                        <Copy className="h-4 w-4" />
+                        Copiar codigo
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => void navigator.clipboard.writeText(generatedInvite.link)}
+                        className="inline-flex h-10 items-center justify-center gap-2 rounded-2xl bg-white px-3 text-teal-800"
+                      >
+                        <Copy className="h-4 w-4" />
+                        Copiar link
+                      </button>
+                    </div>
+                  </div>
                 ) : null}
               </form>
             ) : null}

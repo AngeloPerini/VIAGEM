@@ -40,6 +40,8 @@ create table if not exists public.group_invites (
   token text not null unique,
   role text not null default 'member' check (role in ('owner', 'member')),
   used boolean default false,
+  single_use boolean not null default false,
+  used_count int not null default 0,
   created_by uuid not null references auth.users(id) on delete cascade,
   created_at timestamptz default now(),
   expires_at timestamptz
@@ -48,16 +50,23 @@ create table if not exists public.group_invites (
 -- Existing trip data now belongs to a group and records the authenticated author.
 alter table public.expenses
   add column if not exists group_id uuid references public.travel_groups(id) on delete cascade,
-  add column if not exists created_by uuid references auth.users(id);
+  add column if not exists created_by uuid references auth.users(id),
+  add column if not exists links jsonb default '[]'::jsonb;
 
 alter table public.itinerary_items
   add column if not exists group_id uuid references public.travel_groups(id) on delete cascade,
   add column if not exists created_by uuid references auth.users(id),
-  add column if not exists completed boolean default false;
+  add column if not exists completed boolean default false,
+  add column if not exists links jsonb default '[]'::jsonb;
 
 alter table public.attractions
   add column if not exists group_id uuid references public.travel_groups(id) on delete cascade,
-  add column if not exists created_by uuid references auth.users(id);
+  add column if not exists created_by uuid references auth.users(id),
+  add column if not exists links jsonb default '[]'::jsonb;
+
+alter table public.group_invites
+  add column if not exists single_use boolean not null default false,
+  add column if not exists used_count int not null default 0;
 
 -- Helpful indexes for RLS checks, group queries and Realtime filters.
 create index if not exists travel_groups_owner_id_idx on public.travel_groups(owner_id);
@@ -179,6 +188,7 @@ as $$
 declare
   current_user_id uuid := auth.uid();
   target_invite public.group_invites%rowtype;
+  normalized_token text := upper(trim(invite_token));
 begin
   if current_user_id is null then
     raise exception 'Usuario nao autenticado.';
@@ -187,8 +197,8 @@ begin
   select *
   into target_invite
   from public.group_invites
-  where token = invite_token
-    and used is false
+  where upper(token) = normalized_token
+    and (single_use is false or used is false)
     and (expires_at is null or expires_at > now())
   for update;
 
@@ -205,7 +215,8 @@ begin
     end;
 
   update public.group_invites
-  set used = true
+  set used_count = coalesce(used_count, 0) + 1,
+      used = case when target_invite.single_use then true else false end
   where public.group_invites.id = target_invite.id;
 
   return query
@@ -224,9 +235,12 @@ begin
 end;
 $$;
 
--- Safe legacy migration: the first authenticated user who logs in can claim rows without group_id.
--- No data is deleted and no default rows are duplicated.
-create or replace function public.claim_legacy_trip_group(default_group_name text default 'Viagem Europa')
+-- The owner e-mail has a reserved claim path. If the user already exists, the migration links
+-- Viagem Europa immediately; otherwise this RPC does it on the first login for that e-mail.
+create or replace function public.claim_owner_trip_group(
+  owner_email text default 'aperini351@gmail.com',
+  default_group_name text default 'Viagem Europa'
+)
 returns uuid
 language plpgsql
 security definer
@@ -234,11 +248,98 @@ set search_path = public
 as $$
 declare
   current_user_id uuid := auth.uid();
+  current_email text;
+  default_group_id uuid;
+begin
+  if current_user_id is null then
+    raise exception 'Usuario nao autenticado.';
+  end if;
+
+  select email
+  into current_email
+  from auth.users
+  where id = current_user_id;
+
+  if lower(coalesce(current_email, '')) <> lower(owner_email) then
+    return null;
+  end if;
+
+  select id
+  into default_group_id
+  from public.travel_groups
+  where name = default_group_name
+  order by case when owner_id = current_user_id then 0 else 1 end, created_at asc
+  limit 1;
+
+  if default_group_id is null then
+    insert into public.travel_groups (name, description, owner_id)
+    values (default_group_name, 'Grupo principal vinculado ao proprietario da viagem.', current_user_id)
+    returning id into default_group_id;
+  else
+    update public.travel_groups
+    set owner_id = current_user_id
+    where id = default_group_id;
+  end if;
+
+  update public.group_members
+  set role = 'member'
+  where group_id = default_group_id
+    and user_id <> current_user_id
+    and role = 'owner';
+
+  insert into public.group_members (group_id, user_id, role)
+  values (default_group_id, current_user_id, 'owner')
+  on conflict (group_id, user_id) do update set role = 'owner';
+
+  update public.expenses
+  set group_id = default_group_id,
+      created_by = coalesce(created_by, current_user_id)
+  where group_id is null;
+
+  update public.itinerary_items
+  set group_id = default_group_id,
+      created_by = coalesce(created_by, current_user_id)
+  where group_id is null;
+
+  update public.attractions
+  set group_id = default_group_id,
+      created_by = coalesce(created_by, current_user_id)
+  where group_id is null;
+
+  return default_group_id;
+end;
+$$;
+
+drop function if exists public.claim_legacy_trip_group(text);
+
+-- Safe legacy migration: only the configured owner e-mail can claim rows without group_id.
+-- No data is deleted and no default rows are duplicated.
+create or replace function public.claim_legacy_trip_group(
+  default_group_name text default 'Viagem Europa',
+  owner_email text default 'aperini351@gmail.com'
+)
+returns uuid
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  current_user_id uuid := auth.uid();
+  current_email text;
   default_group_id uuid;
   has_legacy_rows boolean;
 begin
   if current_user_id is null then
     raise exception 'Usuario nao autenticado.';
+  end if;
+
+  select email
+  into current_email
+  from auth.users
+  where id = current_user_id;
+
+  if lower(coalesce(current_email, '')) <> lower(owner_email) then
+    return null;
   end if;
 
   select exists (select 1 from public.expenses where group_id is null)
@@ -287,6 +388,67 @@ begin
 end;
 $$;
 
+-- If the owner account already exists, link the existing trip immediately during migration.
+do $$
+declare
+  owner_email text := 'aperini351@gmail.com';
+  owner_user_id uuid;
+  default_group_id uuid;
+begin
+  select id
+  into owner_user_id
+  from auth.users
+  where lower(email) = lower(owner_email)
+  order by created_at asc
+  limit 1;
+
+  if owner_user_id is null then
+    return;
+  end if;
+
+  select id
+  into default_group_id
+  from public.travel_groups
+  where name = 'Viagem Europa'
+  order by case when owner_id = owner_user_id then 0 else 1 end, created_at asc
+  limit 1;
+
+  if default_group_id is null then
+    insert into public.travel_groups (name, description, owner_id)
+    values ('Viagem Europa', 'Grupo principal vinculado ao proprietario da viagem.', owner_user_id)
+    returning id into default_group_id;
+  else
+    update public.travel_groups
+    set owner_id = owner_user_id
+    where id = default_group_id;
+  end if;
+
+  update public.group_members
+  set role = 'member'
+  where group_id = default_group_id
+    and user_id <> owner_user_id
+    and role = 'owner';
+
+  insert into public.group_members (group_id, user_id, role)
+  values (default_group_id, owner_user_id, 'owner')
+  on conflict (group_id, user_id) do update set role = 'owner';
+
+  update public.expenses
+  set group_id = default_group_id,
+      created_by = coalesce(created_by, owner_user_id)
+  where group_id is null;
+
+  update public.itinerary_items
+  set group_id = default_group_id,
+      created_by = coalesce(created_by, owner_user_id)
+  where group_id is null;
+
+  update public.attractions
+  set group_id = default_group_id,
+      created_by = coalesce(created_by, owner_user_id)
+  where group_id is null;
+end $$;
+
 grant usage on schema public to authenticated;
 grant select, insert, update, delete on public.travel_groups to authenticated;
 grant select, insert, update, delete on public.group_members to authenticated;
@@ -295,7 +457,8 @@ grant select, insert, update, delete on public.expenses to authenticated;
 grant select, insert, update, delete on public.itinerary_items to authenticated;
 grant select, insert, update, delete on public.attractions to authenticated;
 grant execute on function public.accept_group_invite(text) to authenticated;
-grant execute on function public.claim_legacy_trip_group(text) to authenticated;
+grant execute on function public.claim_owner_trip_group(text, text) to authenticated;
+grant execute on function public.claim_legacy_trip_group(text, text) to authenticated;
 grant execute on function public.is_group_member(uuid, uuid) to authenticated;
 grant execute on function public.is_group_owner(uuid, uuid) to authenticated;
 grant execute on function public.try_parse_uuid(text) to authenticated;
@@ -381,18 +544,25 @@ using (public.is_group_member(group_id));
 create policy "Owners can add group members"
 on public.group_members for insert
 to authenticated
-with check (public.is_group_owner(group_id) and role in ('owner', 'member'));
+with check (public.is_group_owner(group_id) and role = 'member');
 
 create policy "Owners can update group members"
 on public.group_members for update
 to authenticated
-using (public.is_group_owner(group_id))
-with check (public.is_group_owner(group_id) and role in ('owner', 'member'));
+using (
+  public.is_group_owner(group_id)
+  and user_id <> (
+    select owner_id
+    from public.travel_groups
+    where public.travel_groups.id = public.group_members.group_id
+  )
+)
+with check (public.is_group_owner(group_id) and role = 'member');
 
 create policy "Owners can delete group members"
 on public.group_members for delete
 to authenticated
-using (public.is_group_owner(group_id));
+using (public.is_group_owner(group_id) and role <> 'owner');
 
 -- group_invites: owners manage invites; logged-in users accept via RPC or mark a known invite as used.
 create policy "Owners can view group invites"

@@ -145,16 +145,28 @@ O app usa Supabase como fonte principal para:
 
 O arquivo `supabase.sql` contem o schema completo para rodar no Supabase SQL Editor:
 
+- tabelas `travel_groups`, `group_members` e `group_invites`
 - tabelas `expenses`, `itinerary_items` e `attractions`
-- colunas incrementais `completed` e `links` com `alter table ... add column if not exists`
+- colunas incrementais `group_id`, `created_by`, `completed` e `links`
 - triggers de `updated_at`
 - RLS ativo
-- policies para `anon`
-- bucket publico `attraction-photos`
-- policies de leitura/upload/update/delete no Storage
+- policies por `auth.uid()` e membership de grupo
+- bucket privado `attraction-photos`
+- policies de leitura/upload/update/delete no Storage por pasta do grupo
+- RPC `accept_group_invite(invite_token text)`
+- RPC `claim_owner_trip_group(...)` para vincular `Viagem Europa` a `aperini351@gmail.com`
 - publicacao das tabelas no Supabase Realtime
 
-Como nao ha autenticacao neste momento, qualquer pessoa com acesso ao site e a chave publica pode ler e alterar os dados. Para uso publico ou compartilhado, recomenda-se adicionar login e policies por usuario futuramente.
+O frontend usa apenas `SUPABASE_URL` e a publishable/anon key. Nunca coloque `service_role`, senha de banco, Google Client Secret ou outros segredos no frontend.
+
+Variaveis publicas aceitas no frontend, caso sejam movidas para `.env` no futuro:
+
+```txt
+VITE_SUPABASE_URL=
+VITE_SUPABASE_ANON_KEY=
+```
+
+O arquivo `.env` ja esta no `.gitignore`; se criar um `.env.example`, mantenha apenas nomes de variaveis e valores ficticios.
 
 O `localStorage` continua como cache/fallback. Se o Supabase estiver indisponivel, o app mostra um aviso discreto e preserva os dados locais sempre que possivel.
 
