@@ -168,6 +168,32 @@ VITE_SUPABASE_ANON_KEY=
 
 O arquivo `.env` ja esta no `.gitignore`; se criar um `.env.example`, mantenha apenas nomes de variaveis e valores ficticios.
 
+### Configurar Google OAuth no Supabase
+
+O erro `Unsupported provider: missing OAuth secret` significa que o Google OAuth ainda nao esta completo no painel do Supabase. O frontend trata esse erro e mantem login por e-mail/senha disponivel, mas o Google so funciona apos esta configuracao manual.
+
+Supabase -> Authentication -> Providers -> Google:
+
+- Enable Sign in with Google: `ON`
+- Client IDs: preencher com o Client ID do Google Cloud
+- Client Secret: preencher com o Client Secret do Google Cloud
+- Salvar as alteracoes
+
+Supabase -> Authentication -> URL Configuration:
+
+- Site URL: `https://viagem-europa-angelo.web.app`
+- Redirect URLs:
+  - `https://viagem-europa-angelo.web.app/**`
+  - `http://localhost:5173/**`
+
+Google Cloud OAuth:
+
+- Authorized JavaScript origins:
+  - `https://viagem-europa-angelo.web.app`
+  - `http://localhost:5173`
+- Authorized redirect URIs:
+  - `https://sgtidxwwimuvcmearbul.supabase.co/auth/v1/callback`
+
 O `localStorage` continua como cache/fallback. Se o Supabase estiver indisponivel, o app mostra um aviso discreto e preserva os dados locais sempre que possivel.
 
 ## Links e horarios

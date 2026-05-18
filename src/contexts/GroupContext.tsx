@@ -28,6 +28,18 @@ type GroupContextValue = {
 
 const GroupContext = createContext<GroupContextValue | undefined>(undefined);
 
+const withTimeout = async <T,>(
+  promise: Promise<T>,
+  timeoutMs: number,
+  message = 'Supabase demorou para responder.',
+): Promise<T> =>
+  Promise.race([
+    promise,
+    new Promise<T>((_, reject) => {
+      window.setTimeout(() => reject(new Error(message)), timeoutMs);
+    }),
+  ]);
+
 export function GroupProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
   const [userGroups, setUserGroups] = useState<UserTravelGroup[]>([]);
@@ -55,18 +67,22 @@ export function GroupProvider({ children }: { children: ReactNode }) {
 
     try {
       try {
-        await claimOwnerTripGroup();
+        await withTimeout(claimOwnerTripGroup(), 8000);
       } catch {
         // The SQL migration may not be applied yet. Loading memberships still gives a useful UI state.
       }
 
       try {
-        await claimLegacyTripGroup();
+        await withTimeout(claimLegacyTripGroup(), 8000);
       } catch {
         // The SQL migration may not be applied yet. Loading memberships still gives a useful UI state.
       }
 
-      const groups = await getUserGroups();
+      const groups = await withTimeout(
+        getUserGroups(),
+        10000,
+        'Nao foi possivel carregar suas viagens agora. Tente novamente em instantes.',
+      );
       const storedGroupId = getStoredActiveGroupId(user.id);
       const selectedGroup =
         groups.find((group) => group.id === activeGroup?.id) ??

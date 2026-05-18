@@ -15,6 +15,10 @@ type AuthPageProps = {
 const friendlyAuthError = (message: string) => {
   const normalized = message.toLowerCase();
 
+  if (normalized.includes('missing oauth secret') || normalized.includes('unsupported provider')) {
+    return 'Login com Google ainda nao esta configurado corretamente. Verifique Client ID e Client Secret no Supabase.';
+  }
+
   if (normalized.includes('invalid login credentials')) {
     return 'E-mail ou senha incorretos.';
   }
@@ -30,6 +34,11 @@ const friendlyAuthError = (message: string) => {
   return message || 'Nao foi possivel concluir a acao agora.';
 };
 
+const getOAuthErrorFromUrl = () => {
+  const params = new URLSearchParams(window.location.search);
+  return params.get('error_description') ?? params.get('error') ?? null;
+};
+
 export function AuthPage({ initialInviteCode }: AuthPageProps) {
   const { sendPasswordReset, signIn, signInWithEmail, signUp } = useAuth();
   const [mode, setMode] = useState<AuthMode>('login');
@@ -40,7 +49,10 @@ export function AuthPage({ initialInviteCode }: AuthPageProps) {
   const [message, setMessage] = useState<string | null>(
     initialInviteCode ? 'Convite detectado. Entre para aceitar automaticamente.' : null,
   );
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(() => {
+    const urlError = getOAuthErrorFromUrl();
+    return urlError ? friendlyAuthError(urlError) : null;
+  });
   const [loadingAction, setLoadingAction] = useState<LoadingAction>(null);
 
   const normalizedInviteCode = useMemo(() => normalizeInviteToken(inviteCode), [inviteCode]);

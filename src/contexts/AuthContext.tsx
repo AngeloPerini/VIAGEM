@@ -23,6 +23,14 @@ type AuthContextValue = {
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
+const withTimeout = async <T,>(promise: Promise<T>, timeoutMs: number): Promise<T> =>
+  Promise.race([
+    promise,
+    new Promise<T>((_, reject) => {
+      window.setTimeout(() => reject(new Error('Tempo limite ao verificar sessao.')), timeoutMs);
+    }),
+  ]);
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
@@ -30,7 +38,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     let active = true;
 
-    void getCurrentUser()
+    void withTimeout(getCurrentUser(), 8000)
       .then((currentUser) => {
         if (active) setUser(currentUser);
       })
