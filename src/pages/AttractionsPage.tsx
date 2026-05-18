@@ -33,6 +33,7 @@ import type {
 import { hasInvalidLinks, normalizeLinks } from '../utils/links';
 
 type AttractionsPageProps = {
+  groupId: string;
   selectedCountry: CountryFilterId;
   onCountryChange: (country: CountryFilterId) => void;
 };
@@ -165,8 +166,8 @@ function AttractionFormModal({
   );
 }
 
-export function AttractionsPage({ selectedCountry, onCountryChange }: AttractionsPageProps) {
-  const cachedAttractions = getCachedAttractions();
+export function AttractionsPage({ groupId, selectedCountry, onCountryChange }: AttractionsPageProps) {
+  const cachedAttractions = getCachedAttractions(groupId);
   const [items, setItems] = useState<Attraction[]>(cachedAttractions.items);
   const [states, setStates] = useState<AttractionStateMap>(cachedAttractions.states);
   const [selectedAttraction, setSelectedAttraction] = useState<Attraction | null>(null);
@@ -178,12 +179,15 @@ export function AttractionsPage({ selectedCountry, onCountryChange }: Attraction
 
   useEffect(() => {
     let active = true;
+    const cached = getCachedAttractions(groupId);
+    setItems(cached.items);
+    setStates(cached.states);
 
     const syncAttractions = async () => {
       try {
         setIsLoading(true);
-        await seedAttractionsIfEmpty();
-        const payload = await getAttractions();
+        await seedAttractionsIfEmpty(groupId);
+        const payload = await getAttractions(groupId);
         if (active) {
           setItems(payload.items);
           setStates(payload.states);
@@ -197,8 +201,8 @@ export function AttractionsPage({ selectedCountry, onCountryChange }: Attraction
     };
 
     void syncAttractions();
-    const channel = subscribeAttractions(() => {
-      void getAttractions()
+    const channel = subscribeAttractions(groupId, () => {
+      void getAttractions(groupId)
         .then((payload) => {
           if (active) {
             setItems(payload.items);
@@ -215,15 +219,15 @@ export function AttractionsPage({ selectedCountry, onCountryChange }: Attraction
       active = false;
       void channel.unsubscribe();
     };
-  }, []);
+  }, [groupId]);
 
   useEffect(() => {
     try {
-      cacheAttractionsFallback({ items, states });
+      cacheAttractionsFallback(groupId, { items, states });
     } catch {
       // Cache failures should not block the Supabase-backed flow.
     }
-  }, [items, states]);
+  }, [groupId, items, states]);
 
   const filteredAttractions = useMemo(
     () =>
@@ -243,7 +247,7 @@ export function AttractionsPage({ selectedCountry, onCountryChange }: Attraction
       [id]: nextState,
     }));
 
-    void updateAttractionVisit(id, nextState.visited).catch(() => {
+    void updateAttractionVisit(groupId, id, nextState.visited).catch(() => {
       setSyncWarning('Nao foi possivel salvar o status no Supabase. Alteracao mantida no cache local.');
     });
   };
@@ -254,8 +258,8 @@ export function AttractionsPage({ selectedCountry, onCountryChange }: Attraction
 
     try {
       const payload = isEditing
-        ? await updateAttraction(attraction, nextState.visited)
-        : await createAttraction(attraction, nextState.visited, items.length);
+        ? await updateAttraction(groupId, attraction.id, attraction, nextState.visited)
+        : await createAttraction(groupId, attraction, nextState.visited, items.length);
       const savedAttraction = payload.items[0];
       const savedState = payload.states[savedAttraction.id];
 
@@ -296,7 +300,7 @@ export function AttractionsPage({ selectedCountry, onCountryChange }: Attraction
     setEditingAttraction(null);
 
     try {
-      await deleteAttraction(id, photoUrl);
+      await deleteAttraction(groupId, id, photoUrl);
       setSyncWarning(null);
     } catch {
       setItems(previousItems);
@@ -309,7 +313,7 @@ export function AttractionsPage({ selectedCountry, onCountryChange }: Attraction
     setUploadingId(id);
 
     try {
-      const photoUrl = await uploadAttractionPhoto(id, file);
+      const photoUrl = await uploadAttractionPhoto(groupId, id, file);
       setStates((current) => ({
         ...current,
         [id]: { ...(current[id] ?? { visited: false }), photo: photoUrl, updatedAt: Date.now() },
@@ -324,7 +328,7 @@ export function AttractionsPage({ selectedCountry, onCountryChange }: Attraction
     setUploadingId(id);
 
     try {
-      await deleteAttractionPhoto(id);
+      await deleteAttractionPhoto(groupId, id);
       setStates((current) => ({
         ...current,
         [id]: { ...(current[id] ?? { visited: false }), photo: undefined, updatedAt: Date.now() },
@@ -339,7 +343,7 @@ export function AttractionsPage({ selectedCountry, onCountryChange }: Attraction
     setIsSaving(true);
 
     try {
-      const payload = await resetAttractionsToDefault();
+      const payload = await resetAttractionsToDefault(groupId);
       setItems(payload.items);
       setStates(payload.states);
       setSyncWarning(null);

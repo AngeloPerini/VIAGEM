@@ -23,7 +23,7 @@ export function Header({ onAdd }: HeaderProps) {
         </h1>
         <p className="mt-4 max-w-2xl text-base leading-7 text-slate-600 md:text-lg">
           Hospedagens, transportes e passeios com valores em euro e real,
-          intervalos de custo e persistencia local no navegador.
+          intervalos de custo e sincronizacao por grupo no Supabase.
         </p>
       </div>
 

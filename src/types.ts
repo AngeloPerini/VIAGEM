@@ -92,3 +92,26 @@ export type AttractionState = {
 };
 
 export type AttractionStateMap = Record<string, AttractionState>;
+
+export type GroupRole = 'owner' | 'member';
+
+export type TravelGroup = {
+  id: string;
+  name: string;
+  description?: string;
+  ownerId: string;
+  createdAt?: string;
+  updatedAt?: string;
+};
+
+export type UserTravelGroup = TravelGroup & {
+  role: GroupRole;
+};
+
+export type GroupMember = {
+  id: string;
+  groupId: string;
+  userId: string;
+  role: GroupRole;
+  createdAt?: string;
+};

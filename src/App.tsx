@@ -12,7 +12,11 @@ import { Navbar, type AppView } from './components/Navbar';
 import { QuotePage } from './components/QuotePage';
 import { QuoteStatusCard } from './components/QuoteStatusCard';
 import { SummaryCards } from './components/SummaryCards';
+import { useAuth } from './contexts/AuthContext';
+import { useGroup } from './contexts/GroupContext';
 import { categories, initialExpenses } from './data/initialExpenses';
+import { GroupsPage } from './pages/GroupsPage';
+import { LoginPage } from './pages/LoginPage';
 import { AttractionsPage } from './pages/AttractionsPage';
 import {
   appendQuoteHistory,
@@ -53,8 +57,36 @@ function loadInitialView(): AppView {
     : 'dashboard';
 }
 
+function getInviteToken() {
+  const [, token] = window.location.pathname.match(/^\/invite\/([^/]+)/) ?? [];
+  return token ? decodeURIComponent(token) : null;
+}
+
+function LoadingScreen({ message }: { message: string }) {
+  return (
+    <main className="flex min-h-screen items-center justify-center bg-[#eef5f3] px-4 text-slate-700">
+      <div className="rounded-[2rem] border border-white/80 bg-white/85 px-6 py-5 text-sm font-black shadow-xl shadow-slate-900/10">
+        {message}
+      </div>
+    </main>
+  );
+}
+
 export default function App() {
-  const [expenses, setExpenses] = useState<Expense[]>(getCachedExpenses);
+  const { loading: authLoading, user } = useAuth();
+  const { activeGroup, loading: groupLoading } = useGroup();
+  const inviteToken = getInviteToken();
+
+  if (authLoading) return <LoadingScreen message="Verificando sessao..." />;
+  if (!user) return <LoginPage />;
+  if (groupLoading) return <LoadingScreen message="Carregando suas viagens..." />;
+  if (!activeGroup || inviteToken) return <GroupsPage inviteToken={inviteToken} />;
+
+  return <TravelWorkspace key={activeGroup.id} groupId={activeGroup.id} />;
+}
+
+function TravelWorkspace({ groupId }: { groupId: string }) {
+  const [expenses, setExpenses] = useState<Expense[]>(() => getCachedExpenses(groupId));
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [activeView, setActiveView] = useState<AppView>(loadInitialView);
@@ -72,12 +104,13 @@ export default function App() {
 
   useEffect(() => {
     let active = true;
+    setExpenses(getCachedExpenses(groupId));
 
     const syncExpenses = async () => {
       try {
         setIsExpenseLoading(true);
-        await seedExpensesIfEmpty();
-        const nextExpenses = await getExpenses();
+        await seedExpensesIfEmpty(groupId);
+        const nextExpenses = await getExpenses(groupId);
         if (active) {
           setExpenses(nextExpenses);
           setExpenseSyncWarning(null);
@@ -92,8 +125,8 @@ export default function App() {
     };
 
     void syncExpenses();
-    const channel = subscribeExpenses(() => {
-      void getExpenses()
+    const channel = subscribeExpenses(groupId, () => {
+      void getExpenses(groupId)
         .then((nextExpenses) => {
           if (active) {
             setExpenses(nextExpenses);
@@ -109,11 +142,11 @@ export default function App() {
       active = false;
       void channel.unsubscribe();
     };
-  }, []);
+  }, [groupId]);
 
   useEffect(() => {
-    cacheExpensesFallback(expenses);
-  }, [expenses]);
+    cacheExpensesFallback(groupId, expenses);
+  }, [expenses, groupId]);
 
   useEffect(() => {
     const syncViewWithHash = () => {
@@ -196,7 +229,9 @@ export default function App() {
     setIsExpenseSaving(true);
 
     try {
-      const savedExpense = isEditing ? await updateExpense(expense) : await createExpense(expense);
+      const savedExpense = isEditing
+        ? await updateExpense(groupId, expense.id, expense)
+        : await createExpense(groupId, expense);
       setExpenses((current) =>
         isEditing
           ? current.map((item) => (item.id === savedExpense.id ? savedExpense : item))
@@ -223,7 +258,7 @@ export default function App() {
     setIsExpenseSaving(true);
 
     try {
-      setExpenses(await resetExpensesToDefault());
+      setExpenses(await resetExpensesToDefault(groupId));
       setExpenseSyncWarning(null);
     } catch {
       setExpenses(initialExpenses);
@@ -240,7 +275,7 @@ export default function App() {
     setExpenses((current) => current.filter((item) => item.id !== id));
 
     try {
-      await deleteExpense(id);
+      await deleteExpense(groupId, id);
       setExpenseSyncWarning(null);
     } catch {
       setExpenses(previousExpenses);
@@ -306,12 +341,14 @@ export default function App() {
           ) : activeView === 'itinerary' ? (
             <ItineraryPage
               key="itinerary"
+              groupId={groupId}
               selectedCountry={itineraryCountryFilter}
               onCountryChange={setItineraryCountryFilter}
             />
           ) : activeView === 'attractions' ? (
             <AttractionsPage
               key="attractions"
+              groupId={groupId}
               selectedCountry={attractionCountryFilter}
               onCountryChange={setAttractionCountryFilter}
             />

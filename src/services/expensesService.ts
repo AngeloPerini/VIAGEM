@@ -1,12 +1,14 @@
 import type { RealtimeChannel } from '@supabase/supabase-js';
-import { STORAGE_KEY } from '../data/initialExpenses';
 import { defaultExpenses } from '../data/defaultExpenses';
+import { STORAGE_KEY } from '../data/initialExpenses';
 import type { CountryId, Expense, LinkItem } from '../types';
 import { normalizeLinks } from '../utils/links';
 import { supabase } from './supabaseClient';
 
 type ExpenseRow = {
   id: string;
+  group_id: string;
+  created_by: string | null;
   category: string;
   country: string;
   description: string;
@@ -19,19 +21,33 @@ type ExpenseRow = {
   created_at?: string;
 };
 
-const fallbackExpenses = () => {
-  const stored = localStorage.getItem(STORAGE_KEY);
-  if (!stored) return defaultExpenses;
+const cacheKey = (groupId: string) => `${STORAGE_KEY}-${groupId}`;
+
+async function getCurrentUserId() {
+  const {
+    data: { user },
+    error,
+  } = await supabase.auth.getUser();
+
+  if (error) throw error;
+  if (!user) throw new Error('Usuario nao autenticado.');
+  return user.id;
+}
+
+const fallbackExpenses = (groupId?: string) => {
+  if (!groupId) return [];
+  const stored = localStorage.getItem(cacheKey(groupId));
+  if (!stored) return [];
 
   try {
     return JSON.parse(stored) as Expense[];
   } catch {
-    return defaultExpenses;
+    return [];
   }
 };
 
-const cacheExpenses = (expenses: Expense[]) => {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(expenses));
+const cacheExpenses = (groupId: string, expenses: Expense[]) => {
+  localStorage.setItem(cacheKey(groupId), JSON.stringify(expenses));
 };
 
 const toExpense = (row: ExpenseRow): Expense => ({
@@ -57,38 +73,50 @@ const toExpensePayload = (expense: Expense) => ({
   links: normalizeLinks(expense.links),
 });
 
-export async function getExpenses() {
+export async function getExpenses(groupId: string) {
   const { data, error } = await supabase
     .from('expenses')
     .select('*')
+    .eq('group_id', groupId)
     .order('created_at', { ascending: true });
 
   if (error) throw error;
 
   const expenses = (data ?? []).map((row) => toExpense(row as ExpenseRow));
-  cacheExpenses(expenses);
+  cacheExpenses(groupId, expenses);
   return expenses;
 }
 
-export async function seedExpensesIfEmpty() {
+export async function seedExpensesIfEmpty(groupId: string) {
+  const userId = await getCurrentUserId();
   const { count, error } = await supabase
     .from('expenses')
-    .select('id', { count: 'exact', head: true });
+    .select('id', { count: 'exact', head: true })
+    .eq('group_id', groupId);
 
   if (error) throw error;
   if ((count ?? 0) > 0) return;
 
-  const { error: insertError } = await supabase
-    .from('expenses')
-    .insert(defaultExpenses.map(toExpensePayload));
+  const { error: insertError } = await supabase.from('expenses').insert(
+    defaultExpenses.map((expense) => ({
+      ...toExpensePayload(expense),
+      group_id: groupId,
+      created_by: userId,
+    })),
+  );
 
   if (insertError) throw insertError;
 }
 
-export async function createExpense(expense: Expense) {
+export async function createExpense(groupId: string, expense: Expense) {
+  const userId = await getCurrentUserId();
   const { data, error } = await supabase
     .from('expenses')
-    .insert(toExpensePayload(expense))
+    .insert({
+      ...toExpensePayload(expense),
+      group_id: groupId,
+      created_by: userId,
+    })
     .select('*')
     .single();
 
@@ -96,11 +124,12 @@ export async function createExpense(expense: Expense) {
   return toExpense(data as ExpenseRow);
 }
 
-export async function updateExpense(expense: Expense) {
+export async function updateExpense(groupId: string, id: string, expense: Expense) {
   const { data, error } = await supabase
     .from('expenses')
     .update(toExpensePayload(expense))
-    .eq('id', expense.id)
+    .eq('group_id', groupId)
+    .eq('id', id)
     .select('*')
     .single();
 
@@ -108,44 +137,50 @@ export async function updateExpense(expense: Expense) {
   return toExpense(data as ExpenseRow);
 }
 
-export async function deleteExpense(id: string) {
-  const { error } = await supabase.from('expenses').delete().eq('id', id);
+export async function deleteExpense(groupId: string, id: string) {
+  const { error } = await supabase.from('expenses').delete().eq('group_id', groupId).eq('id', id);
   if (error) throw error;
 }
 
-export async function resetExpensesToDefault() {
-  const { error: deleteError } = await supabase
-    .from('expenses')
-    .delete()
-    .neq('id', '00000000-0000-0000-0000-000000000000');
+export async function resetExpensesToDefault(groupId: string) {
+  const userId = await getCurrentUserId();
+  const { error: deleteError } = await supabase.from('expenses').delete().eq('group_id', groupId);
 
   if (deleteError) throw deleteError;
 
   const { data, error } = await supabase
     .from('expenses')
-    .insert(defaultExpenses.map(toExpensePayload))
+    .insert(
+      defaultExpenses.map((expense) => ({
+        ...toExpensePayload(expense),
+        group_id: groupId,
+        created_by: userId,
+      })),
+    )
     .select('*');
 
   if (error) throw error;
 
   const expenses = (data ?? []).map((row) => toExpense(row as ExpenseRow));
-  cacheExpenses(expenses);
+  cacheExpenses(groupId, expenses);
   return expenses;
 }
 
-export function getCachedExpenses() {
-  return fallbackExpenses();
+export function getCachedExpenses(groupId?: string) {
+  return fallbackExpenses(groupId);
 }
 
-export function cacheExpensesFallback(expenses: Expense[]) {
-  cacheExpenses(expenses);
+export function cacheExpensesFallback(groupId: string, expenses: Expense[]) {
+  cacheExpenses(groupId, expenses);
 }
 
-export function subscribeExpenses(onChange: () => void): RealtimeChannel {
-  const channel = supabase
-    .channel('expenses-sync')
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'expenses' }, onChange)
+export function subscribeExpenses(groupId: string, onChange: () => void): RealtimeChannel {
+  return supabase
+    .channel(`expenses-sync-${groupId}`)
+    .on(
+      'postgres_changes',
+      { event: '*', schema: 'public', table: 'expenses', filter: `group_id=eq.${groupId}` },
+      onChange,
+    )
     .subscribe();
-
-  return channel;
 }

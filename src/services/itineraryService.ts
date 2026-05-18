@@ -7,6 +7,8 @@ import { supabase } from './supabaseClient';
 
 type ItineraryRow = {
   id: string;
+  group_id: string;
+  created_by: string | null;
   day: string;
   country: string;
   city: string | null;
@@ -19,8 +21,21 @@ type ItineraryRow = {
   order_index: number | null;
 };
 
-const cacheItems = (items: ItineraryItem[]) => {
-  localStorage.setItem(ITINERARY_STORAGE_KEY, JSON.stringify(items));
+const cacheKey = (groupId: string) => `${ITINERARY_STORAGE_KEY}-${groupId}`;
+
+async function getCurrentUserId() {
+  const {
+    data: { user },
+    error,
+  } = await supabase.auth.getUser();
+
+  if (error) throw error;
+  if (!user) throw new Error('Usuario nao autenticado.');
+  return user.id;
+}
+
+const cacheItems = (groupId: string, items: ItineraryItem[]) => {
+  localStorage.setItem(cacheKey(groupId), JSON.stringify(items));
 };
 
 const toItem = (row: ItineraryRow): ItineraryItem => ({
@@ -46,53 +61,66 @@ const toPayload = (item: ItineraryItem, orderIndex?: number) => ({
   type: item.type,
   completed: item.completed ?? false,
   links: normalizeLinks(item.links),
-  order_index: orderIndex,
+  ...(orderIndex === undefined ? {} : { order_index: orderIndex }),
 });
 
-export function getCachedItineraryItems() {
-  const stored = localStorage.getItem(ITINERARY_STORAGE_KEY);
-  if (!stored) return defaultItineraryItems;
+export function getCachedItineraryItems(groupId?: string) {
+  if (!groupId) return [];
+  const stored = localStorage.getItem(cacheKey(groupId));
+  if (!stored) return [];
 
   try {
     return JSON.parse(stored) as ItineraryItem[];
   } catch {
-    return defaultItineraryItems;
+    return [];
   }
 }
 
-export async function getItineraryItems() {
+export async function getItineraryItems(groupId: string) {
   const { data, error } = await supabase
     .from('itinerary_items')
     .select('*')
+    .eq('group_id', groupId)
     .order('order_index', { ascending: true, nullsFirst: false })
     .order('created_at', { ascending: true });
 
   if (error) throw error;
 
   const items = (data ?? []).map((row) => toItem(row as ItineraryRow));
-  cacheItems(items);
+  cacheItems(groupId, items);
   return items;
 }
 
-export async function seedItineraryItemsIfEmpty() {
+export async function seedItineraryItemsIfEmpty(groupId: string) {
+  const userId = await getCurrentUserId();
   const { count, error } = await supabase
     .from('itinerary_items')
-    .select('id', { count: 'exact', head: true });
+    .select('id', { count: 'exact', head: true })
+    .eq('group_id', groupId);
 
   if (error) throw error;
   if ((count ?? 0) > 0) return;
 
-  const { error: insertError } = await supabase
-    .from('itinerary_items')
-    .insert(defaultItineraryItems.map((item, index) => toPayload(item, index)));
+  const { error: insertError } = await supabase.from('itinerary_items').insert(
+    defaultItineraryItems.map((item, index) => ({
+      ...toPayload(item, index),
+      group_id: groupId,
+      created_by: userId,
+    })),
+  );
 
   if (insertError) throw insertError;
 }
 
-export async function createItineraryItem(item: ItineraryItem, orderIndex: number) {
+export async function createItineraryItem(groupId: string, item: ItineraryItem, orderIndex: number) {
+  const userId = await getCurrentUserId();
   const { data, error } = await supabase
     .from('itinerary_items')
-    .insert(toPayload(item, orderIndex))
+    .insert({
+      ...toPayload(item, orderIndex),
+      group_id: groupId,
+      created_by: userId,
+    })
     .select('*')
     .single();
 
@@ -100,11 +128,12 @@ export async function createItineraryItem(item: ItineraryItem, orderIndex: numbe
   return toItem(data as ItineraryRow);
 }
 
-export async function updateItineraryItem(item: ItineraryItem) {
+export async function updateItineraryItem(groupId: string, id: string, item: ItineraryItem) {
   const { data, error } = await supabase
     .from('itinerary_items')
     .update(toPayload(item))
-    .eq('id', item.id)
+    .eq('group_id', groupId)
+    .eq('id', id)
     .select('*')
     .single();
 
@@ -112,43 +141,64 @@ export async function updateItineraryItem(item: ItineraryItem) {
   return toItem(data as ItineraryRow);
 }
 
-export async function updateItineraryItemCompleted(id: string, completed: boolean) {
-  const { error } = await supabase.from('itinerary_items').update({ completed }).eq('id', id);
+export async function updateItineraryItemCompleted(groupId: string, id: string, completed: boolean) {
+  const { error } = await supabase
+    .from('itinerary_items')
+    .update({ completed })
+    .eq('group_id', groupId)
+    .eq('id', id);
+
   if (error) throw error;
 }
 
-export async function deleteItineraryItem(id: string) {
-  const { error } = await supabase.from('itinerary_items').delete().eq('id', id);
+export async function deleteItineraryItem(groupId: string, id: string) {
+  const { error } = await supabase
+    .from('itinerary_items')
+    .delete()
+    .eq('group_id', groupId)
+    .eq('id', id);
+
   if (error) throw error;
 }
 
-export async function resetItineraryToDefault() {
+export async function resetItineraryToDefault(groupId: string) {
+  const userId = await getCurrentUserId();
   const { error: deleteError } = await supabase
     .from('itinerary_items')
     .delete()
-    .neq('id', '00000000-0000-0000-0000-000000000000');
+    .eq('group_id', groupId);
 
   if (deleteError) throw deleteError;
 
   const { data, error } = await supabase
     .from('itinerary_items')
-    .insert(defaultItineraryItems.map((item, index) => toPayload(item, index)))
+    .insert(
+      defaultItineraryItems.map((item, index) => ({
+        ...toPayload(item, index),
+        group_id: groupId,
+        created_by: userId,
+      })),
+    )
     .select('*');
 
   if (error) throw error;
 
   const items = (data ?? []).map((row) => toItem(row as ItineraryRow));
-  cacheItems(items);
+  cacheItems(groupId, items);
   return items;
 }
 
-export function cacheItineraryFallback(items: ItineraryItem[]) {
-  cacheItems(items);
+export function cacheItineraryFallback(groupId: string, items: ItineraryItem[]) {
+  cacheItems(groupId, items);
 }
 
-export function subscribeItineraryItems(onChange: () => void): RealtimeChannel {
+export function subscribeItineraryItems(groupId: string, onChange: () => void): RealtimeChannel {
   return supabase
-    .channel('itinerary-sync')
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'itinerary_items' }, onChange)
+    .channel(`itinerary-sync-${groupId}`)
+    .on(
+      'postgres_changes',
+      { event: '*', schema: 'public', table: 'itinerary_items', filter: `group_id=eq.${groupId}` },
+      onChange,
+    )
     .subscribe();
 }

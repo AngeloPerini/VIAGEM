@@ -41,6 +41,7 @@ import { LinksMenu } from './LinksMenu';
 import { TimeField } from './TimeField';
 
 type ItineraryPageProps = {
+  groupId: string;
   selectedCountry: CountryFilterId;
   onCountryChange: (country: CountryFilterId) => void;
 };
@@ -224,8 +225,8 @@ function ItineraryFormModal({
   );
 }
 
-export function ItineraryPage({ selectedCountry, onCountryChange }: ItineraryPageProps) {
-  const [items, setItems] = useState<ItineraryItem[]>(getCachedItineraryItems);
+export function ItineraryPage({ groupId, selectedCountry, onCountryChange }: ItineraryPageProps) {
+  const [items, setItems] = useState<ItineraryItem[]>(() => getCachedItineraryItems(groupId));
   const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
   const [editingItem, setEditingItem] = useState<ItineraryItem | null>(null);
   const [syncWarning, setSyncWarning] = useState<string | null>(null);
@@ -234,12 +235,13 @@ export function ItineraryPage({ selectedCountry, onCountryChange }: ItineraryPag
 
   useEffect(() => {
     let active = true;
+    setItems(getCachedItineraryItems(groupId));
 
     const syncItems = async () => {
       try {
         setIsLoading(true);
-        await seedItineraryItemsIfEmpty();
-        const nextItems = await getItineraryItems();
+        await seedItineraryItemsIfEmpty(groupId);
+        const nextItems = await getItineraryItems(groupId);
         if (active) {
           setItems(nextItems);
           setSyncWarning(null);
@@ -252,8 +254,8 @@ export function ItineraryPage({ selectedCountry, onCountryChange }: ItineraryPag
     };
 
     void syncItems();
-    const channel = subscribeItineraryItems(() => {
-      void getItineraryItems()
+    const channel = subscribeItineraryItems(groupId, () => {
+      void getItineraryItems(groupId)
         .then((nextItems) => {
           if (active) {
             setItems(nextItems);
@@ -269,11 +271,11 @@ export function ItineraryPage({ selectedCountry, onCountryChange }: ItineraryPag
       active = false;
       void channel.unsubscribe();
     };
-  }, []);
+  }, [groupId]);
 
   useEffect(() => {
-    cacheItineraryFallback(items);
-  }, [items]);
+    cacheItineraryFallback(groupId, items);
+  }, [groupId, items]);
 
   const filteredItems = useMemo(
     () =>
@@ -300,8 +302,8 @@ export function ItineraryPage({ selectedCountry, onCountryChange }: ItineraryPag
 
     try {
       const savedItem = isEditing
-        ? await updateItineraryItem(item)
-        : await createItineraryItem(item, items.length);
+        ? await updateItineraryItem(groupId, item.id, item)
+        : await createItineraryItem(groupId, item, items.length);
       setItems((current) =>
         isEditing
           ? current.map((currentItem) => (currentItem.id === savedItem.id ? savedItem : currentItem))
@@ -327,7 +329,7 @@ export function ItineraryPage({ selectedCountry, onCountryChange }: ItineraryPag
     setItems((current) => current.filter((currentItem) => currentItem.id !== id));
 
     try {
-      await deleteItineraryItem(id);
+      await deleteItineraryItem(groupId, id);
       setSyncWarning(null);
     } catch {
       setItems(previousItems);
@@ -345,7 +347,7 @@ export function ItineraryPage({ selectedCountry, onCountryChange }: ItineraryPag
     );
 
     try {
-      await updateItineraryItemCompleted(item.id, completed);
+      await updateItineraryItemCompleted(groupId, item.id, completed);
       setSyncWarning(null);
     } catch {
       setItems(previousItems);
@@ -357,7 +359,7 @@ export function ItineraryPage({ selectedCountry, onCountryChange }: ItineraryPag
     setIsSaving(true);
 
     try {
-      setItems(await resetItineraryToDefault());
+      setItems(await resetItineraryToDefault(groupId));
       setSyncWarning(null);
     } catch {
       setItems(itineraryItems);
