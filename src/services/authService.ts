@@ -4,13 +4,7 @@ import { supabase } from './supabaseClient';
 type AuthStateCallback = (user: User | null, session: Session | null, event: AuthChangeEvent) => void;
 
 export const getAuthRedirectUrl = () => {
-  const origin = window.location.origin;
-
-  if (origin.includes('localhost')) {
-    return 'http://localhost:5173/auth/callback';
-  }
-
-  return 'https://viagem-europa-angelo.web.app/auth/callback';
+  return import.meta.env.VITE_AUTH_REDIRECT_URL || 'https://viagem-europa-angelo.web.app/auth/callback';
 };
 export async function signInWithGoogle() {
   const { error } = await supabase.auth.signInWithOAuth({

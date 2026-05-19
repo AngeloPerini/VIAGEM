@@ -164,6 +164,7 @@ Variaveis publicas aceitas no frontend, caso sejam movidas para `.env` no futuro
 ```txt
 VITE_SUPABASE_URL=
 VITE_SUPABASE_ANON_KEY=
+VITE_AUTH_REDIRECT_URL=https://viagem-europa-angelo.web.app/auth/callback
 ```
 
 O arquivo `.env` ja esta no `.gitignore`; se criar um `.env.example`, mantenha apenas nomes de variaveis e valores ficticios.
@@ -199,6 +200,8 @@ A function valida o JWT do usuario, confirma participacao no `group_members`, ap
 
 O erro `Unsupported provider: missing OAuth secret` significa que o Google OAuth ainda nao esta completo no painel do Supabase. O frontend trata esse erro e mantem login por e-mail/senha disponivel, mas o Google so funciona apos esta configuracao manual.
 
+O dominio tecnico `sgtidxwwimuvcmearbul.supabase.co` e o endpoint publico do Auth/API do Supabase. Ele nao e `service_role`, nao e segredo e nao concede acesso administrativo. Para que a tela do Google mostre uma marca profissional, configure o **OAuth Consent Screen** do Google com o nome do app, logo, dominio e e-mail de suporte. Para ocultar totalmente o dominio tecnico tambem no endpoint de Auth, configure um Custom Domain no Supabase/Auth e atualize `VITE_SUPABASE_URL` para esse dominio publico.
+
 Supabase -> Authentication -> Providers -> Google:
 
 - Enable Sign in with Google: `ON`
@@ -212,16 +215,24 @@ Supabase -> Authentication -> URL Configuration:
 - Redirect URLs:
   - `https://viagem-europa-angelo.web.app/**`
   - `https://viagem-europa-angelo.web.app/auth/callback`
-  - `http://localhost:5173/**`
-  - `http://localhost:5173/auth/callback`
+- Remover entradas locais antigas de desenvolvimento antes de validar producao.
 
 Google Cloud OAuth:
 
 - Authorized JavaScript origins:
   - `https://viagem-europa-angelo.web.app`
-  - `http://localhost:5173`
 - Authorized redirect URIs:
   - `https://sgtidxwwimuvcmearbul.supabase.co/auth/v1/callback`
+
+Google Cloud -> OAuth Consent Screen:
+
+- App name: `Controle de Viagem`
+- App logo: usar o logo/favicon do projeto
+- App domain: `https://viagem-europa-angelo.web.app`
+- Authorized domains: `viagem-europa-angelo.web.app`
+- Support email: e-mail de suporte do projeto
+
+No frontend, `signInWithOAuth` envia `redirectTo` para `https://viagem-europa-angelo.web.app/auth/callback`.
 
 O `localStorage` continua como cache/fallback. Se o Supabase estiver indisponivel, o app mostra um aviso discreto e preserva os dados locais sempre que possivel.
 
