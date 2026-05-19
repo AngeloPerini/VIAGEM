@@ -1,4 +1,4 @@
-# Europa Budget
+# Controle de Viagem
 
 Dashboard responsivo para controlar os gastos da viagem Europa, com valores em euro e real, intervalos de custo, grafico por categoria e sincronizacao via Supabase.
 
@@ -197,6 +197,10 @@ Google Cloud OAuth:
   - `https://sgtidxwwimuvcmearbul.supabase.co/auth/v1/callback`
 
 O `localStorage` continua como cache/fallback. Se o Supabase estiver indisponivel, o app mostra um aviso discreto e preserva os dados locais sempre que possivel.
+
+### Perfil do usuario
+
+A pagina `/perfil` usa a migration `supabase/migrations/profile_page_setup.sql` para criar `profiles`, sincronizar nome/avatar/e-mail do Supabase Auth e proteger a leitura por grupo. Rode essa migration no Supabase para habilitar a lista completa de membros com avatar e e-mail.
 
 ## Links e horarios
 

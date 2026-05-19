@@ -18,6 +18,12 @@ type GroupMemberRow = {
   created_at?: string;
 };
 
+type GroupInviteRow = {
+  token: string;
+  expires_at: string | null;
+  single_use: boolean | null;
+};
+
 type MembershipWithGroupRow = {
   role: string;
   travel_groups: TravelGroupRow | TravelGroupRow[] | null;
@@ -198,6 +204,26 @@ export async function inviteMember(groupId: string, email?: string, singleUse = 
   throw new Error('Nao foi possivel gerar um codigo unico. Tente novamente.');
 }
 
+export const createInvite = inviteMember;
+
+export async function getInvites(groupId: string): Promise<InviteDetails[]> {
+  const { data, error } = await supabase
+    .from('group_invites')
+    .select('token, expires_at, single_use')
+    .eq('group_id', groupId)
+    .order('created_at', { ascending: false })
+    .limit(8);
+
+  if (error) throw error;
+
+  return ((data ?? []) as GroupInviteRow[]).map((invite) => ({
+    code: invite.token,
+    link: `${window.location.origin}/invite/${invite.token}`,
+    expiresAt: invite.expires_at ?? '',
+    singleUse: invite.single_use ?? false,
+  }));
+}
+
 export async function acceptInvite(token: string): Promise<UserTravelGroup> {
   const { data, error } = await supabase.rpc('accept_group_invite', {
     invite_token: normalizeInviteToken(token),
@@ -238,3 +264,5 @@ export async function removeGroupMember(groupId: string, userId: string) {
 
   if (error) throw error;
 }
+
+export const removeMember = removeGroupMember;

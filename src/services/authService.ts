@@ -126,6 +126,16 @@ export async function getCurrentUser() {
   return user;
 }
 
+export async function getCurrentSession() {
+  const {
+    data: { session },
+    error,
+  } = await supabase.auth.getSession();
+
+  if (error) throw error;
+  return session;
+}
+
 export function onAuthStateChange(callback: AuthStateCallback): Subscription {
   const {
     data: { subscription },

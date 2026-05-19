@@ -115,3 +115,26 @@ export type GroupMember = {
   role: GroupRole;
   createdAt?: string;
 };
+
+export type UserProfile = {
+  id: string;
+  email?: string;
+  fullName?: string;
+  avatarUrl?: string;
+  createdAt?: string;
+  updatedAt?: string;
+};
+
+export type GroupMemberProfile = GroupMember & {
+  profile?: UserProfile | null;
+};
+
+export type UserStats = {
+  countriesCount: number;
+  travelCount: number;
+  hasActiveTrip: boolean;
+  totalAllReal: CurrencyRange;
+  totalAllEuro: CurrencyRange;
+  totalActiveReal: CurrencyRange;
+  totalActiveEuro: CurrencyRange;
+};

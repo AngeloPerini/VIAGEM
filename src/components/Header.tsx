@@ -16,7 +16,7 @@ export function Header({ onAdd }: HeaderProps) {
       <div className="max-w-3xl">
         <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-teal-200 bg-teal-50 px-3 py-1 text-sm font-semibold text-teal-800">
           <Plane className="h-4 w-4" />
-          Europa Budget
+          Controle de Viagem
         </div>
         <h1 className="text-4xl font-black tracking-tight text-slate-950 md:text-6xl">
           Controle premium dos gastos da viagem.

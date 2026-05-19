@@ -19,6 +19,7 @@ import { AuthPage } from './pages/AuthPage';
 import { GroupsPage } from './pages/GroupsPage';
 import { InvitePage } from './pages/InvitePage';
 import { AttractionsPage } from './pages/AttractionsPage';
+import { ProfilePage } from './pages/ProfilePage';
 import { getPendingInviteToken } from './services/groupsService';
 import {
   appendQuoteHistory,
@@ -53,8 +54,12 @@ import {
 } from './utils/money';
 
 function loadInitialView(): AppView {
+  const path = window.location.pathname;
+  if (path === '/perfil' || path === '/profile') return 'profile';
+  if (path === '/dashboard' || path === '/groups' || path === '/auth/callback') return 'dashboard';
+
   const hash = window.location.hash.replace('#', '');
-  return hash === 'expenses' || hash === 'itinerary' || hash === 'attractions' || hash === 'quote'
+  return hash === 'expenses' || hash === 'itinerary' || hash === 'attractions' || hash === 'quote' || hash === 'profile'
     ? hash
     : 'dashboard';
 }
@@ -82,12 +87,19 @@ export default function App() {
   const pendingInviteToken = user ? getPendingInviteToken() : null;
   const activeInviteToken = inviteToken ?? pendingInviteToken;
   const isAuthCallback = window.location.pathname === '/auth/callback';
+  const isGroupsRoute = window.location.pathname === '/groups';
 
   useEffect(() => {
-    if (!authLoading && user && isAuthCallback && !activeInviteToken) {
-      window.history.replaceState({}, '', '/');
+    if (!authLoading && user && !groupLoading && isAuthCallback && !activeInviteToken) {
+      window.history.replaceState({}, '', activeGroup ? '/dashboard' : '/groups');
     }
-  }, [activeInviteToken, authLoading, isAuthCallback, user]);
+  }, [activeGroup, activeInviteToken, authLoading, groupLoading, isAuthCallback, user]);
+
+  useEffect(() => {
+    if (!authLoading && user && !groupLoading && !activeGroup && !activeInviteToken && !isGroupsRoute) {
+      window.history.replaceState({}, '', '/groups');
+    }
+  }, [activeGroup, activeInviteToken, authLoading, groupLoading, isGroupsRoute, user]);
 
   if (authLoading && !user) return <LoadingScreen message="Verificando sessao..." />;
   if (!user) return <AuthPage initialInviteCode={inviteToken ?? getPendingInviteToken()} />;
@@ -170,12 +182,16 @@ function TravelWorkspace({ groupId }: { groupId: string }) {
   }, [expenses, groupId]);
 
   useEffect(() => {
-    const syncViewWithHash = () => {
+    const syncViewWithLocation = () => {
       setActiveView(loadInitialView());
     };
 
-    window.addEventListener('hashchange', syncViewWithHash);
-    return () => window.removeEventListener('hashchange', syncViewWithHash);
+    window.addEventListener('hashchange', syncViewWithLocation);
+    window.addEventListener('popstate', syncViewWithLocation);
+    return () => {
+      window.removeEventListener('hashchange', syncViewWithLocation);
+      window.removeEventListener('popstate', syncViewWithLocation);
+    };
   }, []);
 
   const refreshQuote = async () => {
@@ -316,7 +332,13 @@ function TravelWorkspace({ groupId }: { groupId: string }) {
 
   const handleNavigate = (view: AppView) => {
     setActiveView(view);
-    window.location.hash = view === 'dashboard' ? '' : view;
+    const nextUrl =
+      view === 'profile'
+        ? '/perfil'
+        : view === 'dashboard'
+          ? '/dashboard'
+          : `/#${view}`;
+    window.history.pushState({}, '', nextUrl);
   };
 
   const tables = (
@@ -350,7 +372,9 @@ function TravelWorkspace({ groupId }: { groupId: string }) {
         <Navbar activeView={activeView} onNavigate={handleNavigate} />
 
         <AnimatePresence mode="wait">
-          {activeView === 'quote' ? (
+          {activeView === 'profile' ? (
+            <ProfilePage key="profile" />
+          ) : activeView === 'quote' ? (
             <QuotePage
               key="quote"
               quote={quote}

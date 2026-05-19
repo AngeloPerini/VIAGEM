@@ -2,6 +2,7 @@ import type { User } from '@supabase/supabase-js';
 import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import {
+  getCurrentSession,
   getCurrentUser,
   onAuthStateChange,
   resetPassword,
@@ -10,6 +11,7 @@ import {
   signOut as signOutFromSupabase,
   signUpWithEmail,
 } from '../services/authService';
+import { upsertCurrentProfile } from '../services/profileService';
 
 type AuthContextValue = {
   user: User | null;
@@ -40,15 +42,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const initialLoadDoneRef = useRef(false);
   const refreshInFlightRef = useRef(false);
 
+  const applyUser = (nextUser: User | null) => {
+    setUser(nextUser);
+    if (nextUser) {
+      void upsertCurrentProfile(nextUser).catch(() => {
+        // Profile support may not be migrated yet; auth should continue working.
+      });
+    }
+  };
+
   useEffect(() => {
     let active = true;
 
-    void withTimeout(getCurrentUser(), 8000)
-      .then((currentUser) => {
-        if (active) setUser(currentUser);
+    void withTimeout(getCurrentSession(), 10000)
+      .then((session) => {
+        if (active) applyUser(session?.user ?? null);
       })
       .catch(() => {
-        if (active) setUser(null);
+        if (active) applyUser(null);
       })
       .finally(() => {
         initialLoadDoneRef.current = true;
@@ -62,7 +73,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       try {
         const currentUser = await withTimeout(getCurrentUser(), 8000);
-        if (active) setUser(currentUser);
+        if (active) applyUser(currentUser);
       } catch {
         // Keep the current UI visible on transient network/auth refresh failures.
       } finally {
@@ -76,7 +87,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
 
     const subscription = onAuthStateChange((nextUser, _session, event) => {
-      setUser(nextUser);
+      applyUser(nextUser);
       if (event === 'SIGNED_OUT') {
         initialLoadDoneRef.current = true;
         setInitialLoading(false);
