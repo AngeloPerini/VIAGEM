@@ -30,8 +30,8 @@ import {
 } from '../services/profileService';
 import { getInvites, normalizeInviteToken, type InviteDetails } from '../services/groupsService';
 import { supabase } from '../services/supabaseClient';
-import { generateTripPlan, storeTripAIReview } from '../services/tripAIService';
-import type { GroupMemberProfile, TripAIInput, TripStyle, UserProfile, UserStats } from '../types';
+import { generateTripPlan, storeTripAIReview, TripAIFunctionError } from '../services/tripAIService';
+import type { GroupMemberProfile, TripAIInput, TripAIPlan, TripStyle, UserProfile, UserStats, UserTravelGroup } from '../types';
 import { formatRange } from '../utils/money';
 
 const emptyStats: UserStats = {
@@ -115,6 +115,8 @@ export function ProfilePage() {
   const [isInviting, setIsInviting] = useState(false);
   const [isCreatingTrip, setIsCreatingTrip] = useState(false);
   const [isGeneratingAI, setIsGeneratingAI] = useState(false);
+  const [aiFailedGroup, setAiFailedGroup] = useState<UserTravelGroup | null>(null);
+  const [aiRetryInput, setAiRetryInput] = useState<TripAIInput | null>(null);
   const [isJoiningTrip, setIsJoiningTrip] = useState(false);
   const [removingUserId, setRemovingUserId] = useState<string | null>(null);
 
@@ -152,7 +154,7 @@ export function ProfilePage() {
       .map((country) => country.trim())
       .filter(Boolean);
 
-  const goToAIReview = (input: TripAIInput, group: Awaited<ReturnType<typeof createGroup>>, plan: Awaited<ReturnType<typeof generateTripPlan>>) => {
+  const goToAIReview = (input: TripAIInput, group: UserTravelGroup, plan: TripAIPlan) => {
     storeTripAIReview({
       group,
       input,
@@ -161,6 +163,37 @@ export function ProfilePage() {
     });
     window.history.pushState({}, '', '/trip-ai-review');
     window.dispatchEvent(new PopStateEvent('popstate'));
+  };
+
+  const formatAIError = (caughtError: unknown) => {
+    if (caughtError instanceof TripAIFunctionError) {
+      const details = [
+        caughtError.code,
+        caughtError.status ? `HTTP ${caughtError.status}` : null,
+      ].filter(Boolean).join(' / ');
+
+      return details ? `${caughtError.message} (${details})` : caughtError.message;
+    }
+
+    return caughtError instanceof Error ? caughtError.message : 'Nao foi possivel gerar a previa com IA.';
+  };
+
+  const buildAIInput = (group: UserTravelGroup, countries: string[]): TripAIInput => ({
+    tripName: tripName.trim() || group.name,
+    countries,
+    description: tripDescription,
+    startDate: tripStartDate,
+    endDate: tripEndDate,
+    style: tripStyle as TripStyle,
+    notes: tripNotes,
+    groupId: group.id,
+  });
+
+  const openAIReview = async (input: TripAIInput, group: UserTravelGroup) => {
+    const plan = await generateTripPlan(input);
+    setAiFailedGroup(null);
+    setAiRetryInput(null);
+    goToAIReview(input, group, plan);
   };
 
   const loadProfile = useCallback(async () => {
@@ -277,12 +310,15 @@ export function ProfilePage() {
     setError(null);
     setStatus(null);
     setIsGeneratingAI(true);
+    let groupForRetry: UserTravelGroup | null = activeGroup;
+    let inputForRetry: TripAIInput | null = null;
 
     try {
       const countries = parsedTripCountries();
       if (!countries.length) throw new Error('Informe os paises antes de gerar a previa com IA.');
       if (!tripStartDate || !tripEndDate) throw new Error('Informe as datas da viagem antes de gerar a previa com IA.');
-      const group = await createGroup({
+
+      const group = activeGroup ?? await createGroup({
         name: tripName,
         description: tripDescription,
         countries,
@@ -291,21 +327,23 @@ export function ProfilePage() {
         travelStyle: tripStyle,
         notes: tripNotes,
       });
-      const input: TripAIInput = {
-        tripName,
-        countries,
-        description: tripDescription,
-        startDate: tripStartDate,
-        endDate: tripEndDate,
-        style: tripStyle as TripStyle,
-        notes: tripNotes,
-        groupId: group.id,
-      };
-      const plan = await generateTripPlan(input);
-      goToAIReview(input, group, plan);
+
+      groupForRetry = group;
+      inputForRetry = buildAIInput(group, countries);
+      await refreshGroups({ silent: true }).catch(() => null);
+      await openAIReview(inputForRetry, group);
     } catch (caughtError) {
+      console.error('Falha no fluxo Gerar previa com IA', {
+        groupId: groupForRetry?.id,
+        input: inputForRetry,
+        error: caughtError,
+      });
+      if (groupForRetry && inputForRetry) {
+        setAiFailedGroup(groupForRetry);
+        setAiRetryInput(inputForRetry);
+      }
       await loadProfile().catch(() => null);
-      setError(caughtError instanceof Error ? caughtError.message : 'Nao foi possivel gerar a previa com IA.');
+      setError(formatAIError(caughtError));
     } finally {
       setIsGeneratingAI(false);
     }
@@ -333,14 +371,60 @@ export function ProfilePage() {
         notes: activeGroup.notes ?? '',
         groupId: activeGroup.id,
       };
-      const plan = await generateTripPlan(input);
-      goToAIReview(input, activeGroup, plan);
+      await openAIReview(input, activeGroup);
     } catch (caughtError) {
+      console.error('Falha ao gerar previa com IA para viagem ativa', {
+        groupId: activeGroup.id,
+        error: caughtError,
+      });
+      setAiFailedGroup(activeGroup);
+      setAiRetryInput({
+        tripName: activeGroup.name,
+        countries: activeGroup.countries?.length ? activeGroup.countries : ['Europa'],
+        description: activeGroup.description ?? '',
+        startDate: activeGroup.startDate ?? '',
+        endDate: activeGroup.endDate ?? '',
+        style: (activeGroup.travelStyle as TripStyle | undefined) ?? 'intermediaria',
+        notes: activeGroup.notes ?? '',
+        groupId: activeGroup.id,
+      });
       await loadProfile().catch(() => null);
-      setError(caughtError instanceof Error ? caughtError.message : 'Nao foi possivel gerar a previa com IA.');
+      setError(formatAIError(caughtError));
     } finally {
       setIsGeneratingAI(false);
     }
+  };
+
+  const handleRetryAI = async () => {
+    if (!aiFailedGroup || !aiRetryInput) return;
+
+    setError(null);
+    setStatus(null);
+    setIsGeneratingAI(true);
+
+    try {
+      await openAIReview(aiRetryInput, aiFailedGroup);
+    } catch (caughtError) {
+      console.error('Falha ao tentar gerar novamente a previa com IA', {
+        groupId: aiFailedGroup.id,
+        input: aiRetryInput,
+        error: caughtError,
+      });
+      await loadProfile().catch(() => null);
+      setError(formatAIError(caughtError));
+    } finally {
+      setIsGeneratingAI(false);
+    }
+  };
+
+  const handleContinueWithoutAI = async () => {
+    setAiFailedGroup(null);
+    setAiRetryInput(null);
+    setError(null);
+    setStatus('Voce pode continuar preenchendo sua viagem manualmente.');
+    await refreshGroups({ silent: true }).catch(() => null);
+    window.history.replaceState({}, '', '/dashboard');
+    window.dispatchEvent(new PopStateEvent('popstate'));
   };
 
   const handleAcceptInvite = async (event: FormEvent<HTMLFormElement>) => {
@@ -444,6 +528,38 @@ export function ProfilePage() {
         <p className="rounded-2xl border border-white/80 bg-white/85 px-4 py-3 text-sm font-bold text-slate-600 shadow-lg shadow-slate-900/5">
           {isLoading ? 'Carregando perfil...' : error ?? status}
         </p>
+      ) : null}
+
+      {aiFailedGroup && aiRetryInput ? (
+        <section className="rounded-[2rem] border border-amber-200 bg-amber-50 p-5 shadow-xl shadow-amber-900/10 md:p-6">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <p className="text-sm font-black uppercase tracking-[0.16em] text-amber-700">IA nao concluiu</p>
+              <h2 className="mt-1 text-2xl font-black text-slate-950">A viagem foi criada e continua salva.</h2>
+              <p className="mt-2 text-sm font-bold leading-6 text-amber-900">
+                Voce pode tentar gerar a previa novamente para {aiFailedGroup.name} ou seguir sem IA e preencher os dados manualmente.
+              </p>
+            </div>
+            <div className="grid gap-2 sm:grid-cols-2 lg:min-w-[25rem]">
+              <button
+                type="button"
+                onClick={() => void handleRetryAI()}
+                disabled={isGeneratingAI || aiGenerationBlocked}
+                className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl bg-teal-700 px-5 font-black text-white transition hover:bg-teal-800 disabled:cursor-not-allowed disabled:opacity-70"
+              >
+                {isGeneratingAI ? <Loader2 className="h-5 w-5 animate-spin" /> : <Sparkles className="h-5 w-5" />}
+                Tentar gerar IA novamente
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleContinueWithoutAI()}
+                className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl bg-white px-5 font-black text-amber-900 transition hover:bg-amber-100"
+              >
+                Continuar sem IA
+              </button>
+            </div>
+          </div>
+        </section>
       ) : null}
 
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">

@@ -37,6 +37,8 @@ type MembershipWithGroupRow = {
 const ACTIVE_GROUP_KEY_PREFIX = 'europa-budget-active-group-v1';
 const PENDING_INVITE_KEY = 'europa-budget-pending-invite-v1';
 const INVITE_PREFIXES = ['EUROPA', 'VIAGEM'];
+const GROUP_SELECT =
+  'id, name, description, owner_id, countries, start_date, end_date, travel_style, notes, created_at, updated_at';
 
 export type InviteDetails = {
   code: string;
@@ -173,14 +175,43 @@ const normalizeCreateGroupInput = (
     ? { name: input, description }
     : input;
 
+const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+async function findLatestOwnedGroup(userId: string, groupName: string): Promise<UserTravelGroup | null> {
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    const { data, error } = await supabase
+      .from('travel_groups')
+      .select(GROUP_SELECT)
+      .eq('owner_id', userId)
+      .eq('name', groupName)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (error) throw error;
+    if (data) return { ...toGroup(data as TravelGroupRow), role: 'owner' };
+
+    await wait(200);
+  }
+
+  const groups = await getUserGroups();
+  return groups
+    .filter((group) => group.ownerId === userId && group.name === groupName)
+    .sort((a, b) => new Date(b.createdAt ?? 0).getTime() - new Date(a.createdAt ?? 0).getTime())[0] ?? null;
+}
+
 export async function createGroup(
   input: string | CreateTravelGroupInput,
   description?: string,
 ): Promise<UserTravelGroup> {
   const userId = await requireUserId();
   const groupInput = normalizeCreateGroupInput(input, description);
+  const trimmedName = groupInput.name.trim();
+
+  if (!trimmedName) throw new Error('Informe o nome da viagem.');
+
   const extendedPayload = {
-    name: groupInput.name.trim(),
+    name: trimmedName,
     description: groupInput.description?.trim() || null,
     owner_id: userId,
     countries: groupInput.countries ?? [],
@@ -190,11 +221,7 @@ export async function createGroup(
     notes: groupInput.notes?.trim() || null,
   };
 
-  const { data, error } = await supabase
-    .from('travel_groups')
-    .insert(extendedPayload)
-    .select('id, name, description, owner_id, countries, start_date, end_date, travel_style, notes, created_at, updated_at')
-    .single();
+  const { error } = await supabase.from('travel_groups').insert(extendedPayload);
 
   if (error) {
     const missingExtendedColumns =
@@ -206,21 +233,21 @@ export async function createGroup(
 
     if (!missingExtendedColumns) throw error;
 
-    const { data: fallbackData, error: fallbackError } = await supabase
-      .from('travel_groups')
-      .insert({
-        name: groupInput.name.trim(),
-        description: groupInput.description?.trim() || null,
-        owner_id: userId,
-      })
-      .select('id, name, description, owner_id, created_at, updated_at')
-      .single();
+    const { error: fallbackError } = await supabase.from('travel_groups').insert({
+      name: trimmedName,
+      description: groupInput.description?.trim() || null,
+      owner_id: userId,
+    });
 
     if (fallbackError) throw fallbackError;
-    return { ...toGroup(fallbackData as TravelGroupRow), role: 'owner' };
   }
 
-  return { ...toGroup(data as TravelGroupRow), role: 'owner' };
+  const group = await findLatestOwnedGroup(userId, trimmedName);
+  if (!group) {
+    throw new Error('A viagem foi criada, mas nao foi possivel carrega-la. Recarregue a pagina e tente novamente.');
+  }
+
+  return group;
 }
 
 export async function inviteMember(groupId: string, email?: string, singleUse = false): Promise<InviteDetails> {

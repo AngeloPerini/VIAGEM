@@ -59,6 +59,26 @@ const asString = (value: unknown, fallback = '') =>
 
 const asArray = <T>(value: unknown): T[] => (Array.isArray(value) ? value as T[] : []);
 
+type TripAIFunctionErrorOptions = {
+  status?: number;
+  code?: string;
+  body?: unknown;
+};
+
+export class TripAIFunctionError extends Error {
+  status?: number;
+  code?: string;
+  body?: unknown;
+
+  constructor(message: string, options?: TripAIFunctionErrorOptions) {
+    super(message);
+    this.name = 'TripAIFunctionError';
+    this.status = options?.status;
+    this.code = options?.code;
+    this.body = options?.body;
+  }
+}
+
 const stripDiacritics = (value: string) =>
   value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
 
@@ -186,15 +206,36 @@ export const normalizeTripAIPlan = (value: unknown): TripAIPlan => {
   };
 };
 
-const getFunctionErrorMessage = async (error: unknown) => {
+const parseFunctionError = async (error: unknown) => {
   const context = (error as { context?: Response })?.context;
   if (context) {
-    const payload = await context.clone().json().catch(() => null) as { error?: string; message?: string } | null;
-    if (payload?.message) return payload.message;
-    if (payload?.error) return payload.error;
+    const textBody = await context.clone().text().catch(() => '');
+    let payload: unknown = null;
+
+    try {
+      payload = textBody ? JSON.parse(textBody) : null;
+    } catch {
+      payload = textBody;
+    }
+
+    const record = asRecord(payload);
+    const code = asString(record.error || record.code);
+    const message = asString(record.message || record.error) || 'Nao foi possivel gerar a previa com IA.';
+
+    return {
+      status: context.status,
+      code: code || undefined,
+      message,
+      body: payload,
+    };
   }
 
-  return error instanceof Error ? error.message : 'Nao foi possivel gerar a previa com IA.';
+  return {
+    status: undefined,
+    code: undefined,
+    message: error instanceof Error ? error.message : 'Nao foi possivel gerar a previa com IA.',
+    body: null,
+  };
 };
 
 export async function generateTripPlan(input: TripAIInput): Promise<TripAIPlan> {
@@ -202,7 +243,40 @@ export async function generateTripPlan(input: TripAIInput): Promise<TripAIPlan> 
     body: input,
   });
 
-  if (error) throw new Error(await getFunctionErrorMessage(error));
+  if (error) {
+    const parsedError = await parseFunctionError(error);
+    console.error('Erro ao chamar generate-trip-plan', {
+      status: parsedError.status,
+      responseBody: parsedError.body,
+      errorCode: parsedError.code,
+      message: parsedError.message,
+      groupId: input.groupId,
+    });
+    throw new TripAIFunctionError(parsedError.message, {
+      status: parsedError.status,
+      code: parsedError.code,
+      body: parsedError.body,
+    });
+  }
+
+  const responseRecord = asRecord(data);
+  if (responseRecord.error) {
+    const message = asString(responseRecord.message || responseRecord.error, 'Nao foi possivel gerar a previa com IA.');
+    const code = asString(responseRecord.error || responseRecord.code);
+    console.error('Resposta de erro em generate-trip-plan', {
+      status: 200,
+      responseBody: data,
+      errorCode: code,
+      message,
+      groupId: input.groupId,
+    });
+    throw new TripAIFunctionError(message, {
+      status: 200,
+      code: code || undefined,
+      body: data,
+    });
+  }
+
   return normalizeTripAIPlan(data);
 }
 
