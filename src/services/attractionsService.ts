@@ -1,6 +1,7 @@
 import type { RealtimeChannel } from '@supabase/supabase-js';
 import { defaultAttractions } from '../data/defaultAttractions';
 import { ATTRACTION_LIST_STORAGE_KEY, ATTRACTION_STORAGE_KEY } from '../data/attractions';
+import { normalizeCountryId } from '../data/countries';
 import type { Attraction, AttractionStateMap, CountryId, LinkItem } from '../types';
 import { compressImageToBlob } from '../utils/imageCompression';
 import { normalizeLinks } from '../utils/links';
@@ -61,7 +62,7 @@ const toAttraction = (row: AttractionRow): Attraction => ({
 
 const toPayload = (attraction: Attraction, orderIndex?: number) => ({
   name: attraction.name,
-  country: attraction.country,
+  country: normalizeCountryId(attraction.country),
   city: attraction.city || null,
   day: attraction.day || null,
   time: attraction.time || null,

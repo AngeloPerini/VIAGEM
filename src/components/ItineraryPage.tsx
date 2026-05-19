@@ -19,7 +19,12 @@ import {
 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import type { FormEvent } from 'react';
-import { countries, countryNames } from '../data/countries';
+import {
+  buildCountryOptions,
+  countryAccent,
+  countryLabel,
+  normalizeCountryId,
+} from '../data/countries';
 import { itineraryItems } from '../data/itinerary';
 import {
   cacheItineraryFallback,
@@ -28,12 +33,11 @@ import {
   getCachedItineraryItems,
   getItineraryItems,
   resetItineraryToDefault,
-  seedItineraryItemsIfEmpty,
   subscribeItineraryItems,
   updateItineraryItem,
   updateItineraryItemCompleted,
 } from '../services/itineraryService';
-import type { CountryFilterId, CountryId, ItineraryItem, ItineraryType, LinkItem } from '../types';
+import type { CountryFilterId, CountryId, CountryMeta, ItineraryItem, ItineraryType, LinkItem } from '../types';
 import { hasInvalidLinks, normalizeLinks } from '../utils/links';
 import { CountryFilter } from './CountryFilter';
 import { LinksEditor } from './LinksEditor';
@@ -42,8 +46,10 @@ import { TimeField } from './TimeField';
 
 type ItineraryPageProps = {
   groupId: string;
+  tripCountries: string[];
   selectedCountry: CountryFilterId;
   onCountryChange: (country: CountryFilterId) => void;
+  canUseDefaultData?: boolean;
 };
 
 const typeIcons: Record<ItineraryType, typeof MapPin> = {
@@ -82,17 +88,10 @@ const editableTypes: Array<{ id: ItineraryType; label: string }> = [
   { id: 'other', label: 'Outro' },
 ];
 
-const countryStyles = {
-  italy: 'bg-teal-50 text-teal-700 ring-teal-100',
-  switzerland: 'bg-rose-50 text-rose-700 ring-rose-100',
-  france: 'bg-blue-50 text-blue-700 ring-blue-100',
-  international: 'bg-slate-50 text-slate-700 ring-slate-100',
-};
-
-const blankItem = (): ItineraryItem => ({
+const blankItem = (country: CountryId): ItineraryItem => ({
   id: crypto.randomUUID(),
   day: '',
-  country: 'italy',
+  country,
   city: '',
   time: '',
   title: '',
@@ -110,21 +109,31 @@ const groupByDay = (items: ItineraryItem[]) =>
 
 function ItineraryFormModal({
   item,
+  countryOptions,
   onClose,
   onSave,
 }: {
   item: ItineraryItem | null;
+  countryOptions: CountryMeta[];
   onClose: () => void;
   onSave: (item: ItineraryItem) => void;
 }) {
-  const [draft, setDraft] = useState<ItineraryItem>(blankItem);
+  const selectableCountryOptions = useMemo(
+    () =>
+      countryOptions.some((country) => country.id !== 'all')
+        ? countryOptions
+        : buildCountryOptions(['international']),
+    [countryOptions],
+  );
+  const defaultCountry = selectableCountryOptions.find((country) => country.id !== 'all')?.id ?? 'international';
+  const [draft, setDraft] = useState<ItineraryItem>(() => blankItem(defaultCountry));
   const [links, setLinks] = useState<LinkItem[]>([]);
 
   useEffect(() => {
-    const source = item ?? blankItem();
-    setDraft(source);
+    const source = item ?? blankItem(defaultCountry);
+    setDraft({ ...source, country: normalizeCountryId(source.country) });
     setLinks(source.links ?? []);
-  }, [item]);
+  }, [defaultCountry, item]);
 
   const updateDraft = <K extends keyof ItineraryItem>(key: K, value: ItineraryItem[K]) => {
     setDraft((current) => ({ ...current, [key]: value }));
@@ -185,7 +194,7 @@ function ItineraryFormModal({
               <label>
                 <span className="mb-2 block text-sm font-bold text-slate-600">Pais</span>
                 <select value={draft.country} onChange={(event) => updateDraft('country', event.target.value as CountryId)} className="h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 font-semibold outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-100">
-                  {countries.filter((country) => country.id !== 'all').map((country) => (
+                  {selectableCountryOptions.filter((country) => country.id !== 'all').map((country) => (
                     <option key={country.id} value={country.id}>{country.name}</option>
                   ))}
                 </select>
@@ -225,7 +234,13 @@ function ItineraryFormModal({
   );
 }
 
-export function ItineraryPage({ groupId, selectedCountry, onCountryChange }: ItineraryPageProps) {
+export function ItineraryPage({
+  groupId,
+  tripCountries,
+  selectedCountry,
+  onCountryChange,
+  canUseDefaultData = false,
+}: ItineraryPageProps) {
   const [items, setItems] = useState<ItineraryItem[]>(() => getCachedItineraryItems(groupId));
   const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
   const [editingItem, setEditingItem] = useState<ItineraryItem | null>(null);
@@ -240,7 +255,6 @@ export function ItineraryPage({ groupId, selectedCountry, onCountryChange }: Iti
     const syncItems = async () => {
       try {
         setIsLoading(true);
-        await seedItineraryItemsIfEmpty(groupId);
         const nextItems = await getItineraryItems(groupId);
         if (active) {
           setItems(nextItems);
@@ -277,12 +291,41 @@ export function ItineraryPage({ groupId, selectedCountry, onCountryChange }: Iti
     cacheItineraryFallback(groupId, items);
   }, [groupId, items]);
 
+  const tripCountryIds = useMemo(
+    () => new Set(tripCountries.map((country) => normalizeCountryId(country))),
+    [tripCountries],
+  );
+
+  const scopedItems = useMemo(
+    () =>
+      tripCountryIds.size
+        ? items.filter((item) => {
+            const countryId = normalizeCountryId(item.country);
+            return countryId === 'international' || tripCountryIds.has(countryId);
+          })
+        : items,
+    [items, tripCountryIds],
+  );
+
+  const countryOptions = useMemo(
+    () => buildCountryOptions(scopedItems.map((item) => item.country), tripCountries),
+    [scopedItems, tripCountries],
+  );
+
+  const defaultCountry = countryOptions.find((country) => country.id !== 'all')?.id ?? 'international';
+
+  useEffect(() => {
+    if (selectedCountry !== 'all' && !countryOptions.some((country) => country.id === selectedCountry)) {
+      onCountryChange('all');
+    }
+  }, [countryOptions, onCountryChange, selectedCountry]);
+
   const filteredItems = useMemo(
     () =>
       selectedCountry === 'all'
-        ? items
-        : items.filter((item) => item.country === selectedCountry),
-    [items, selectedCountry],
+        ? scopedItems
+        : scopedItems.filter((item) => normalizeCountryId(item.country) === selectedCountry),
+    [scopedItems, selectedCountry],
   );
 
   const groupedItems = useMemo(() => groupByDay(filteredItems), [filteredItems]);
@@ -375,21 +418,23 @@ export function ItineraryPage({ groupId, selectedCountry, onCountryChange }: Iti
         <p className="text-sm font-bold uppercase tracking-[0.2em] text-slate-500">Roteiro</p>
         <div className="mt-3 grid gap-4 md:grid-cols-[1fr_auto] md:items-end">
           <div>
-            <h1 className="text-4xl font-black tracking-tight text-slate-950 md:text-5xl">Roteiro da Viagem Europa</h1>
-            <p className="mt-4 max-w-3xl leading-7 text-slate-600">Roma, Milao, Bernina, St. Moritz e Paris organizados em uma linha do tempo simples, com transporte, passeios, hospedagens e pausas.</p>
+            <h1 className="text-4xl font-black tracking-tight text-slate-950 md:text-5xl">Roteiro da viagem</h1>
+            <p className="mt-4 max-w-3xl leading-7 text-slate-600">Linha do tempo da viagem ativa, com transporte, passeios, hospedagens e pausas do grupo selecionado.</p>
           </div>
           <div className="grid gap-3 sm:grid-cols-2">
-            <button type="button" onClick={() => setEditingItem(blankItem())} className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl bg-slate-950 px-5 font-bold text-white shadow-xl shadow-slate-900/20 transition hover:bg-teal-700">
+            <button type="button" onClick={() => setEditingItem(blankItem(defaultCountry))} className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl bg-slate-950 px-5 font-bold text-white shadow-xl shadow-slate-900/20 transition hover:bg-teal-700">
               <Plus className="h-5 w-5" /> Novo item
             </button>
-            <button type="button" onClick={() => void restoreDefaults()} className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-5 font-bold text-slate-700 transition hover:bg-slate-50">
-              <RotateCcw className="h-5 w-5" /> Restaurar roteiro padrão
-            </button>
+            {canUseDefaultData ? (
+              <button type="button" onClick={() => void restoreDefaults()} className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-5 font-bold text-slate-700 transition hover:bg-slate-50">
+                <RotateCcw className="h-5 w-5" /> Restaurar roteiro padrão
+              </button>
+            ) : null}
           </div>
         </div>
       </section>
 
-      <CountryFilter value={selectedCountry} onChange={onCountryChange} label="Filtrar roteiro por pais" />
+      <CountryFilter value={selectedCountry} onChange={onCountryChange} label="Filtrar roteiro por pais" options={countryOptions} />
       {syncWarning || isLoading || isSaving ? (
         <p className="rounded-2xl border border-white/70 bg-white/75 px-4 py-3 text-sm font-semibold text-slate-600 shadow-lg shadow-slate-900/5 backdrop-blur-xl">
           {isSaving ? 'Salvando roteiro no Supabase...' : isLoading ? 'Sincronizando roteiro...' : syncWarning}
@@ -435,7 +480,16 @@ export function ItineraryPage({ groupId, selectedCountry, onCountryChange }: Iti
                           <div>
                             <div className="flex flex-wrap items-center gap-2">
                               <span className={`rounded-full px-3 py-1 text-xs font-black ${completed ? 'bg-white/80 text-teal-700' : 'bg-slate-100 text-slate-600'}`}>{item.time || 'Sem horario'}</span>
-                              <span className={`rounded-full px-3 py-1 text-xs font-black ring-1 ${countryStyles[item.country]}`}>{countryNames[item.country]}</span>
+                              <span
+                                className="rounded-full px-3 py-1 text-xs font-black ring-1"
+                                style={{
+                                  backgroundColor: `${countryAccent(item.country)}14`,
+                                  color: countryAccent(item.country),
+                                  borderColor: `${countryAccent(item.country)}33`,
+                                }}
+                              >
+                                {countryLabel(item.country)}
+                              </span>
                               <span className="rounded-full bg-white px-3 py-1 text-xs font-black text-slate-400 ring-1 ring-slate-200">{typeLabels[item.type]}</span>
                             </div>
                             <h3 className={`mt-3 text-lg font-black ${completed ? 'text-teal-950' : 'text-slate-950'}`}>{item.title}</h3>
@@ -466,7 +520,7 @@ export function ItineraryPage({ groupId, selectedCountry, onCountryChange }: Iti
         </AnimatePresence>
       </div>
 
-      <ItineraryFormModal item={editingItem} onClose={() => setEditingItem(null)} onSave={(item) => void saveItem(item)} />
+      <ItineraryFormModal item={editingItem} countryOptions={countryOptions} onClose={() => setEditingItem(null)} onSave={(item) => void saveItem(item)} />
     </motion.div>
   );
 }

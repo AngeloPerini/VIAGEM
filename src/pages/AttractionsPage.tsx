@@ -7,7 +7,7 @@ import { AttractionModal } from '../components/AttractionModal';
 import { CountryFilter } from '../components/CountryFilter';
 import { LinksEditor } from '../components/LinksEditor';
 import { TimeField } from '../components/TimeField';
-import { countries } from '../data/countries';
+import { buildCountryOptions, normalizeCountryId } from '../data/countries';
 import { attractions } from '../data/attractions';
 import {
   cacheAttractionsFallback,
@@ -17,7 +17,6 @@ import {
   getAttractions,
   getCachedAttractions,
   resetAttractionsToDefault,
-  seedAttractionsIfEmpty,
   subscribeAttractions,
   updateAttraction,
   updateAttractionVisit,
@@ -29,19 +28,22 @@ import type {
   AttractionStateMap,
   CountryFilterId,
   CountryId,
+  CountryMeta,
 } from '../types';
 import { hasInvalidLinks, normalizeLinks } from '../utils/links';
 
 type AttractionsPageProps = {
   groupId: string;
+  tripCountries: string[];
   selectedCountry: CountryFilterId;
   onCountryChange: (country: CountryFilterId) => void;
+  canUseDefaultData?: boolean;
 };
 
-const blankAttraction = (): Attraction => ({
+const blankAttraction = (country: CountryId): Attraction => ({
   id: crypto.randomUUID(),
   name: '',
-  country: 'italy',
+  country,
   city: '',
   day: '',
   time: '',
@@ -52,21 +54,32 @@ const blankAttraction = (): Attraction => ({
 function AttractionFormModal({
   attraction,
   state,
+  countryOptions,
   onClose,
   onSave,
 }: {
   attraction: Attraction | null;
   state?: AttractionState;
+  countryOptions: CountryMeta[];
   onClose: () => void;
   onSave: (attraction: Attraction, statePatch: AttractionState) => void;
 }) {
-  const [draft, setDraft] = useState<Attraction>(blankAttraction);
+  const selectableCountryOptions = useMemo(
+    () =>
+      countryOptions.some((country) => country.id !== 'all')
+        ? countryOptions
+        : buildCountryOptions(['international']),
+    [countryOptions],
+  );
+  const defaultCountry = selectableCountryOptions.find((country) => country.id !== 'all')?.id ?? 'international';
+  const [draft, setDraft] = useState<Attraction>(() => blankAttraction(defaultCountry));
   const [visited, setVisited] = useState(false);
 
   useEffect(() => {
-    setDraft(attraction ?? blankAttraction());
+    const source = attraction ?? blankAttraction(defaultCountry);
+    setDraft({ ...source, country: normalizeCountryId(source.country) });
     setVisited(state?.visited ?? false);
-  }, [attraction, state]);
+  }, [attraction, defaultCountry, state]);
 
   const updateDraft = <K extends keyof Attraction>(key: K, value: Attraction[K]) => {
     setDraft((current) => ({ ...current, [key]: value }));
@@ -130,7 +143,7 @@ function AttractionFormModal({
               <label>
                 <span className="mb-2 block text-sm font-bold text-slate-600">Pais</span>
                 <select value={draft.country} onChange={(event) => updateDraft('country', event.target.value as CountryId)} className="h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 font-semibold outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-100">
-                  {countries.filter((country) => country.id !== 'all').map((country) => (
+                  {selectableCountryOptions.filter((country) => country.id !== 'all').map((country) => (
                     <option key={country.id} value={country.id}>{country.name}</option>
                   ))}
                 </select>
@@ -166,7 +179,13 @@ function AttractionFormModal({
   );
 }
 
-export function AttractionsPage({ groupId, selectedCountry, onCountryChange }: AttractionsPageProps) {
+export function AttractionsPage({
+  groupId,
+  tripCountries,
+  selectedCountry,
+  onCountryChange,
+  canUseDefaultData = false,
+}: AttractionsPageProps) {
   const cachedAttractions = getCachedAttractions(groupId);
   const [items, setItems] = useState<Attraction[]>(cachedAttractions.items);
   const [states, setStates] = useState<AttractionStateMap>(cachedAttractions.states);
@@ -186,7 +205,6 @@ export function AttractionsPage({ groupId, selectedCountry, onCountryChange }: A
     const syncAttractions = async () => {
       try {
         setIsLoading(true);
-        await seedAttractionsIfEmpty(groupId);
         const payload = await getAttractions(groupId);
         if (active) {
           setItems(payload.items);
@@ -229,12 +247,41 @@ export function AttractionsPage({ groupId, selectedCountry, onCountryChange }: A
     }
   }, [groupId, items, states]);
 
+  const tripCountryIds = useMemo(
+    () => new Set(tripCountries.map((country) => normalizeCountryId(country))),
+    [tripCountries],
+  );
+
+  const scopedItems = useMemo(
+    () =>
+      tripCountryIds.size
+        ? items.filter((item) => {
+            const countryId = normalizeCountryId(item.country);
+            return countryId === 'international' || tripCountryIds.has(countryId);
+          })
+        : items,
+    [items, tripCountryIds],
+  );
+
+  const countryOptions = useMemo(
+    () => buildCountryOptions(scopedItems.map((item) => item.country), tripCountries),
+    [scopedItems, tripCountries],
+  );
+
+  const defaultCountry = countryOptions.find((country) => country.id !== 'all')?.id ?? 'international';
+
+  useEffect(() => {
+    if (selectedCountry !== 'all' && !countryOptions.some((country) => country.id === selectedCountry)) {
+      onCountryChange('all');
+    }
+  }, [countryOptions, onCountryChange, selectedCountry]);
+
   const filteredAttractions = useMemo(
     () =>
       selectedCountry === 'all'
-        ? items
-        : items.filter((attraction) => attraction.country === selectedCountry),
-    [items, selectedCountry],
+        ? scopedItems
+        : scopedItems.filter((attraction) => normalizeCountryId(attraction.country) === selectedCountry),
+    [scopedItems, selectedCountry],
   );
 
   const visitedCount = filteredAttractions.filter((attraction) => states[attraction.id]?.visited)
@@ -379,16 +426,18 @@ export function AttractionsPage({ groupId, selectedCountry, onCountryChange }: A
           </div>
         </div>
         <div className="mt-6 grid gap-3 sm:grid-cols-2">
-          <button type="button" onClick={() => setEditingAttraction(blankAttraction())} className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl bg-slate-950 px-5 font-bold text-white shadow-xl shadow-slate-900/20 transition hover:bg-teal-700">
+          <button type="button" onClick={() => setEditingAttraction(blankAttraction(defaultCountry))} className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl bg-slate-950 px-5 font-bold text-white shadow-xl shadow-slate-900/20 transition hover:bg-teal-700">
             <Plus className="h-5 w-5" /> Novo ponto turistico
           </button>
-          <button type="button" onClick={() => void restoreDefaults()} className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-5 font-bold text-slate-700 transition hover:bg-slate-50">
-            <RotateCcw className="h-5 w-5" /> Restaurar pontos padrão
-          </button>
+          {canUseDefaultData ? (
+            <button type="button" onClick={() => void restoreDefaults()} className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-5 font-bold text-slate-700 transition hover:bg-slate-50">
+              <RotateCcw className="h-5 w-5" /> Restaurar pontos padrão
+            </button>
+          ) : null}
         </div>
       </section>
 
-      <CountryFilter value={selectedCountry} onChange={onCountryChange} label="Filtrar pontos por pais" />
+      <CountryFilter value={selectedCountry} onChange={onCountryChange} label="Filtrar pontos por pais" options={countryOptions} />
       {syncWarning || isLoading || isSaving || uploadingId ? (
         <p className="rounded-2xl border border-white/70 bg-white/75 px-4 py-3 text-sm font-semibold text-slate-600 shadow-lg shadow-slate-900/5 backdrop-blur-xl">
           {uploadingId
@@ -430,6 +479,7 @@ export function AttractionsPage({ groupId, selectedCountry, onCountryChange }: A
       <AttractionFormModal
         attraction={editingAttraction}
         state={editingAttraction ? states[editingAttraction.id] : undefined}
+        countryOptions={countryOptions}
         onClose={() => setEditingAttraction(null)}
         onSave={(attraction, statePatch) => void handleSaveAttraction(attraction, statePatch)}
       />

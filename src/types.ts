@@ -39,9 +39,9 @@ export type QuoteHistoryPoint = {
 
 export type RealValueMode = 'original' | 'converted';
 
-export type CountryId = 'italy' | 'switzerland' | 'france' | 'international';
+export type CountryId = string;
 
-export type CountryFilterId = CountryId | 'all';
+export type CountryFilterId = string;
 
 export type CountryMeta = {
   id: CountryFilterId;

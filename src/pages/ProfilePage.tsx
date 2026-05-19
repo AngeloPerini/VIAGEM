@@ -23,6 +23,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { FormEvent } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useGroup } from '../contexts/GroupContext';
+import { countryLabel } from '../data/countries';
 import {
   getCurrentProfile,
   getGroupMembers,
@@ -145,7 +146,9 @@ function TripHistoryCard({
   summary?: TripSummary;
 }) {
   const status = group.status ?? 'planned';
-  const countries = group.countries?.length ? group.countries.join(', ') : 'Paises nao informados';
+  const countries = group.countries?.length
+    ? group.countries.map((country) => countryLabel(country)).join(', ')
+    : 'Paises nao informados';
 
   return (
     <article className="flex h-full flex-col justify-between rounded-[1.5rem] border border-white/80 bg-white/90 p-5 shadow-xl shadow-slate-900/10">
@@ -215,7 +218,9 @@ function TripDetailsModal({
   summary?: TripSummary;
 }) {
   const status = group.status ?? 'planned';
-  const countries = group.countries?.length ? group.countries.join(', ') : 'Paises nao informados';
+  const countries = group.countries?.length
+    ? group.countries.map((country) => countryLabel(country)).join(', ')
+    : 'Paises nao informados';
   const isBusy = actionId === group.id;
 
   return (

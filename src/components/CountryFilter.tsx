@@ -1,14 +1,22 @@
 import { motion } from 'framer-motion';
 import { countries } from '../data/countries';
-import type { CountryFilterId } from '../types';
+import type { CountryFilterId, CountryMeta } from '../types';
 
 type CountryFilterProps = {
   value: CountryFilterId;
   onChange: (country: CountryFilterId) => void;
   label?: string;
+  options?: CountryMeta[];
 };
 
-export function CountryFilter({ value, onChange, label = 'Filtro por pais' }: CountryFilterProps) {
+export function CountryFilter({
+  value,
+  onChange,
+  label = 'Filtro por pais',
+  options,
+}: CountryFilterProps) {
+  const visibleCountries = options?.length ? options : countries;
+
   return (
     <section className="rounded-[2rem] border border-white/70 bg-white/80 p-4 shadow-xl shadow-slate-900/10 backdrop-blur-xl md:p-5">
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
@@ -22,7 +30,7 @@ export function CountryFilter({ value, onChange, label = 'Filtro por pais' }: Co
         </div>
 
         <div className="grid grid-cols-2 gap-2 rounded-2xl bg-slate-100 p-1 sm:grid-cols-4">
-          {countries.map((country) => {
+          {visibleCountries.map((country) => {
             const active = value === country.id;
 
             return (

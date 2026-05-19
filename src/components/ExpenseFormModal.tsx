@@ -1,9 +1,9 @@
 import { AnimatePresence, motion } from 'framer-motion';
 import { X } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { FormEvent } from 'react';
-import { countries } from '../data/countries';
-import type { CategoryMeta, CountryId, Expense, LinkItem } from '../types';
+import { buildCountryOptions, normalizeCountryId } from '../data/countries';
+import type { CategoryMeta, CountryId, CountryMeta, Expense, LinkItem } from '../types';
 import { hasInvalidLinks, normalizeLinks } from '../utils/links';
 import { parseCurrencyInput, stringifyRangeForInput } from '../utils/money';
 import { LinksEditor } from './LinksEditor';
@@ -12,14 +12,18 @@ type ExpenseFormModalProps = {
   categories: CategoryMeta[];
   expense?: Expense | null;
   isOpen: boolean;
+  countryOptions: CountryMeta[];
   onClose: () => void;
   onSave: (expense: Expense) => void;
 };
 
-const createBlankExpense = (category: string): Expense => ({
+const getDefaultCountry = (countryOptions: CountryMeta[]) =>
+  countryOptions.find((country) => country.id !== 'all')?.id ?? 'international';
+
+const createBlankExpense = (category: string, country: CountryId): Expense => ({
   id: crypto.randomUUID(),
   category,
-  country: 'italy',
+  country,
   title: '',
   detail: '',
   euro: { min: 0, max: 0 },
@@ -31,11 +35,19 @@ export function ExpenseFormModal({
   categories,
   expense,
   isOpen,
+  countryOptions,
   onClose,
   onSave,
 }: ExpenseFormModalProps) {
+  const selectableCountryOptions = useMemo(
+    () =>
+      countryOptions.some((item) => item.id !== 'all')
+        ? countryOptions
+        : buildCountryOptions(['international']),
+    [countryOptions],
+  );
   const [category, setCategory] = useState('lodging');
-  const [country, setCountry] = useState<CountryId>('italy');
+  const [country, setCountry] = useState<CountryId>(() => getDefaultCountry(selectableCountryOptions));
   const [title, setTitle] = useState('');
   const [detail, setDetail] = useState('');
   const [euro, setEuro] = useState('');
@@ -43,15 +55,16 @@ export function ExpenseFormModal({
   const [links, setLinks] = useState<LinkItem[]>([]);
 
   useEffect(() => {
-    const source = expense ?? createBlankExpense('lodging');
+    const defaultCountry = getDefaultCountry(selectableCountryOptions);
+    const source = expense ?? createBlankExpense('lodging', defaultCountry);
     setCategory(source.category);
-    setCountry(source.country ?? 'italy');
+    setCountry(normalizeCountryId(source.country ?? defaultCountry));
     setTitle(source.title);
     setDetail(source.detail ?? '');
     setEuro(stringifyRangeForInput(source.euro));
     setReal(stringifyRangeForInput(source.real));
     setLinks(source.links ?? []);
-  }, [expense, isOpen]);
+  }, [selectableCountryOptions, expense, isOpen]);
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -131,7 +144,7 @@ export function ExpenseFormModal({
                   onChange={(event) => setCountry(event.target.value as CountryId)}
                   className="h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 font-semibold text-slate-900 outline-none transition focus:border-teal-400 focus:ring-4 focus:ring-teal-100"
                 >
-                  {countries
+                  {selectableCountryOptions
                     .filter((item) => item.id !== 'all')
                     .map((item) => (
                       <option key={item.id} value={item.id}>

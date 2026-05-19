@@ -14,7 +14,7 @@ import {
   X,
 } from 'lucide-react';
 import { useMemo, useState } from 'react';
-import { countryNames } from '../data/countries';
+import { countryLabel } from '../data/countries';
 import {
   applyTripPlan,
   clearTripAIReview,
@@ -280,7 +280,7 @@ export function TripAIReviewPage() {
                         <div key={item.id} className="rounded-2xl bg-white p-4">
                           <div className="flex flex-wrap items-center gap-2 text-xs font-black uppercase tracking-[0.12em] text-slate-400">
                             <span>{item.time || 'Sem horario'}</span>
-                            <span>{countryNames[item.country]}</span>
+                            <span>{countryLabel(item.country)}</span>
                             <span>{typeLabels[item.type]}</span>
                           </div>
                           <h4 className="mt-2 font-black text-slate-950">{item.title}</h4>
@@ -306,7 +306,7 @@ export function TripAIReviewPage() {
                         <h3 className="mt-1 font-black text-slate-950">{expense.title}</h3>
                       </div>
                       <span className="rounded-2xl bg-white px-3 py-2 text-xs font-black text-slate-500">
-                        {countryNames[expense.country ?? 'international']}
+                        {countryLabel(expense.country ?? 'international')}
                       </span>
                     </div>
                     <p className="mt-3 text-sm font-bold text-slate-500">{expense.detail}</p>
@@ -326,7 +326,7 @@ export function TripAIReviewPage() {
                 {plan.attractions.map((attraction) => (
                   <article key={attraction.id} className="rounded-3xl bg-slate-50 p-4">
                     <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-400">
-                      {countryNames[attraction.country]} / {attraction.city}
+                      {countryLabel(attraction.country)} / {attraction.city}
                     </p>
                     <h3 className="mt-1 font-black text-slate-950">{attraction.name}</h3>
                     <p className="mt-2 text-sm font-bold text-slate-500">

@@ -15,6 +15,7 @@ import { SummaryCards } from './components/SummaryCards';
 import { useAuth } from './contexts/AuthContext';
 import { useGroup } from './contexts/GroupContext';
 import { categories, initialExpenses } from './data/initialExpenses';
+import { buildCountryOptions, normalizeCountryId } from './data/countries';
 import { AuthPage } from './pages/AuthPage';
 import { InvitePage } from './pages/InvitePage';
 import { AttractionsPage } from './pages/AttractionsPage';
@@ -35,7 +36,6 @@ import {
   getCachedExpenses,
   getExpenses,
   resetExpensesToDefault,
-  seedExpensesIfEmpty,
   subscribeExpenses,
   updateExpense,
 } from './services/expensesService';
@@ -138,6 +138,8 @@ export default function App() {
 }
 
 function TravelWorkspace({ groupId }: { groupId: string }) {
+  const { user } = useAuth();
+  const { activeGroup } = useGroup();
   const [expenses, setExpenses] = useState<Expense[]>(() => getCachedExpenses(groupId));
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -161,7 +163,6 @@ function TravelWorkspace({ groupId }: { groupId: string }) {
     const syncExpenses = async () => {
       try {
         setIsExpenseLoading(true);
-        await seedExpensesIfEmpty(groupId);
         const nextExpenses = await getExpenses(groupId);
         if (active) {
           setExpenses(nextExpenses);
@@ -240,21 +241,52 @@ function TravelWorkspace({ groupId }: { groupId: string }) {
     void refreshQuote();
   }, []);
 
+  const tripCountryIds = useMemo(
+    () => new Set((activeGroup?.countries ?? []).map((country) => normalizeCountryId(country))),
+    [activeGroup?.countries],
+  );
+
+  const scopedExpenses = useMemo(
+    () =>
+      tripCountryIds.size
+        ? expenses.filter((expense) => {
+            const countryId = normalizeCountryId(expense.country);
+            return countryId === 'international' || tripCountryIds.has(countryId);
+          })
+        : expenses,
+    [expenses, tripCountryIds],
+  );
+
   const totalsByCategory = useMemo(() => {
     const conversionRate = realValueMode === 'converted' && quote ? quote.bid : undefined;
 
     return categories.reduce<Record<string, Totals>>((totals, category) => {
-      totals[category.id] = calculateCategoryTotal(expenses, category.id, conversionRate);
+      totals[category.id] = calculateCategoryTotal(scopedExpenses, category.id, conversionRate);
       return totals;
     }, {});
-  }, [categories, expenses, quote, realValueMode]);
+  }, [categories, quote, realValueMode, scopedExpenses]);
+
+  const expenseCountryOptions = useMemo(
+    () => buildCountryOptions(scopedExpenses.map((expense) => expense.country), activeGroup?.countries ?? []),
+    [activeGroup?.countries, scopedExpenses],
+  );
+
+  const canUseEuropeDefaults =
+    Boolean(activeGroup?.name?.toLowerCase().includes('viagem europa')) &&
+    user?.email?.toLowerCase() === 'aperini351@gmail.com';
+
+  useEffect(() => {
+    if (expenseCountryFilter !== 'all' && !expenseCountryOptions.some((country) => country.id === expenseCountryFilter)) {
+      setExpenseCountryFilter('all');
+    }
+  }, [expenseCountryFilter, expenseCountryOptions]);
 
   const filteredExpenses = useMemo(
     () =>
       expenseCountryFilter === 'all'
-        ? expenses
-        : expenses.filter((expense) => expense.country === expenseCountryFilter),
-    [expenseCountryFilter, expenses],
+        ? scopedExpenses
+        : scopedExpenses.filter((expense) => normalizeCountryId(expense.country) === expenseCountryFilter),
+    [expenseCountryFilter, scopedExpenses],
   );
 
   const filteredTotalsByCategory = useMemo(() => {
@@ -273,7 +305,7 @@ function TravelWorkspace({ groupId }: { groupId: string }) {
   }, [categories, expenseCountryFilter, filteredExpenses, quote, realValueMode]);
 
   const activeConversionRate = realValueMode === 'converted' && quote ? quote.bid : undefined;
-  const grandTotal = calculateExpensesTotal(expenses, activeConversionRate);
+  const grandTotal = calculateExpensesTotal(scopedExpenses, activeConversionRate);
   const filteredGrandTotal = calculateExpensesTotal(
     filteredExpenses,
     activeConversionRate,
@@ -406,15 +438,19 @@ function TravelWorkspace({ groupId }: { groupId: string }) {
             <ItineraryPage
               key="itinerary"
               groupId={groupId}
+              tripCountries={activeGroup?.countries ?? []}
               selectedCountry={itineraryCountryFilter}
               onCountryChange={setItineraryCountryFilter}
+              canUseDefaultData={canUseEuropeDefaults}
             />
           ) : activeView === 'attractions' ? (
             <AttractionsPage
               key="attractions"
               groupId={groupId}
+              tripCountries={activeGroup?.countries ?? []}
               selectedCountry={attractionCountryFilter}
               onCountryChange={setAttractionCountryFilter}
+              canUseDefaultData={canUseEuropeDefaults}
             />
           ) : activeView === 'expenses' ? (
             <motion.div
@@ -446,6 +482,7 @@ function TravelWorkspace({ groupId }: { groupId: string }) {
                 value={expenseCountryFilter}
                 onChange={setExpenseCountryFilter}
                 label="Filtrar gastos por pais"
+                options={expenseCountryOptions}
               />
               {expenseSyncWarning || isExpenseLoading || isExpenseSaving ? (
                 <p className="rounded-2xl border border-white/70 bg-white/75 px-4 py-3 text-sm font-semibold text-slate-600 shadow-lg shadow-slate-900/5 backdrop-blur-xl">
@@ -552,14 +589,16 @@ function TravelWorkspace({ groupId }: { groupId: string }) {
                       </motion.div>
                     </AnimatePresence>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => void handleReset()}
-                    className="mt-7 inline-flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-white px-5 font-bold text-slate-950 transition hover:bg-teal-100 focus:outline-none focus:ring-4 focus:ring-teal-300"
-                  >
-                    <RotateCcw className="h-5 w-5" />
-                    Resetar dados iniciais
-                  </button>
+                  {canUseEuropeDefaults ? (
+                    <button
+                      type="button"
+                      onClick={() => void handleReset()}
+                      className="mt-7 inline-flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-white px-5 font-bold text-slate-950 transition hover:bg-teal-100 focus:outline-none focus:ring-4 focus:ring-teal-300"
+                    >
+                      <RotateCcw className="h-5 w-5" />
+                      Resetar dados iniciais
+                    </button>
+                  ) : null}
                 </motion.section>
               </div>
             </motion.div>
@@ -571,6 +610,7 @@ function TravelWorkspace({ groupId }: { groupId: string }) {
         categories={categories}
         expense={editingExpense}
         isOpen={isModalOpen}
+        countryOptions={expenseCountryOptions}
         onClose={() => {
           setIsModalOpen(false);
           setEditingExpense(null);

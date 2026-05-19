@@ -12,11 +12,11 @@ import type {
   TripAIRoute,
   TripAIReviewState,
 } from '../types';
+import { normalizeCountryId } from '../data/countries';
 import { normalizeLinks } from '../utils/links';
 import { supabase } from './supabaseClient';
 
 const REVIEW_STORAGE_KEY = 'controle-viagem-ai-review-v1';
-const validCountries: CountryId[] = ['italy', 'switzerland', 'france', 'international'];
 const validTypes: ItineraryType[] = [
   'arrival',
   'lodging',
@@ -82,14 +82,13 @@ export class TripAIFunctionError extends Error {
 const stripDiacritics = (value: string) =>
   value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
 
-const normalizeCountry = (value: unknown): CountryId => {
-  const normalized = stripDiacritics(asString(value));
-  if (validCountries.includes(normalized as CountryId)) return normalized as CountryId;
-  if (normalized.includes('ital')) return 'italy';
-  if (normalized.includes('suic') || normalized.includes('switz')) return 'switzerland';
-  if (normalized.includes('franc') || normalized.includes('france')) return 'france';
-  return 'international';
-};
+const normalizeCountry = (value: unknown): CountryId => normalizeCountryId(asString(value, 'international'));
+
+const normalizeKeyPart = (value: unknown) =>
+  stripDiacritics(asString(value))
+    .replace(/[^a-z0-9]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
 
 const normalizeType = (value: unknown): ItineraryType => {
   const normalized = stripDiacritics(asString(value));
@@ -187,6 +186,56 @@ const normalizeAttraction = (value: unknown): Attraction => {
   };
 };
 
+const itineraryItemKey = (item: Pick<ItineraryItem, 'day' | 'time' | 'title' | 'country' | 'city'>) =>
+  [
+    normalizeKeyPart(item.day),
+    normalizeKeyPart(item.time),
+    normalizeKeyPart(item.title),
+    normalizeCountry(item.country),
+    normalizeKeyPart(item.city),
+  ].join('|');
+
+const attractionKey = (attraction: Pick<Attraction, 'name' | 'country' | 'city'>) =>
+  [
+    normalizeKeyPart(attraction.name),
+    normalizeCountry(attraction.country),
+    normalizeKeyPart(attraction.city),
+  ].join('|');
+
+const expenseKey = (
+  expense: Pick<Expense, 'category' | 'country'> & {
+    title?: string | null;
+    detail?: string | null;
+    description?: string | null;
+    details?: string | null;
+  },
+) =>
+  [
+    normalizeKeyPart(expense.category),
+    normalizeCountry(expense.country),
+    normalizeKeyPart(expense.title ?? expense.description),
+    normalizeKeyPart(expense.detail ?? expense.details),
+  ].join('|');
+
+const uniqueByKey = <T>(items: T[], getKey: (item: T) => string) => {
+  const seen = new Set<string>();
+  return items.filter((item) => {
+    const key = getKey(item);
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+};
+
+export const dedupeItineraryItems = (items: ItineraryItem[]) =>
+  uniqueByKey(items, itineraryItemKey);
+
+export const dedupeAttractions = (items: Attraction[]) =>
+  uniqueByKey(items, attractionKey);
+
+export const dedupeExpenses = (items: Expense[]) =>
+  uniqueByKey(items, expenseKey);
+
 export const normalizeTripAIPlan = (value: unknown): TripAIPlan => {
   const record = asRecord(value);
   const warnings = asArray<unknown>(record.warnings).map((warning) => asString(warning)).filter(Boolean);
@@ -197,9 +246,9 @@ export const normalizeTripAIPlan = (value: unknown): TripAIPlan => {
     summary: asString(record.summary, 'Previa de viagem gerada com IA.'),
     documents: asArray<unknown>(record.documents).map(normalizeDocument),
     routes: asArray<unknown>(record.routes).map(normalizeRoute),
-    itinerary_items: asArray<unknown>(record.itinerary_items).map(normalizeItineraryItem),
-    expenses: asArray<unknown>(record.expenses).map(normalizeExpense),
-    attractions: asArray<unknown>(record.attractions).map(normalizeAttraction),
+    itinerary_items: dedupeItineraryItems(asArray<unknown>(record.itinerary_items).map(normalizeItineraryItem)),
+    expenses: dedupeExpenses(asArray<unknown>(record.expenses).map(normalizeExpense)),
+    attractions: dedupeAttractions(asArray<unknown>(record.attractions).map(normalizeAttraction)),
     warnings: warnings.some((warning) => stripDiacritics(warning).includes('exigencias oficiais'))
       ? warnings
       : [...warnings, requiredWarning],
@@ -295,7 +344,7 @@ const expensePayload = (expense: Expense, groupId: string, userId: string) => ({
   group_id: groupId,
   created_by: userId,
   category: expense.category,
-  country: expense.country ?? 'international',
+  country: normalizeCountry(expense.country),
   description: expense.title,
   details: expense.detail || 'Valor aproximado planejado.',
   euro_min: expense.euro.min,
@@ -309,7 +358,7 @@ const itineraryPayload = (item: ItineraryItem, groupId: string, userId: string, 
   group_id: groupId,
   created_by: userId,
   day: item.day,
-  country: item.country,
+  country: normalizeCountry(item.country),
   city: item.city || null,
   time: item.time || null,
   title: item.title,
@@ -324,7 +373,7 @@ const attractionPayload = (attraction: Attraction, groupId: string, userId: stri
   group_id: groupId,
   created_by: userId,
   name: attraction.name,
-  country: attraction.country,
+  country: normalizeCountry(attraction.country),
   city: attraction.city || null,
   day: attraction.day || null,
   time: attraction.time || null,
@@ -353,6 +402,16 @@ export async function applyTripPlan(review: TripAIReviewState, plan: TripAIPlan,
   const userId = await requireCurrentUserId();
   const { groupId } = review.input;
 
+  const { data: membership, error: membershipError } = await supabase
+    .from('group_members')
+    .select('id')
+    .eq('group_id', groupId)
+    .eq('user_id', userId)
+    .maybeSingle();
+
+  if (membershipError) throw membershipError;
+  if (!membership) throw new Error('Voce nao participa desta viagem.');
+
   const { error: groupError } = await supabase
     .from('travel_groups')
     .update({
@@ -368,42 +427,95 @@ export async function applyTripPlan(review: TripAIReviewState, plan: TripAIPlan,
 
   if (groupError) throw groupError;
 
-  const [{ count: itineraryCount }, { count: attractionCount }] = await Promise.all([
+  const [
+    itineraryResult,
+    expenseResult,
+    attractionResult,
+  ] = await Promise.all([
     supabase
       .from('itinerary_items')
-      .select('id', { count: 'exact', head: true })
+      .select('day,time,title,country,city', { count: 'exact' })
+      .eq('group_id', groupId),
+    supabase
+      .from('expenses')
+      .select('category,country,description,details')
       .eq('group_id', groupId),
     supabase
       .from('attractions')
-      .select('id', { count: 'exact', head: true })
+      .select('name,country,city', { count: 'exact' })
       .eq('group_id', groupId),
   ]);
 
+  if (itineraryResult.error) throw itineraryResult.error;
+  if (expenseResult.error) throw expenseResult.error;
+  if (attractionResult.error) throw attractionResult.error;
+
+  const existingItineraryKeys = new Set(
+    (itineraryResult.data ?? []).map((item) =>
+      itineraryItemKey({
+        day: item.day ?? '',
+        time: item.time ?? '',
+        title: item.title ?? '',
+        country: item.country ?? 'international',
+        city: item.city ?? '',
+      }),
+    ),
+  );
+  const existingExpenseKeys = new Set(
+    (expenseResult.data ?? []).map((expense) =>
+      expenseKey({
+        category: expense.category ?? '',
+        country: expense.country ?? 'international',
+        description: expense.description ?? '',
+        details: expense.details ?? '',
+      }),
+    ),
+  );
+  const existingAttractionKeys = new Set(
+    (attractionResult.data ?? []).map((attraction) =>
+      attractionKey({
+        name: attraction.name ?? '',
+        country: attraction.country ?? 'international',
+        city: attraction.city ?? '',
+      }),
+    ),
+  );
+
+  const itineraryItemsToInsert = dedupeItineraryItems(plan.itinerary_items).filter(
+    (item) => !existingItineraryKeys.has(itineraryItemKey(item)),
+  );
+  const expensesToInsert = dedupeExpenses(plan.expenses).filter(
+    (expense) => !existingExpenseKeys.has(expenseKey(expense)),
+  );
+  const attractionsToInsert = dedupeAttractions(plan.attractions).filter(
+    (attraction) => !existingAttractionKeys.has(attractionKey(attraction)),
+  );
+
   const insertions: Array<PromiseLike<{ error: unknown }>> = [];
 
-  if (plan.itinerary_items.length) {
+  if (itineraryItemsToInsert.length) {
     insertions.push(
       supabase.from('itinerary_items').insert(
-        plan.itinerary_items.map((item, index) =>
-          itineraryPayload(item, groupId, userId, (itineraryCount ?? 0) + index),
+        itineraryItemsToInsert.map((item, index) =>
+          itineraryPayload(item, groupId, userId, (itineraryResult.count ?? 0) + index),
         ),
       ),
     );
   }
 
-  if (plan.expenses.length) {
+  if (expensesToInsert.length) {
     insertions.push(
       supabase.from('expenses').insert(
-        plan.expenses.map((expense) => expensePayload(expense, groupId, userId)),
+        expensesToInsert.map((expense) => expensePayload(expense, groupId, userId)),
       ),
     );
   }
 
-  if (plan.attractions.length) {
+  if (attractionsToInsert.length) {
     insertions.push(
       supabase.from('attractions').insert(
-        plan.attractions.map((attraction, index) =>
-          attractionPayload(attraction, groupId, userId, (attractionCount ?? 0) + index),
+        attractionsToInsert.map((attraction, index) =>
+          attractionPayload(attraction, groupId, userId, (attractionResult.count ?? 0) + index),
         ),
       ),
     );

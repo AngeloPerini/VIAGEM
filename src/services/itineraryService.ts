@@ -1,6 +1,7 @@
 import type { RealtimeChannel } from '@supabase/supabase-js';
 import { defaultItineraryItems } from '../data/defaultItinerary';
 import { ITINERARY_STORAGE_KEY } from '../data/itinerary';
+import { normalizeCountryId } from '../data/countries';
 import type { CountryId, ItineraryItem, ItineraryType, LinkItem } from '../types';
 import { normalizeLinks } from '../utils/links';
 import { supabase } from './supabaseClient';
@@ -53,7 +54,7 @@ const toItem = (row: ItineraryRow): ItineraryItem => ({
 
 const toPayload = (item: ItineraryItem, orderIndex?: number) => ({
   day: item.day,
-  country: item.country,
+  country: normalizeCountryId(item.country),
   city: item.city || null,
   time: item.time || null,
   title: item.title,

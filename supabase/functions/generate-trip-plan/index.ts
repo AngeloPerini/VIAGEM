@@ -166,7 +166,8 @@ Regras:
 - Priorize rotas realistas entre cidades.
 - Inclua documentos de forma orientativa.
 - Inclua o aviso "Confirme as exigencias oficiais antes da viagem.".
-- Use country_id somente entre: italy, switzerland, france, international.
+- Use o campo country com um dos paises informados pelo usuario sempre que possivel: ${input.countries.join(', ')}.
+- Para rotas entre paises ou itens sem pais especifico, use country como "international".
 - Use category_id somente entre: lodging, transport, tours, Alimentação, Comprinhas, Outros.
 - Use type somente entre: arrival, lodging, tour, transport, food, flight, train, rest, other.
 
@@ -182,7 +183,7 @@ Retorne exatamente este objeto:
   "itinerary_items": [
     {
       "day": "Dia 1 - 2026-01-01",
-      "country": "country_id",
+      "country": "pais informado ou international",
       "city": "string",
       "time": "09:00",
       "title": "string",
@@ -194,7 +195,7 @@ Retorne exatamente este objeto:
   "expenses": [
     {
       "category": "category_id",
-      "country": "country_id",
+      "country": "pais informado ou international",
       "title": "string",
       "detail": "Aproximado / planejado",
       "euro": { "min": 0, "max": 0 },
@@ -205,7 +206,7 @@ Retorne exatamente este objeto:
   "attractions": [
     {
       "name": "string",
-      "country": "country_id",
+      "country": "pais informado ou international",
       "city": "string",
       "day": "Dia 1",
       "time": "09:00",

@@ -9,6 +9,7 @@ import type {
   UserStats,
   UserTravelGroup,
 } from '../types';
+import { normalizeCountryId } from '../data/countries';
 import { addRanges } from '../utils/money';
 import { getUserGroups as getCurrentUserGroups } from './groupsService';
 import { supabase } from './supabaseClient';
@@ -189,9 +190,8 @@ const sumExpenses = (rows: ExpenseStatsRow[], groupId?: string) => {
 };
 
 const addCountry = (countries: Set<CountryId>, country: string | null | undefined) => {
-  if (country === 'italy' || country === 'switzerland' || country === 'france' || country === 'international') {
-    countries.add(country);
-  }
+  const normalizedCountry = country?.trim();
+  if (normalizedCountry) countries.add(normalizeCountryId(normalizedCountry));
 };
 
 export async function getUserStats(userId?: string, activeGroupId?: string | null): Promise<UserStats> {

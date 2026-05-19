@@ -1,6 +1,7 @@
 import type { RealtimeChannel } from '@supabase/supabase-js';
 import { defaultExpenses } from '../data/defaultExpenses';
 import { STORAGE_KEY } from '../data/initialExpenses';
+import { normalizeCountryId } from '../data/countries';
 import type { CountryId, Expense, LinkItem } from '../types';
 import { normalizeLinks } from '../utils/links';
 import { supabase } from './supabaseClient';
@@ -63,7 +64,7 @@ const toExpense = (row: ExpenseRow): Expense => ({
 
 const toExpensePayload = (expense: Expense) => ({
   category: expense.category,
-  country: expense.country ?? 'italy',
+  country: normalizeCountryId(expense.country ?? 'international'),
   description: expense.title,
   details: expense.detail || null,
   euro_min: expense.euro.min,
