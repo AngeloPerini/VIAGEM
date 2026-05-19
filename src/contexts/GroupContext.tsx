@@ -126,10 +126,11 @@ export function GroupProvider({ children }: { children: ReactNode }) {
       if (currentUserIdRef.current !== userId) return userGroupsRef.current;
 
       const storedGroupId = getStoredActiveGroupId(userId);
+      const availableGroups = groups.filter((group) => group.status !== 'canceled');
       const selectedGroup =
         groups.find((group) => group.id === activeGroupRef.current?.id) ??
-        groups.find((group) => group.id === storedGroupId) ??
-        groups[0] ??
+        availableGroups.find((group) => group.id === storedGroupId) ??
+        availableGroups[0] ??
         null;
 
       setUserGroups(groups);

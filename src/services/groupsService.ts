@@ -1,4 +1,4 @@
-import type { CreateTravelGroupInput, GroupMember, GroupRole, TravelGroup, UserTravelGroup } from '../types';
+import type { CreateTravelGroupInput, GroupMember, GroupRole, TravelGroup, TripStatus, UserTravelGroup } from '../types';
 import { supabase } from './supabaseClient';
 
 type TravelGroupRow = {
@@ -6,6 +6,7 @@ type TravelGroupRow = {
   name: string;
   description: string | null;
   owner_id: string;
+  status?: string | null;
   countries?: string[] | null;
   start_date?: string | null;
   end_date?: string | null;
@@ -38,7 +39,9 @@ const ACTIVE_GROUP_KEY_PREFIX = 'europa-budget-active-group-v1';
 const PENDING_INVITE_KEY = 'europa-budget-pending-invite-v1';
 const INVITE_PREFIXES = ['EUROPA', 'VIAGEM'];
 const GROUP_SELECT =
-  'id, name, description, owner_id, countries, start_date, end_date, travel_style, notes, created_at, updated_at';
+  'id, name, description, owner_id, status, countries, start_date, end_date, travel_style, notes, created_at, updated_at';
+const PHOTO_BUCKET = 'attraction-photos';
+const tripStatuses: TripStatus[] = ['planned', 'active', 'completed', 'canceled'];
 
 export type InviteDetails = {
   code: string;
@@ -52,6 +55,7 @@ const toGroup = (row: TravelGroupRow): TravelGroup => ({
   name: row.name,
   description: row.description ?? '',
   ownerId: row.owner_id,
+  status: tripStatuses.includes(row.status as TripStatus) ? row.status as TripStatus : 'planned',
   countries: Array.isArray(row.countries) ? row.countries : [],
   startDate: row.start_date ?? undefined,
   endDate: row.end_date ?? undefined,
@@ -149,7 +153,7 @@ export async function getUserGroups(): Promise<UserTravelGroup[]> {
   const userId = await requireUserId();
   const { data, error } = await supabase
     .from('group_members')
-    .select('role, travel_groups(id, name, description, owner_id, countries, start_date, end_date, travel_style, notes, created_at, updated_at)')
+    .select(`role, travel_groups(${GROUP_SELECT})`)
     .eq('user_id', userId)
     .order('created_at', { ascending: true });
 
@@ -165,6 +169,21 @@ export async function getUserGroups(): Promise<UserTravelGroup[]> {
       return { ...toGroup(group), role: membership.role as GroupRole };
     })
     .filter((group): group is UserTravelGroup => Boolean(group));
+}
+
+export async function getUserTrips(): Promise<UserTravelGroup[]> {
+  return getUserGroups();
+}
+
+export async function getCreatedTrips(): Promise<UserTravelGroup[]> {
+  const userId = await requireUserId();
+  const groups = await getUserGroups();
+  return groups.filter((group) => group.ownerId === userId);
+}
+
+export async function getCompletedTrips(): Promise<UserTravelGroup[]> {
+  const groups = await getUserGroups();
+  return groups.filter((group) => group.status === 'completed');
 }
 
 const normalizeCreateGroupInput = (
@@ -248,6 +267,99 @@ export async function createGroup(
   }
 
   return group;
+}
+
+const isTripStatus = (value: string): value is TripStatus =>
+  tripStatuses.includes(value as TripStatus);
+
+export async function updateTripStatus(groupId: string, status: TripStatus): Promise<UserTravelGroup> {
+  if (!isTripStatus(status)) throw new Error('Status da viagem invalido.');
+
+  const { data, error } = await supabase
+    .from('travel_groups')
+    .update({ status })
+    .eq('id', groupId)
+    .select(GROUP_SELECT)
+    .single();
+
+  if (error) throw error;
+  return { ...toGroup(data as TravelGroupRow), role: 'owner' };
+}
+
+export async function setActiveTrip(groupId: string): Promise<UserTravelGroup> {
+  const userId = await requireUserId();
+  const group = (await getUserGroups()).find((item) => item.id === groupId);
+
+  if (!group) throw new Error('Voce nao participa desta viagem.');
+  storeActiveGroupId(userId, group.id);
+  return group;
+}
+
+const extractStoragePath = (value: string | null | undefined, groupId: string, attractionId?: string) => {
+  if (!value && attractionId) return `${groupId}/${attractionId}/photo.jpg`;
+  if (!value) return null;
+  if (!value.startsWith('http')) return value;
+
+  try {
+    const url = new URL(value);
+    const markers = [
+      `/object/public/${PHOTO_BUCKET}/`,
+      `/object/sign/${PHOTO_BUCKET}/`,
+    ];
+    const marker = markers.find((item) => url.pathname.includes(item));
+    if (!marker) return attractionId ? `${groupId}/${attractionId}/photo.jpg` : null;
+    const [, rawPath = ''] = url.pathname.split(marker);
+    return decodeURIComponent(rawPath);
+  } catch {
+    return attractionId ? `${groupId}/${attractionId}/photo.jpg` : null;
+  }
+};
+
+const collectStoragePaths = async (prefix: string): Promise<string[]> => {
+  const { data, error } = await supabase.storage.from(PHOTO_BUCKET).list(prefix, { limit: 1000 });
+  if (error || !data) return [];
+
+  const nestedPaths = await Promise.all(
+    data.map(async (item) => {
+      const fullPath = `${prefix}/${item.name}`;
+      if (item.id) return [fullPath];
+      return collectStoragePaths(fullPath);
+    }),
+  );
+
+  return nestedPaths.flat();
+};
+
+export async function deleteTrip(groupId: string) {
+  const userId = await requireUserId();
+  const group = (await getUserGroups()).find((item) => item.id === groupId);
+
+  if (!group) throw new Error('Voce nao participa desta viagem.');
+  if (group.ownerId !== userId) throw new Error('Apenas o owner pode apagar esta viagem.');
+
+  const { data: attractionRows } = await supabase
+    .from('attractions')
+    .select('id, photo_url')
+    .eq('group_id', groupId);
+
+  const explicitPaths = ((attractionRows ?? []) as Array<{ id: string; photo_url: string | null }>)
+    .flatMap((row) => [
+      extractStoragePath(row.photo_url, groupId, row.id),
+      `${groupId}/${row.id}/photo.jpg`,
+    ])
+    .filter((path): path is string => Boolean(path));
+
+  const listedPaths = await collectStoragePaths(groupId);
+  const paths = Array.from(new Set([...explicitPaths, ...listedPaths]));
+
+  for (let index = 0; index < paths.length; index += 100) {
+    await supabase.storage.from(PHOTO_BUCKET).remove(paths.slice(index, index + 100));
+  }
+
+  const { error } = await supabase.from('travel_groups').delete().eq('id', groupId);
+  if (error) throw error;
+
+  storeActiveGroupId(userId, null);
 }
 
 export async function inviteMember(groupId: string, email?: string, singleUse = false): Promise<InviteDetails> {

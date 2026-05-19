@@ -4,6 +4,7 @@ import type {
   CurrencyRange,
   GroupMemberProfile,
   GroupRole,
+  TripSummary,
   UserProfile,
   UserStats,
   UserTravelGroup,
@@ -44,6 +45,11 @@ type ExpenseStatsRow = {
 type CountryRow = {
   group_id: string;
   country: string | null;
+};
+
+type AttractionSummaryRow = {
+  id: string;
+  visited: boolean | null;
 };
 
 const emptyRange = (): CurrencyRange => ({ min: 0, max: 0 });
@@ -258,4 +264,46 @@ export async function getUserStats(userId?: string, activeGroupId?: string | nul
 
 export async function getUserGroups(_userId?: string): Promise<UserTravelGroup[]> {
   return getCurrentUserGroups();
+}
+
+export async function getTripSummary(tripId: string): Promise<TripSummary> {
+  const [
+    expensesResult,
+    membersResult,
+    attractionsResult,
+  ] = await Promise.all([
+    supabase
+      .from('expenses')
+      .select('group_id, country, euro_min, euro_max, brl_min, brl_max')
+      .eq('group_id', tripId),
+    supabase
+      .from('group_members')
+      .select('id', { count: 'exact', head: true })
+      .eq('group_id', tripId),
+    supabase
+      .from('attractions')
+      .select('id, visited')
+      .eq('group_id', tripId),
+  ]);
+
+  if (expensesResult.error) throw expensesResult.error;
+
+  const expenses = (expensesResult.data ?? []) as ExpenseStatsRow[];
+  const totals = sumExpenses(expenses);
+  const attractions = (attractionsResult.data ?? []) as AttractionSummaryRow[];
+
+  return {
+    groupId: tripId,
+    totalReal: totals.real,
+    totalEuro: totals.euro,
+    participantsCount: membersResult.error ? 0 : membersResult.count ?? 0,
+    visitedAttractionsCount: attractionsResult.error
+      ? 0
+      : attractions.filter((attraction) => attraction.visited).length,
+  };
+}
+
+export async function getProfileTripStats(groups?: UserTravelGroup[]): Promise<TripSummary[]> {
+  const resolvedGroups = groups ?? await getCurrentUserGroups();
+  return Promise.all(resolvedGroups.map((group) => getTripSummary(group.id)));
 }

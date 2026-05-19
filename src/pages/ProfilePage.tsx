@@ -24,14 +24,31 @@ import { useGroup } from '../contexts/GroupContext';
 import {
   getCurrentProfile,
   getGroupMembers,
+  getProfileTripStats,
   getUserStats,
   removeGroupMember,
   upsertCurrentProfile,
 } from '../services/profileService';
-import { getInvites, normalizeInviteToken, type InviteDetails } from '../services/groupsService';
+import {
+  deleteTrip,
+  getInvites,
+  normalizeInviteToken,
+  updateTripStatus,
+  type InviteDetails,
+} from '../services/groupsService';
 import { supabase } from '../services/supabaseClient';
 import { generateTripPlan, storeTripAIReview, TripAIFunctionError } from '../services/tripAIService';
-import type { GroupMemberProfile, TripAIInput, TripAIPlan, TripStyle, UserProfile, UserStats, UserTravelGroup } from '../types';
+import type {
+  GroupMemberProfile,
+  TripAIInput,
+  TripAIPlan,
+  TripStatus,
+  TripStyle,
+  TripSummary,
+  UserProfile,
+  UserStats,
+  UserTravelGroup,
+} from '../types';
 import { formatRange } from '../utils/money';
 
 const emptyStats: UserStats = {
@@ -80,6 +97,30 @@ const getProfileName = (profile?: UserProfile | null, fallbackEmail?: string | n
 const getProfileEmail = (profile?: UserProfile | null, fallbackEmail?: string | null) =>
   profile?.email?.trim() || fallbackEmail?.trim() || 'Perfil ainda sincronizando';
 
+const statusLabels: Record<TripStatus, string> = {
+  planned: 'Planejada',
+  active: 'Ativa',
+  completed: 'Realizada',
+  canceled: 'Cancelada',
+};
+
+const statusClasses: Record<TripStatus, string> = {
+  planned: 'bg-sky-50 text-sky-700',
+  active: 'bg-teal-50 text-teal-700',
+  completed: 'bg-emerald-50 text-emerald-700',
+  canceled: 'bg-rose-50 text-rose-700',
+};
+
+const tripTabs = [
+  { id: 'planned', label: 'Planejadas' },
+  { id: 'active', label: 'Ativas' },
+  { id: 'completed', label: 'Realizadas' },
+  { id: 'canceled', label: 'Canceladas' },
+  { id: 'created', label: 'Criadas por mim' },
+] as const;
+
+type TripTab = typeof tripTabs[number]['id'];
+
 function StatCard({ label, value, detail }: { label: string; value: string; detail?: string }) {
   return (
     <div className="rounded-[2rem] border border-white/80 bg-white/85 p-5 shadow-xl shadow-slate-900/10 backdrop-blur">
@@ -90,12 +131,121 @@ function StatCard({ label, value, detail }: { label: string; value: string; deta
   );
 }
 
+function TripHistoryCard({
+  actionId,
+  group,
+  isActive,
+  isOwner,
+  onCancel,
+  onComplete,
+  onDelete,
+  onOpen,
+  summary,
+}: {
+  actionId: string | null;
+  group: UserTravelGroup;
+  isActive: boolean;
+  isOwner: boolean;
+  onCancel: (group: UserTravelGroup) => void;
+  onComplete: (group: UserTravelGroup) => void;
+  onDelete: (group: UserTravelGroup) => void;
+  onOpen: (group: UserTravelGroup) => void;
+  summary?: TripSummary;
+}) {
+  const status = group.status ?? 'planned';
+  const isBusy = actionId === group.id;
+  const countries = group.countries?.length ? group.countries.join(', ') : 'Paises nao informados';
+
+  return (
+    <article className="flex h-full flex-col justify-between rounded-[2rem] border border-white/80 bg-white/90 p-5 shadow-xl shadow-slate-900/10">
+      <div className="space-y-4">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-400">
+              {isOwner ? 'Criada por voce' : 'Participante'}
+            </p>
+            <h3 className="mt-2 truncate text-2xl font-black text-slate-950">{group.name}</h3>
+          </div>
+          <span className={`rounded-2xl px-3 py-2 text-xs font-black uppercase tracking-[0.12em] ${statusClasses[status]}`}>
+            {statusLabels[status]}
+          </span>
+        </div>
+
+        <div className="grid gap-2 text-sm font-bold text-slate-600 sm:grid-cols-2">
+          <span className="rounded-2xl bg-slate-50 px-3 py-2">
+            <MapPin className="mr-2 inline h-4 w-4 text-teal-700" />
+            {countries}
+          </span>
+          <span className="rounded-2xl bg-slate-50 px-3 py-2">
+            <CalendarDays className="mr-2 inline h-4 w-4 text-teal-700" />
+            {formatDate(group.startDate)} - {formatDate(group.endDate)}
+          </span>
+          <span className="rounded-2xl bg-slate-50 px-3 py-2">
+            Total: {formatRange(summary?.totalReal ?? { min: 0, max: 0 }, 'BRL', true)}
+          </span>
+          <span className="rounded-2xl bg-slate-50 px-3 py-2">
+            Participantes: {summary?.participantsCount ?? 0}
+          </span>
+          <span className="rounded-2xl bg-slate-50 px-3 py-2 sm:col-span-2">
+            Pontos visitados: {summary?.visitedAttractionsCount ?? 0}
+            {isActive ? ' / viagem aberta agora' : ''}
+          </span>
+        </div>
+      </div>
+
+      <div className="mt-5 grid gap-2 sm:grid-cols-2">
+        <button
+          type="button"
+          onClick={() => onOpen(group)}
+          className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl bg-slate-950 px-4 text-sm font-black text-white transition hover:bg-teal-700"
+        >
+          Abrir viagem
+        </button>
+        {isOwner && status !== 'completed' && status !== 'canceled' ? (
+          <button
+            type="button"
+            onClick={() => onComplete(group)}
+            disabled={isBusy}
+            className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl bg-emerald-50 px-4 text-sm font-black text-emerald-700 transition hover:bg-emerald-100 disabled:opacity-60"
+          >
+            <CheckCircle2 className="h-4 w-4" />
+            Marcar realizada
+          </button>
+        ) : null}
+        {isOwner && status !== 'canceled' && status !== 'completed' ? (
+          <button
+            type="button"
+            onClick={() => onCancel(group)}
+            disabled={isBusy}
+            className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl bg-amber-50 px-4 text-sm font-black text-amber-800 transition hover:bg-amber-100 disabled:opacity-60"
+          >
+            Cancelar viagem
+          </button>
+        ) : null}
+        {isOwner ? (
+          <button
+            type="button"
+            onClick={() => onDelete(group)}
+            disabled={isBusy}
+            className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl bg-rose-50 px-4 text-sm font-black text-rose-700 transition hover:bg-rose-100 disabled:opacity-60"
+          >
+            <Trash2 className="h-4 w-4" />
+            Apagar viagem
+          </button>
+        ) : null}
+      </div>
+    </article>
+  );
+}
+
 export function ProfilePage() {
   const { signOut, user } = useAuth();
-  const { acceptInvite, activeGroup, createGroup, inviteMember, refreshGroups, userGroups } = useGroup();
+  const { acceptInvite, activeGroup, createGroup, inviteMember, refreshGroups, setActiveGroup, userGroups } = useGroup();
   const [profile, setProfile] = useState<UserProfile | null>(() => buildFallbackProfile(user));
   const [members, setMembers] = useState<GroupMemberProfile[]>([]);
   const [stats, setStats] = useState<UserStats>(emptyStats);
+  const [tripSummaries, setTripSummaries] = useState<Record<string, TripSummary>>({});
+  const [activeTripTab, setActiveTripTab] = useState<TripTab>('planned');
   const [knownInvites, setKnownInvites] = useState<InviteDetails[]>([]);
   const [generatedInvite, setGeneratedInvite] = useState<InviteDetails | null>(null);
   const [inviteEmail, setInviteEmail] = useState('');
@@ -118,6 +268,7 @@ export function ProfilePage() {
   const [aiFailedGroup, setAiFailedGroup] = useState<UserTravelGroup | null>(null);
   const [aiRetryInput, setAiRetryInput] = useState<TripAIInput | null>(null);
   const [isJoiningTrip, setIsJoiningTrip] = useState(false);
+  const [tripActionId, setTripActionId] = useState<string | null>(null);
   const [removingUserId, setRemovingUserId] = useState<string | null>(null);
 
   const isOwner = activeGroup?.role === 'owner';
@@ -148,6 +299,22 @@ export function ProfilePage() {
     : aiCooldownActive
       ? 'Aguarde alguns segundos antes de gerar novamente.'
       : 'A previa sera gerada para revisao antes de aplicar.';
+  const tripCounts = useMemo(() => ({
+    planned: userGroups.filter((group) => (group.status ?? 'planned') === 'planned').length,
+    active: userGroups.filter((group) => group.status === 'active').length,
+    completed: userGroups.filter((group) => group.status === 'completed').length,
+    canceled: userGroups.filter((group) => group.status === 'canceled').length,
+    created: userGroups.filter((group) => group.ownerId === user?.id).length,
+  }), [user?.id, userGroups]);
+  const visibleTrips = useMemo(
+    () =>
+      userGroups.filter((group) =>
+        activeTripTab === 'created'
+          ? group.ownerId === user?.id
+          : (group.status ?? 'planned') === activeTripTab,
+      ),
+    [activeTripTab, user?.id, userGroups],
+  );
   const parsedTripCountries = () =>
     tripCountries
       .split(',')
@@ -205,17 +372,19 @@ export function ProfilePage() {
         await upsertCurrentProfile(user).catch(() => null);
       }
 
-      const [nextProfile, nextStats, nextMembers, nextInvites] = await Promise.all([
+      const [nextProfile, nextStats, nextMembers, nextInvites, nextTripSummaries] = await Promise.all([
         getCurrentProfile().catch(() => buildFallbackProfile(user)),
         getUserStats(user?.id, activeGroup?.id),
         activeGroup ? getGroupMembers(activeGroup.id) : Promise.resolve([]),
         activeGroup && isOwner ? getInvites(activeGroup.id).catch(() => []) : Promise.resolve([]),
+        getProfileTripStats().catch(() => []),
       ]);
 
       setProfile(nextProfile);
       setStats(nextStats);
       setMembers(nextMembers);
       setKnownInvites(nextInvites);
+      setTripSummaries(Object.fromEntries(nextTripSummaries.map((summary) => [summary.groupId, summary])));
     } catch (caughtError) {
       setError(caughtError instanceof Error ? caughtError.message : 'Nao foi possivel carregar o perfil.');
     } finally {
@@ -472,6 +641,76 @@ export function ProfilePage() {
     }
   };
 
+  const handleOpenTrip = (group: UserTravelGroup) => {
+    setActiveGroup(group);
+    window.history.pushState({}, '', '/dashboard');
+    window.dispatchEvent(new PopStateEvent('popstate'));
+  };
+
+  const handleCancelTrip = async (group: UserTravelGroup) => {
+    if (group.ownerId !== user?.id) return;
+    const confirmed = window.confirm('Tem certeza que deseja cancelar esta viagem?');
+    if (!confirmed) return;
+
+    setTripActionId(group.id);
+    setError(null);
+    setStatus(null);
+
+    try {
+      await updateTripStatus(group.id, 'canceled');
+      if (activeGroup?.id === group.id) setActiveGroup(null);
+      await refreshGroups({ silent: true });
+      await loadProfile();
+      setStatus('Viagem cancelada.');
+    } catch (caughtError) {
+      setError(caughtError instanceof Error ? caughtError.message : 'Nao foi possivel cancelar a viagem.');
+    } finally {
+      setTripActionId(null);
+    }
+  };
+
+  const handleCompleteTrip = async (group: UserTravelGroup) => {
+    if (group.ownerId !== user?.id) return;
+
+    setTripActionId(group.id);
+    setError(null);
+    setStatus(null);
+
+    try {
+      const updatedGroup = await updateTripStatus(group.id, 'completed');
+      if (activeGroup?.id === group.id) setActiveGroup({ ...group, ...updatedGroup, role: group.role });
+      await refreshGroups({ silent: true });
+      await loadProfile();
+      setStatus('Viagem marcada como realizada.');
+    } catch (caughtError) {
+      setError(caughtError instanceof Error ? caughtError.message : 'Nao foi possivel concluir a viagem.');
+    } finally {
+      setTripActionId(null);
+    }
+  };
+
+  const handleDeleteTrip = async (group: UserTravelGroup) => {
+    if (group.ownerId !== user?.id) return;
+    const confirmed = window.confirm('Essa ação apagará a viagem e todos os dados vinculados. Deseja continuar?');
+    if (!confirmed) return;
+
+    setTripActionId(group.id);
+    setError(null);
+    setStatus(null);
+
+    try {
+      await deleteTrip(group.id);
+      if (activeGroup?.id === group.id) setActiveGroup(null);
+      await refreshGroups({ silent: true });
+      await loadProfile();
+      setStatus('Viagem apagada.');
+    } catch (caughtError) {
+      setError(caughtError instanceof Error ? caughtError.message : 'Nao foi possivel apagar a viagem.');
+    } finally {
+      setTripActionId(null);
+    }
+  };
+
   const handleSignOut = async () => {
     await signOut();
     window.location.replace('/');
@@ -576,6 +815,57 @@ export function ProfilePage() {
           value={formatRange(stats.totalActiveReal, 'BRL', true)}
           detail={formatRange(stats.totalActiveEuro, 'EUR', true)}
         />
+      </section>
+
+      <section className="rounded-[2rem] border border-white/80 bg-white/90 p-6 shadow-xl shadow-slate-900/10 md:p-8">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+          <div>
+            <p className="text-sm font-black uppercase tracking-[0.18em] text-slate-400">Historico</p>
+            <h2 className="mt-2 text-3xl font-black tracking-tight text-slate-950">Minhas viagens</h2>
+            <p className="mt-2 max-w-2xl text-sm font-bold leading-6 text-slate-500">
+              Acesse viagens planejadas, ativas, realizadas ou canceladas em que voce participa.
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {tripTabs.map((tab) => (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => setActiveTripTab(tab.id)}
+                className={`inline-flex h-11 items-center justify-center rounded-2xl px-4 text-sm font-black transition ${
+                  activeTripTab === tab.id
+                    ? 'bg-slate-950 text-white'
+                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                }`}
+              >
+                {tab.label} ({tripCounts[tab.id]})
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="mt-6 grid gap-4 lg:grid-cols-2">
+          {visibleTrips.length ? (
+            visibleTrips.map((group) => (
+              <TripHistoryCard
+                key={group.id}
+                actionId={tripActionId}
+                group={group}
+                isActive={activeGroup?.id === group.id}
+                isOwner={group.ownerId === user?.id}
+                onCancel={handleCancelTrip}
+                onComplete={handleCompleteTrip}
+                onDelete={handleDeleteTrip}
+                onOpen={handleOpenTrip}
+                summary={tripSummaries[group.id]}
+              />
+            ))
+          ) : (
+            <p className="rounded-3xl bg-slate-50 px-4 py-6 text-sm font-bold text-slate-500 lg:col-span-2">
+              Nenhuma viagem encontrada neste filtro.
+            </p>
+          )}
+        </div>
       </section>
 
       {!activeGroup ? (

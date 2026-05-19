@@ -94,12 +94,14 @@ export type AttractionState = {
 export type AttractionStateMap = Record<string, AttractionState>;
 
 export type GroupRole = 'owner' | 'member';
+export type TripStatus = 'planned' | 'active' | 'completed' | 'canceled';
 
 export type TravelGroup = {
   id: string;
   name: string;
   description?: string;
   ownerId: string;
+  status?: TripStatus;
   countries?: string[];
   startDate?: string;
   endDate?: string;
@@ -145,6 +147,14 @@ export type UserStats = {
   totalAllEuro: CurrencyRange;
   totalActiveReal: CurrencyRange;
   totalActiveEuro: CurrencyRange;
+};
+
+export type TripSummary = {
+  groupId: string;
+  totalReal: CurrencyRange;
+  totalEuro: CurrencyRange;
+  participantsCount: number;
+  visitedAttractionsCount: number;
 };
 
 export type CreateTravelGroupInput = {
