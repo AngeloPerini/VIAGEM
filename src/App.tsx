@@ -97,15 +97,28 @@ function StandaloneProfileShell() {
 }
 
 export default function App() {
+  const [locationKey, setLocationKey] = useState(() => `${window.location.pathname}${window.location.hash}`);
   const { loading: authLoading, user } = useAuth();
   const { activeGroup, loading: groupLoading } = useGroup();
   const [inviteRefreshKey, setInviteRefreshKey] = useState(0);
+  const currentPath = locationKey.split('#')[0] || window.location.pathname;
   const inviteToken = getInviteToken();
   const pendingInviteToken = user ? getPendingInviteToken() : null;
   const activeInviteToken = inviteToken ?? pendingInviteToken;
-  const isAuthCallback = window.location.pathname === '/auth/callback';
-  const isGroupsRoute = window.location.pathname === '/groups';
-  const isTripAIReviewRoute = window.location.pathname === '/trip-ai-review';
+  const isAuthCallback = currentPath === '/auth/callback';
+  const isGroupsRoute = currentPath === '/groups';
+  const isTripAIReviewRoute = currentPath === '/trip-ai-review';
+
+  useEffect(() => {
+    const syncLocation = () => setLocationKey(`${window.location.pathname}${window.location.hash}`);
+
+    window.addEventListener('popstate', syncLocation);
+    window.addEventListener('hashchange', syncLocation);
+    return () => {
+      window.removeEventListener('popstate', syncLocation);
+      window.removeEventListener('hashchange', syncLocation);
+    };
+  }, []);
 
   useEffect(() => {
     if (!authLoading && user && !groupLoading && isAuthCallback && !activeInviteToken) {

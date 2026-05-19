@@ -392,18 +392,25 @@ export function ProfilePage() {
       : getProfileName(ownerMember?.profile, ownerMember?.profile?.email, 'Dono da viagem');
 
   const latestInvite = generatedInvite ?? knownInvites[0] ?? null;
+  const isAiTestUser = user?.email?.trim().toLowerCase() === 'r.perini351@gmail.com';
   const aiGenerationsUsed = profile?.aiGenerationsUsed ?? 0;
   const aiGenerationsLimit = profile?.aiGenerationsLimit ?? 3;
-  const aiLimitReached = aiGenerationsUsed >= aiGenerationsLimit;
+  const aiLimitReached = !isAiTestUser && aiGenerationsUsed >= aiGenerationsLimit;
   const aiCooldownActive = profile?.lastAiGenerationAt
+    && !isAiTestUser
     ? Date.now() - new Date(profile.lastAiGenerationAt).getTime() < 30_000
     : false;
   const aiGenerationBlocked = aiLimitReached || aiCooldownActive;
-  const aiUsageMessage = aiLimitReached
-    ? 'Voce atingiu o limite gratuito de geracoes com IA.'
-    : aiCooldownActive
-      ? 'Aguarde alguns segundos antes de gerar novamente.'
-      : 'A previa sera gerada para revisao antes de aplicar.';
+  const aiUsageMessage = isAiTestUser
+    ? 'Geracoes ilimitadas para conta de testes.'
+    : aiLimitReached
+      ? 'Voce atingiu o limite gratuito de geracoes com IA.'
+      : aiCooldownActive
+        ? 'Aguarde alguns segundos antes de gerar novamente.'
+        : 'A previa sera gerada para revisao antes de aplicar.';
+  const aiUsageLabel = isAiTestUser
+    ? 'Geracoes ilimitadas para conta de testes'
+    : `Geracoes usadas: ${aiGenerationsUsed} de ${aiGenerationsLimit}. ${aiUsageMessage}`;
   const tripCounts = useMemo(() => ({
     planned: userGroups.filter((group) => (group.status ?? 'planned') === 'planned').length,
     active: userGroups.filter((group) => group.status === 'active').length,
@@ -627,9 +634,6 @@ export function ProfilePage() {
 
   const handleGenerateActiveTripPreview = async () => {
     if (!activeGroup) return;
-
-    const confirmed = window.confirm('Gerar uma previa com IA para a viagem ativa? Nada sera aplicado sem revisao.');
-    if (!confirmed) return;
 
     setError(null);
     setStatus(null);
@@ -869,7 +873,7 @@ export function ProfilePage() {
             Participa de {userGroups.length} {userGroups.length === 1 ? 'viagem' : 'viagens'}
           </span>
           <span className="rounded-2xl bg-white/10 px-4 py-3">
-            IA: {aiGenerationsUsed} de {aiGenerationsLimit} geracoes usadas
+            IA: {isAiTestUser ? 'geracoes ilimitadas' : `${aiGenerationsUsed} de ${aiGenerationsLimit} geracoes usadas`}
           </span>
         </div>
       </section>
@@ -1092,11 +1096,11 @@ export function ProfilePage() {
                   className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-teal-700 px-5 font-black text-white transition hover:bg-teal-800 disabled:cursor-not-allowed disabled:opacity-70"
                 >
                   {isGeneratingAI ? <Loader2 className="h-5 w-5 animate-spin" /> : <Sparkles className="h-5 w-5" />}
-                  {isGeneratingAI ? 'Gerando previa...' : 'Gerar previa com IA'}
+                  {isGeneratingAI ? 'Gerando roteiro...' : 'Gerar com IA'}
                 </button>
               </div>
               <p className="rounded-2xl bg-slate-50 px-4 py-3 text-sm font-bold text-slate-600">
-                Geracoes usadas: {aiGenerationsUsed} de {aiGenerationsLimit}. {aiUsageMessage}
+                {aiUsageLabel}
               </p>
             </form>
           </motion.section>
@@ -1172,10 +1176,10 @@ export function ProfilePage() {
                 className="mt-5 inline-flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-teal-700 px-5 font-black text-white transition hover:bg-teal-800 disabled:cursor-not-allowed disabled:opacity-70 sm:w-auto"
               >
                 {isGeneratingAI ? <Loader2 className="h-5 w-5 animate-spin" /> : <Sparkles className="h-5 w-5" />}
-                {isGeneratingAI ? 'Gerando previa...' : 'Gerar previa com IA'}
+                {isGeneratingAI ? 'Gerando roteiro...' : 'Gerar com IA'}
               </button>
               <p className="mt-3 rounded-2xl bg-slate-50 px-4 py-3 text-sm font-bold text-slate-600">
-                Geracoes usadas: {aiGenerationsUsed} de {aiGenerationsLimit}. {aiUsageMessage}
+                {aiUsageLabel}
               </p>
               <div className="mt-6 grid gap-3 text-sm font-bold text-slate-600 sm:grid-cols-2">
                 <span className="rounded-2xl bg-slate-50 px-4 py-3">

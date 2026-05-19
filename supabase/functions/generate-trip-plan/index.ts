@@ -32,6 +32,7 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 };
+const unlimitedAiTesterEmails = new Set(['r.perini351@gmail.com']);
 
 const jsonResponse = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), {
@@ -178,7 +179,7 @@ Retorne exatamente este objeto:
     { "title": "string", "detail": "string" }
   ],
   "routes": [
-    { "from": "string", "to": "string", "transport": "string", "duration": "string", "notes": "string" }
+    { "from": "string", "to": "string", "transport": "string", "duration": "string", "estimatedCost": "string", "notes": "string" }
   ],
   "itinerary_items": [
     {
@@ -305,8 +306,10 @@ Deno.serve(async (req) => {
 
     const used = Number(profile.ai_generations_used ?? 0);
     const limit = Number(profile.ai_generations_limit ?? 3);
+    const userEmail = String(user.email ?? '').trim().toLowerCase();
+    const isUnlimitedTester = unlimitedAiTesterEmails.has(userEmail);
 
-    if (used >= limit) {
+    if (!isUnlimitedTester && used >= limit) {
       return errorResponse(
         'AI_GENERATION_LIMIT_REACHED',
         'Você atingiu o limite gratuito de 3 gerações de viagem com IA.',
@@ -315,6 +318,7 @@ Deno.serve(async (req) => {
     }
 
     if (
+      !isUnlimitedTester &&
       profile.last_ai_generation_at &&
       Date.now() - new Date(profile.last_ai_generation_at).getTime() < 30_000
     ) {
@@ -368,19 +372,24 @@ Deno.serve(async (req) => {
 
     const output = ensurePlanShape(extractJsonObject(content));
 
-    const { data: quotaResult, error: quotaError } = await adminSupabase
-      .rpc('consume_ai_generation_quota', { target_user_id: user.id })
-      .single<QuotaResult>();
+    let quotaResult: QuotaResult | null = null;
 
-    if (quotaError) throw quotaError;
-    if (!quotaResult.allowed) {
-      await logFailedGeneration(quotaResult.message ?? 'Geracao bloqueada por limite de uso.');
+    if (!isUnlimitedTester) {
+      const { data, error } = await adminSupabase
+        .rpc('consume_ai_generation_quota', { target_user_id: user.id })
+        .single<QuotaResult>();
 
-      return errorResponse(
-        quotaResult.error_code ?? 'AI_GENERATION_BLOCKED',
-        quotaResult.message ?? 'Nao foi possivel consumir sua cota de IA.',
-        429,
-      );
+      if (error) throw error;
+      quotaResult = data;
+      if (!quotaResult.allowed) {
+        await logFailedGeneration(quotaResult.message ?? 'Geracao bloqueada por limite de uso.');
+
+        return errorResponse(
+          quotaResult.error_code ?? 'AI_GENERATION_BLOCKED',
+          quotaResult.message ?? 'Nao foi possivel consumir sua cota de IA.',
+          429,
+        );
+      }
     }
 
     const { data: generation, error: insertError } = await adminSupabase
@@ -400,8 +409,9 @@ Deno.serve(async (req) => {
     return jsonResponse({
       generationId: generation.id,
       quota: {
-        used: quotaResult.ai_generations_used,
-        limit: quotaResult.ai_generations_limit,
+        used: quotaResult?.ai_generations_used ?? used,
+        limit: quotaResult?.ai_generations_limit ?? limit,
+        unlimited: isUnlimitedTester,
       },
       ...output,
     });

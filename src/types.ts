@@ -190,6 +190,7 @@ export type TripAIRoute = {
   to: string;
   transport: string;
   duration?: string;
+  estimatedCost?: string;
   notes?: string;
 };
 

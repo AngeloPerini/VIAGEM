@@ -136,6 +136,7 @@ const normalizeRoute = (value: unknown): TripAIRoute => {
     to: asString(record.to, 'Destino'),
     transport: asString(record.transport, 'Transporte sugerido'),
     duration: asString(record.duration),
+    estimatedCost: asString(record.estimatedCost || record.estimated_cost || record.cost || record.value),
     notes: asString(record.notes),
   };
 };

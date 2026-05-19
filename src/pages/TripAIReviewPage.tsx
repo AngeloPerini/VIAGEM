@@ -1,11 +1,11 @@
 import { motion } from 'framer-motion';
 import {
-  AlertTriangle,
   CheckCircle2,
   FileText,
   Loader2,
   MapPin,
   Pencil,
+  Plus,
   RefreshCcw,
   Route,
   Sparkles,
@@ -20,11 +20,19 @@ import {
   clearTripAIReview,
   generateTripPlan,
   getStoredTripAIReview,
-  normalizeTripAIPlan,
   storeTripAIReview,
   updateTripGenerationFeedback,
 } from '../services/tripAIService';
-import type { TripAIPlan, TripAIReviewState } from '../types';
+import type {
+  Attraction,
+  Expense,
+  ItineraryItem,
+  ItineraryType,
+  TripAIDocument,
+  TripAIPlan,
+  TripAIRoute,
+  TripAIReviewState,
+} from '../types';
 import { formatRange } from '../utils/money';
 
 const typeLabels: Record<string, string> = {
@@ -44,6 +52,80 @@ const feedbackPlaceholder = 'Opcional: deixe uma observacao sobre o roteiro gera
 const navigateTo = (path: string) => {
   window.history.replaceState({}, '', path);
   window.dispatchEvent(new PopStateEvent('popstate'));
+};
+
+const createDocument = (): TripAIDocument => ({ title: 'Documento', detail: '' });
+
+const createRoute = (): TripAIRoute => ({
+  from: 'Origem',
+  to: 'Destino',
+  transport: 'Transporte',
+  duration: '',
+  estimatedCost: '',
+  notes: '',
+});
+
+const createItineraryItem = (): ItineraryItem => ({
+  id: crypto.randomUUID(),
+  day: 'Dia 1',
+  country: 'international',
+  city: '',
+  time: '',
+  title: 'Nova atividade',
+  description: '',
+  type: 'tour',
+  completed: false,
+  links: [],
+});
+
+const createExpense = (): Expense => ({
+  id: crypto.randomUUID(),
+  category: 'Outros',
+  country: 'international',
+  title: 'Gasto planejado',
+  detail: 'Valor aproximado planejado.',
+  euro: { min: 0, max: 0 },
+  real: { min: 0, max: 0 },
+  links: [],
+});
+
+const createAttraction = (): Attraction => ({
+  id: crypto.randomUUID(),
+  name: 'Novo ponto turistico',
+  country: 'international',
+  city: '',
+  day: 'Dia 1',
+  time: '',
+  description: '',
+  links: [],
+});
+
+const updateListItem = <T,>(items: T[], index: number, patch: Partial<T>) =>
+  items.map((item, itemIndex) => (itemIndex === index ? { ...item, ...patch } : item));
+
+const removeListItem = <T,>(items: T[], index: number) =>
+  items.filter((_, itemIndex) => itemIndex !== index);
+
+const numberValue = (value: number | undefined) => (Number.isFinite(value) ? String(value) : '');
+
+const parseMoney = (value: string) => {
+  const parsed = Number(value.replace(',', '.'));
+  return Number.isFinite(parsed) ? parsed : 0;
+};
+
+const validatePlan = (plan: TripAIPlan) => {
+  if (!plan.summary.trim()) return 'Informe um resumo para a viagem.';
+  if (!plan.itinerary_items.length) return 'O roteiro precisa ter pelo menos um item.';
+  if (plan.itinerary_items.some((item) => !item.day.trim() || !item.title.trim())) {
+    return 'Todos os itens do roteiro precisam de dia e titulo.';
+  }
+  if (plan.expenses.some((expense) => !expense.category.trim() || !expense.title.trim())) {
+    return 'Todos os gastos precisam de categoria e descricao.';
+  }
+  if (plan.attractions.some((attraction) => !attraction.name.trim())) {
+    return 'Todos os pontos turisticos precisam de nome.';
+  }
+  return null;
 };
 
 function EmptyReview() {
@@ -89,34 +171,539 @@ function Section({
   );
 }
 
+function EditorField({
+  children,
+  label,
+  className = '',
+}: {
+  children: React.ReactNode;
+  label: string;
+  className?: string;
+}) {
+  return (
+    <label className={className}>
+      <span className="mb-2 block text-xs font-black uppercase tracking-[0.12em] text-slate-400">
+        {label}
+      </span>
+      {children}
+    </label>
+  );
+}
+
+const inputClass =
+  'h-11 w-full rounded-2xl border border-slate-200 bg-white px-3 text-sm font-bold text-slate-900 outline-none transition focus:border-teal-400 focus:ring-4 focus:ring-teal-100';
+const textareaClass =
+  'w-full rounded-2xl border border-slate-200 bg-white px-3 py-3 text-sm font-bold text-slate-900 outline-none transition focus:border-teal-400 focus:ring-4 focus:ring-teal-100';
+
+function PlanEditor({ plan, onChange }: { plan: TripAIPlan; onChange: (plan: TripAIPlan) => void }) {
+  const updatePlan = (patch: Partial<TripAIPlan>) => onChange({ ...plan, ...patch });
+
+  return (
+    <section className="space-y-6 rounded-[2rem] border border-teal-200 bg-teal-50/70 p-5 shadow-xl shadow-teal-900/10 md:p-7">
+      <div>
+        <p className="text-sm font-black uppercase tracking-[0.18em] text-teal-700">Editor visual</p>
+        <h2 className="mt-2 text-3xl font-black text-slate-950">Editar roteiro gerado</h2>
+        <p className="mt-2 text-sm font-bold leading-6 text-teal-900">
+          Ajuste a previa aqui. O roteiro aplicado usara exatamente estes dados editados.
+        </p>
+      </div>
+
+      <EditorField label="Resumo">
+        <textarea
+          value={plan.summary}
+          onChange={(event) => updatePlan({ summary: event.target.value })}
+          rows={4}
+          className={textareaClass}
+        />
+      </EditorField>
+
+      <div className="space-y-3">
+        <div className="flex items-center justify-between gap-3">
+          <h3 className="text-xl font-black text-slate-950">Documentos</h3>
+          <button
+            type="button"
+            onClick={() => updatePlan({ documents: [...plan.documents, createDocument()] })}
+            className="inline-flex h-10 items-center gap-2 rounded-2xl bg-white px-4 text-sm font-black text-slate-700 transition hover:bg-slate-50"
+          >
+            <Plus className="h-4 w-4" />
+            Adicionar
+          </button>
+        </div>
+        {plan.documents.map((document, index) => (
+          <article key={`${document.title}-${index}`} className="rounded-3xl bg-white p-4">
+            <div className="grid gap-3 md:grid-cols-[1fr_1fr_auto]">
+              <EditorField label="Titulo">
+                <input
+                  value={document.title}
+                  onChange={(event) =>
+                    updatePlan({ documents: updateListItem(plan.documents, index, { title: event.target.value }) })
+                  }
+                  className={inputClass}
+                />
+              </EditorField>
+              <EditorField label="Detalhe">
+                <input
+                  value={document.detail}
+                  onChange={(event) =>
+                    updatePlan({ documents: updateListItem(plan.documents, index, { detail: event.target.value }) })
+                  }
+                  className={inputClass}
+                />
+              </EditorField>
+              <button
+                type="button"
+                onClick={() => updatePlan({ documents: removeListItem(plan.documents, index) })}
+                className="mt-6 inline-flex h-11 items-center justify-center rounded-2xl bg-rose-50 px-3 text-rose-700 transition hover:bg-rose-100"
+                aria-label="Remover documento"
+              >
+                <Trash2 className="h-4 w-4" />
+              </button>
+            </div>
+          </article>
+        ))}
+      </div>
+
+      <div className="space-y-3">
+        <div className="flex items-center justify-between gap-3">
+          <h3 className="text-xl font-black text-slate-950">Roteiro</h3>
+          <button
+            type="button"
+            onClick={() => updatePlan({ itinerary_items: [...plan.itinerary_items, createItineraryItem()] })}
+            className="inline-flex h-10 items-center gap-2 rounded-2xl bg-white px-4 text-sm font-black text-slate-700 transition hover:bg-slate-50"
+          >
+            <Plus className="h-4 w-4" />
+            Adicionar
+          </button>
+        </div>
+        {plan.itinerary_items.map((item, index) => (
+          <article key={item.id} className="rounded-3xl bg-white p-4">
+            <div className="grid gap-3 md:grid-cols-3">
+              <EditorField label="Dia">
+                <input
+                  value={item.day}
+                  onChange={(event) =>
+                    updatePlan({ itinerary_items: updateListItem(plan.itinerary_items, index, { day: event.target.value }) })
+                  }
+                  className={inputClass}
+                />
+              </EditorField>
+              <EditorField label="Horario">
+                <input
+                  value={item.time}
+                  onChange={(event) =>
+                    updatePlan({ itinerary_items: updateListItem(plan.itinerary_items, index, { time: event.target.value }) })
+                  }
+                  className={inputClass}
+                />
+              </EditorField>
+              <EditorField label="Pais">
+                <input
+                  value={item.country}
+                  onChange={(event) =>
+                    updatePlan({ itinerary_items: updateListItem(plan.itinerary_items, index, { country: event.target.value }) })
+                  }
+                  className={inputClass}
+                />
+              </EditorField>
+              <EditorField label="Cidade">
+                <input
+                  value={item.city}
+                  onChange={(event) =>
+                    updatePlan({ itinerary_items: updateListItem(plan.itinerary_items, index, { city: event.target.value }) })
+                  }
+                  className={inputClass}
+                />
+              </EditorField>
+              <EditorField label="Titulo" className="md:col-span-2">
+                <input
+                  value={item.title}
+                  onChange={(event) =>
+                    updatePlan({ itinerary_items: updateListItem(plan.itinerary_items, index, { title: event.target.value }) })
+                  }
+                  className={inputClass}
+                />
+              </EditorField>
+              <EditorField label="Tipo">
+                <select
+                  value={item.type}
+                  onChange={(event) =>
+                    updatePlan({
+                      itinerary_items: updateListItem(plan.itinerary_items, index, {
+                        type: event.target.value as ItineraryType,
+                      }),
+                    })
+                  }
+                  className={inputClass}
+                >
+                  {Object.entries(typeLabels).map(([type, label]) => (
+                    <option key={type} value={type}>
+                      {label}
+                    </option>
+                  ))}
+                </select>
+              </EditorField>
+              <EditorField label="Descricao" className="md:col-span-2">
+                <textarea
+                  value={item.description}
+                  onChange={(event) =>
+                    updatePlan({ itinerary_items: updateListItem(plan.itinerary_items, index, { description: event.target.value }) })
+                  }
+                  rows={3}
+                  className={textareaClass}
+                />
+              </EditorField>
+              <button
+                type="button"
+                onClick={() => updatePlan({ itinerary_items: removeListItem(plan.itinerary_items, index) })}
+                className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl bg-rose-50 px-4 text-sm font-black text-rose-700 transition hover:bg-rose-100 md:col-span-3"
+              >
+                <Trash2 className="h-4 w-4" />
+                Remover item
+              </button>
+            </div>
+          </article>
+        ))}
+      </div>
+
+      <div className="space-y-3">
+        <div className="flex items-center justify-between gap-3">
+          <h3 className="text-xl font-black text-slate-950">Gastos</h3>
+          <button
+            type="button"
+            onClick={() => updatePlan({ expenses: [...plan.expenses, createExpense()] })}
+            className="inline-flex h-10 items-center gap-2 rounded-2xl bg-white px-4 text-sm font-black text-slate-700 transition hover:bg-slate-50"
+          >
+            <Plus className="h-4 w-4" />
+            Adicionar
+          </button>
+        </div>
+        {plan.expenses.map((expense, index) => (
+          <article key={expense.id} className="rounded-3xl bg-white p-4">
+            <div className="grid gap-3 md:grid-cols-4">
+              <EditorField label="Categoria">
+                <input
+                  value={expense.category}
+                  onChange={(event) =>
+                    updatePlan({ expenses: updateListItem(plan.expenses, index, { category: event.target.value }) })
+                  }
+                  className={inputClass}
+                />
+              </EditorField>
+              <EditorField label="Pais">
+                <input
+                  value={expense.country ?? ''}
+                  onChange={(event) =>
+                    updatePlan({ expenses: updateListItem(plan.expenses, index, { country: event.target.value }) })
+                  }
+                  className={inputClass}
+                />
+              </EditorField>
+              <EditorField label="Descricao" className="md:col-span-2">
+                <input
+                  value={expense.title}
+                  onChange={(event) =>
+                    updatePlan({ expenses: updateListItem(plan.expenses, index, { title: event.target.value }) })
+                  }
+                  className={inputClass}
+                />
+              </EditorField>
+              <EditorField label="Detalhes" className="md:col-span-4">
+                <textarea
+                  value={expense.detail ?? ''}
+                  onChange={(event) =>
+                    updatePlan({ expenses: updateListItem(plan.expenses, index, { detail: event.target.value }) })
+                  }
+                  rows={2}
+                  className={textareaClass}
+                />
+              </EditorField>
+              <EditorField label="Euro minimo">
+                <input
+                  inputMode="decimal"
+                  value={numberValue(expense.euro.min)}
+                  onChange={(event) =>
+                    updatePlan({
+                      expenses: updateListItem(plan.expenses, index, {
+                        euro: { ...expense.euro, min: parseMoney(event.target.value) },
+                      }),
+                    })
+                  }
+                  className={inputClass}
+                />
+              </EditorField>
+              <EditorField label="Euro maximo">
+                <input
+                  inputMode="decimal"
+                  value={numberValue(expense.euro.max)}
+                  onChange={(event) =>
+                    updatePlan({
+                      expenses: updateListItem(plan.expenses, index, {
+                        euro: { ...expense.euro, max: parseMoney(event.target.value) },
+                      }),
+                    })
+                  }
+                  className={inputClass}
+                />
+              </EditorField>
+              <EditorField label="Real minimo">
+                <input
+                  inputMode="decimal"
+                  value={numberValue(expense.real.min)}
+                  onChange={(event) =>
+                    updatePlan({
+                      expenses: updateListItem(plan.expenses, index, {
+                        real: { ...expense.real, min: parseMoney(event.target.value) },
+                      }),
+                    })
+                  }
+                  className={inputClass}
+                />
+              </EditorField>
+              <EditorField label="Real maximo">
+                <input
+                  inputMode="decimal"
+                  value={numberValue(expense.real.max)}
+                  onChange={(event) =>
+                    updatePlan({
+                      expenses: updateListItem(plan.expenses, index, {
+                        real: { ...expense.real, max: parseMoney(event.target.value) },
+                      }),
+                    })
+                  }
+                  className={inputClass}
+                />
+              </EditorField>
+              <button
+                type="button"
+                onClick={() => updatePlan({ expenses: removeListItem(plan.expenses, index) })}
+                className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl bg-rose-50 px-4 text-sm font-black text-rose-700 transition hover:bg-rose-100 md:col-span-4"
+              >
+                <Trash2 className="h-4 w-4" />
+                Remover gasto
+              </button>
+            </div>
+          </article>
+        ))}
+      </div>
+
+      <div className="space-y-3">
+        <div className="flex items-center justify-between gap-3">
+          <h3 className="text-xl font-black text-slate-950">Pontos turisticos</h3>
+          <button
+            type="button"
+            onClick={() => updatePlan({ attractions: [...plan.attractions, createAttraction()] })}
+            className="inline-flex h-10 items-center gap-2 rounded-2xl bg-white px-4 text-sm font-black text-slate-700 transition hover:bg-slate-50"
+          >
+            <Plus className="h-4 w-4" />
+            Adicionar
+          </button>
+        </div>
+        {plan.attractions.map((attraction, index) => (
+          <article key={attraction.id} className="rounded-3xl bg-white p-4">
+            <div className="grid gap-3 md:grid-cols-3">
+              <EditorField label="Nome" className="md:col-span-2">
+                <input
+                  value={attraction.name}
+                  onChange={(event) =>
+                    updatePlan({ attractions: updateListItem(plan.attractions, index, { name: event.target.value }) })
+                  }
+                  className={inputClass}
+                />
+              </EditorField>
+              <EditorField label="Pais">
+                <input
+                  value={attraction.country}
+                  onChange={(event) =>
+                    updatePlan({ attractions: updateListItem(plan.attractions, index, { country: event.target.value }) })
+                  }
+                  className={inputClass}
+                />
+              </EditorField>
+              <EditorField label="Cidade">
+                <input
+                  value={attraction.city}
+                  onChange={(event) =>
+                    updatePlan({ attractions: updateListItem(plan.attractions, index, { city: event.target.value }) })
+                  }
+                  className={inputClass}
+                />
+              </EditorField>
+              <EditorField label="Dia">
+                <input
+                  value={attraction.day}
+                  onChange={(event) =>
+                    updatePlan({ attractions: updateListItem(plan.attractions, index, { day: event.target.value }) })
+                  }
+                  className={inputClass}
+                />
+              </EditorField>
+              <EditorField label="Horario">
+                <input
+                  value={attraction.time ?? ''}
+                  onChange={(event) =>
+                    updatePlan({ attractions: updateListItem(plan.attractions, index, { time: event.target.value }) })
+                  }
+                  className={inputClass}
+                />
+              </EditorField>
+              <EditorField label="Descricao" className="md:col-span-3">
+                <textarea
+                  value={attraction.description}
+                  onChange={(event) =>
+                    updatePlan({ attractions: updateListItem(plan.attractions, index, { description: event.target.value }) })
+                  }
+                  rows={3}
+                  className={textareaClass}
+                />
+              </EditorField>
+              <button
+                type="button"
+                onClick={() => updatePlan({ attractions: removeListItem(plan.attractions, index) })}
+                className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl bg-rose-50 px-4 text-sm font-black text-rose-700 transition hover:bg-rose-100 md:col-span-3"
+              >
+                <Trash2 className="h-4 w-4" />
+                Remover ponto
+              </button>
+            </div>
+          </article>
+        ))}
+      </div>
+
+      <div className="space-y-3">
+        <div className="flex items-center justify-between gap-3">
+          <h3 className="text-xl font-black text-slate-950">Rotas</h3>
+          <button
+            type="button"
+            onClick={() => updatePlan({ routes: [...plan.routes, createRoute()] })}
+            className="inline-flex h-10 items-center gap-2 rounded-2xl bg-white px-4 text-sm font-black text-slate-700 transition hover:bg-slate-50"
+          >
+            <Plus className="h-4 w-4" />
+            Adicionar
+          </button>
+        </div>
+        {plan.routes.map((route, index) => (
+          <article key={`${route.from}-${route.to}-${index}`} className="rounded-3xl bg-white p-4">
+            <div className="grid gap-3 md:grid-cols-2">
+              <EditorField label="Origem">
+                <input
+                  value={route.from}
+                  onChange={(event) =>
+                    updatePlan({ routes: updateListItem(plan.routes, index, { from: event.target.value }) })
+                  }
+                  className={inputClass}
+                />
+              </EditorField>
+              <EditorField label="Destino">
+                <input
+                  value={route.to}
+                  onChange={(event) =>
+                    updatePlan({ routes: updateListItem(plan.routes, index, { to: event.target.value }) })
+                  }
+                  className={inputClass}
+                />
+              </EditorField>
+              <EditorField label="Transporte">
+                <input
+                  value={route.transport}
+                  onChange={(event) =>
+                    updatePlan({ routes: updateListItem(plan.routes, index, { transport: event.target.value }) })
+                  }
+                  className={inputClass}
+                />
+              </EditorField>
+              <EditorField label="Duracao aproximada">
+                <input
+                  value={route.duration ?? ''}
+                  onChange={(event) =>
+                    updatePlan({ routes: updateListItem(plan.routes, index, { duration: event.target.value }) })
+                  }
+                  className={inputClass}
+                />
+              </EditorField>
+              <EditorField label="Valor aproximado">
+                <input
+                  value={route.estimatedCost ?? ''}
+                  onChange={(event) =>
+                    updatePlan({ routes: updateListItem(plan.routes, index, { estimatedCost: event.target.value }) })
+                  }
+                  className={inputClass}
+                />
+              </EditorField>
+              <EditorField label="Observacao">
+                <input
+                  value={route.notes ?? ''}
+                  onChange={(event) =>
+                    updatePlan({ routes: updateListItem(plan.routes, index, { notes: event.target.value }) })
+                  }
+                  className={inputClass}
+                />
+              </EditorField>
+              <button
+                type="button"
+                onClick={() => updatePlan({ routes: removeListItem(plan.routes, index) })}
+                className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl bg-rose-50 px-4 text-sm font-black text-rose-700 transition hover:bg-rose-100 md:col-span-2"
+              >
+                <Trash2 className="h-4 w-4" />
+                Remover rota
+              </button>
+            </div>
+          </article>
+        ))}
+      </div>
+
+      <div className="space-y-3">
+        <div className="flex items-center justify-between gap-3">
+          <h3 className="text-xl font-black text-slate-950">Avisos</h3>
+          <button
+            type="button"
+            onClick={() => updatePlan({ warnings: [...plan.warnings, 'Novo aviso'] })}
+            className="inline-flex h-10 items-center gap-2 rounded-2xl bg-white px-4 text-sm font-black text-slate-700 transition hover:bg-slate-50"
+          >
+            <Plus className="h-4 w-4" />
+            Adicionar
+          </button>
+        </div>
+        {plan.warnings.map((warning, index) => (
+          <div key={`${warning}-${index}`} className="grid gap-3 rounded-3xl bg-white p-4 md:grid-cols-[1fr_auto]">
+            <input
+              value={warning}
+              onChange={(event) =>
+                updatePlan({ warnings: plan.warnings.map((item, itemIndex) => (itemIndex === index ? event.target.value : item)) })
+              }
+              className={inputClass}
+            />
+            <button
+              type="button"
+              onClick={() => updatePlan({ warnings: removeListItem(plan.warnings, index) })}
+              className="inline-flex h-11 items-center justify-center rounded-2xl bg-rose-50 px-4 text-rose-700 transition hover:bg-rose-100"
+              aria-label="Remover aviso"
+            >
+              <Trash2 className="h-4 w-4" />
+            </button>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 export function TripAIReviewPage() {
   const [review, setReview] = useState<TripAIReviewState | null>(() => getStoredTripAIReview());
-  const [jsonDraft, setJsonDraft] = useState(() => JSON.stringify(getStoredTripAIReview()?.plan ?? {}, null, 2));
   const [feedback, setFeedback] = useState('');
-  const [isEditingJson, setIsEditingJson] = useState(false);
+  const [isEditingPlan, setIsEditingPlan] = useState(false);
   const [isApplying, setIsApplying] = useState(false);
   const [isRegenerating, setIsRegenerating] = useState(false);
   const [isCancelling, setIsCancelling] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const plan = useMemo<TripAIPlan | null>(() => {
-    if (!review) return null;
-    if (!isEditingJson) return review.plan;
-
-    try {
-      return normalizeTripAIPlan(JSON.parse(jsonDraft));
-    } catch {
-      return review.plan;
-    }
-  }, [isEditingJson, jsonDraft, review]);
+  const plan = useMemo<TripAIPlan | null>(() => review?.plan ?? null, [review]);
 
   if (!review || !plan) return <EmptyReview />;
 
   const persistReview = (nextPlan: TripAIPlan) => {
     const nextReview = { ...review, plan: nextPlan, createdAt: Date.now() };
     setReview(nextReview);
-    setJsonDraft(JSON.stringify(nextPlan, null, 2));
     storeTripAIReview(nextReview);
   };
 
@@ -126,8 +713,13 @@ export function TripAIReviewPage() {
     setIsApplying(true);
 
     try {
-      const planToApply = isEditingJson ? normalizeTripAIPlan(JSON.parse(jsonDraft)) : plan;
-      await applyTripPlan(review, planToApply, isEditingJson ? feedback || 'Roteiro editado antes de aplicar.' : feedback);
+      const validationError = validatePlan(plan);
+      if (validationError) {
+        setError(validationError);
+        return;
+      }
+
+      await applyTripPlan(review, plan, isEditingPlan ? feedback || 'Roteiro editado antes de aplicar.' : feedback);
       clearTripAIReview();
       setStatus('Roteiro aplicado com sucesso.');
       navigateTo('/dashboard');
@@ -146,7 +738,7 @@ export function TripAIReviewPage() {
     try {
       const nextPlan = await generateTripPlan(review.input);
       persistReview(nextPlan);
-      setIsEditingJson(false);
+      setIsEditingPlan(false);
       setFeedback('');
       setStatus('Nova previa gerada.');
     } catch (caughtError) {
@@ -225,11 +817,11 @@ export function TripAIReviewPage() {
           </button>
           <button
             type="button"
-            onClick={() => setIsEditingJson((current) => !current)}
+            onClick={() => setIsEditingPlan((current) => !current)}
             className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-5 font-black text-slate-700 transition hover:bg-slate-50"
           >
             <Pencil className="h-5 w-5" />
-            {isEditingJson ? 'Fechar edicao' : 'Editar JSON'}
+            {isEditingPlan ? 'Ver previa' : 'Editar roteiro'}
           </button>
           <button
             type="button"
@@ -253,20 +845,7 @@ export function TripAIReviewPage() {
           />
         </label>
 
-        {isEditingJson ? (
-          <section className="rounded-[2rem] border border-amber-200 bg-amber-50 p-5 shadow-xl shadow-amber-900/10 md:p-7">
-            <div className="mb-3 flex items-center gap-2 text-sm font-black text-amber-800">
-              <AlertTriangle className="h-4 w-4" />
-              Edite mantendo JSON valido.
-            </div>
-            <textarea
-              value={jsonDraft}
-              onChange={(event) => setJsonDraft(event.target.value)}
-              spellCheck={false}
-              className="min-h-[28rem] w-full rounded-2xl border border-amber-200 bg-white px-4 py-3 font-mono text-sm outline-none focus:border-amber-400 focus:ring-4 focus:ring-amber-100"
-            />
-          </section>
-        ) : null}
+        {isEditingPlan ? <PlanEditor plan={plan} onChange={persistReview} /> : null}
 
         <div className="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
           <div className="space-y-6">
@@ -348,6 +927,11 @@ export function TripAIReviewPage() {
                     <p className="mt-2 text-sm font-bold text-slate-500">
                       {route.transport} {route.duration ? `- ${route.duration}` : ''}
                     </p>
+                    {route.estimatedCost ? (
+                      <p className="mt-2 text-sm font-black text-slate-500">
+                        Valor aproximado: {route.estimatedCost}
+                      </p>
+                    ) : null}
                     {route.notes ? <p className="mt-3 leading-7 text-slate-600">{route.notes}</p> : null}
                   </article>
                 ))}
