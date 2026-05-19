@@ -4,11 +4,13 @@ import {
   CheckCircle2,
   Copy,
   Link2,
+  Loader2,
   LogOut,
   MapPin,
   Plus,
   Send,
   ShieldCheck,
+  Sparkles,
   Ticket,
   Trash2,
   UserRound,
@@ -28,7 +30,8 @@ import {
 } from '../services/profileService';
 import { getInvites, normalizeInviteToken, type InviteDetails } from '../services/groupsService';
 import { supabase } from '../services/supabaseClient';
-import type { GroupMemberProfile, UserProfile, UserStats } from '../types';
+import { generateTripPlan, storeTripAIReview } from '../services/tripAIService';
+import type { GroupMemberProfile, TripAIInput, TripStyle, UserProfile, UserStats } from '../types';
 import { formatRange } from '../utils/money';
 
 const emptyStats: UserStats = {
@@ -59,6 +62,8 @@ const buildFallbackProfile = (user: ReturnType<typeof useAuth>['user']): UserPro
     email: user.email ?? undefined,
     fullName: user.user_metadata?.full_name ?? user.user_metadata?.name ?? user.email ?? undefined,
     avatarUrl: user.user_metadata?.avatar_url ?? user.user_metadata?.picture ?? undefined,
+    aiGenerationsUsed: 0,
+    aiGenerationsLimit: 3,
     createdAt: user.created_at,
   };
 };
@@ -109,6 +114,7 @@ export function ProfilePage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isInviting, setIsInviting] = useState(false);
   const [isCreatingTrip, setIsCreatingTrip] = useState(false);
+  const [isGeneratingAI, setIsGeneratingAI] = useState(false);
   const [isJoiningTrip, setIsJoiningTrip] = useState(false);
   const [removingUserId, setRemovingUserId] = useState<string | null>(null);
 
@@ -128,6 +134,34 @@ export function ProfilePage() {
       : getProfileName(ownerMember?.profile, ownerMember?.profile?.email, 'Dono da viagem');
 
   const latestInvite = generatedInvite ?? knownInvites[0] ?? null;
+  const aiGenerationsUsed = profile?.aiGenerationsUsed ?? 0;
+  const aiGenerationsLimit = profile?.aiGenerationsLimit ?? 3;
+  const aiLimitReached = aiGenerationsUsed >= aiGenerationsLimit;
+  const aiCooldownActive = profile?.lastAiGenerationAt
+    ? Date.now() - new Date(profile.lastAiGenerationAt).getTime() < 30_000
+    : false;
+  const aiGenerationBlocked = aiLimitReached || aiCooldownActive;
+  const aiUsageMessage = aiLimitReached
+    ? 'Voce atingiu o limite gratuito de geracoes com IA.'
+    : aiCooldownActive
+      ? 'Aguarde alguns segundos antes de gerar novamente.'
+      : 'A previa sera gerada para revisao antes de aplicar.';
+  const parsedTripCountries = () =>
+    tripCountries
+      .split(',')
+      .map((country) => country.trim())
+      .filter(Boolean);
+
+  const goToAIReview = (input: TripAIInput, group: Awaited<ReturnType<typeof createGroup>>, plan: Awaited<ReturnType<typeof generateTripPlan>>) => {
+    storeTripAIReview({
+      group,
+      input,
+      plan,
+      createdAt: Date.now(),
+    });
+    window.history.pushState({}, '', '/trip-ai-review');
+    window.dispatchEvent(new PopStateEvent('popstate'));
+  };
 
   const loadProfile = useCallback(async () => {
     setIsLoading(true);
@@ -239,6 +273,76 @@ export function ProfilePage() {
     }
   };
 
+  const handleGenerateTripPreview = async () => {
+    setError(null);
+    setStatus(null);
+    setIsGeneratingAI(true);
+
+    try {
+      const countries = parsedTripCountries();
+      if (!countries.length) throw new Error('Informe os paises antes de gerar a previa com IA.');
+      if (!tripStartDate || !tripEndDate) throw new Error('Informe as datas da viagem antes de gerar a previa com IA.');
+      const group = await createGroup({
+        name: tripName,
+        description: tripDescription,
+        countries,
+        startDate: tripStartDate,
+        endDate: tripEndDate,
+        travelStyle: tripStyle,
+        notes: tripNotes,
+      });
+      const input: TripAIInput = {
+        tripName,
+        countries,
+        description: tripDescription,
+        startDate: tripStartDate,
+        endDate: tripEndDate,
+        style: tripStyle as TripStyle,
+        notes: tripNotes,
+        groupId: group.id,
+      };
+      const plan = await generateTripPlan(input);
+      goToAIReview(input, group, plan);
+    } catch (caughtError) {
+      await loadProfile().catch(() => null);
+      setError(caughtError instanceof Error ? caughtError.message : 'Nao foi possivel gerar a previa com IA.');
+    } finally {
+      setIsGeneratingAI(false);
+    }
+  };
+
+  const handleGenerateActiveTripPreview = async () => {
+    if (!activeGroup) return;
+
+    const confirmed = window.confirm('Gerar uma previa com IA para a viagem ativa? Nada sera aplicado sem revisao.');
+    if (!confirmed) return;
+
+    setError(null);
+    setStatus(null);
+    setIsGeneratingAI(true);
+
+    try {
+      const countries = activeGroup.countries?.length ? activeGroup.countries : ['Europa'];
+      const input: TripAIInput = {
+        tripName: activeGroup.name,
+        countries,
+        description: activeGroup.description ?? '',
+        startDate: activeGroup.startDate ?? '',
+        endDate: activeGroup.endDate ?? '',
+        style: (activeGroup.travelStyle as TripStyle | undefined) ?? 'intermediaria',
+        notes: activeGroup.notes ?? '',
+        groupId: activeGroup.id,
+      };
+      const plan = await generateTripPlan(input);
+      goToAIReview(input, activeGroup, plan);
+    } catch (caughtError) {
+      await loadProfile().catch(() => null);
+      setError(caughtError instanceof Error ? caughtError.message : 'Nao foi possivel gerar a previa com IA.');
+    } finally {
+      setIsGeneratingAI(false);
+    }
+  };
+
   const handleAcceptInvite = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const token = normalizeInviteToken(inviteCodeInput);
@@ -329,6 +433,9 @@ export function ProfilePage() {
           </span>
           <span className="rounded-2xl bg-white/10 px-4 py-3">
             Participa de {userGroups.length} {userGroups.length === 1 ? 'viagem' : 'viagens'}
+          </span>
+          <span className="rounded-2xl bg-white/10 px-4 py-3">
+            IA: {aiGenerationsUsed} de {aiGenerationsLimit} geracoes usadas
           </span>
         </div>
       </section>
@@ -445,14 +552,28 @@ export function ProfilePage() {
                   className="w-full rounded-2xl border border-slate-200 px-4 py-3 font-semibold outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-100"
                 />
               </label>
-              <button
-                type="submit"
-                disabled={isCreatingTrip}
-                className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-slate-950 px-5 font-black text-white transition hover:bg-teal-700 disabled:cursor-not-allowed disabled:opacity-70"
-              >
-                <Plus className="h-5 w-5" />
-                {isCreatingTrip ? 'Criando viagem...' : 'Criar minha viagem'}
-              </button>
+              <div className="grid gap-3 md:grid-cols-2">
+                <button
+                  type="submit"
+                  disabled={isCreatingTrip || isGeneratingAI}
+                  className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-slate-950 px-5 font-black text-white transition hover:bg-teal-700 disabled:cursor-not-allowed disabled:opacity-70"
+                >
+                  <Plus className="h-5 w-5" />
+                  {isCreatingTrip ? 'Criando viagem...' : 'Criar minha viagem'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void handleGenerateTripPreview()}
+                  disabled={isCreatingTrip || isGeneratingAI || aiGenerationBlocked}
+                  className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-teal-700 px-5 font-black text-white transition hover:bg-teal-800 disabled:cursor-not-allowed disabled:opacity-70"
+                >
+                  {isGeneratingAI ? <Loader2 className="h-5 w-5 animate-spin" /> : <Sparkles className="h-5 w-5" />}
+                  {isGeneratingAI ? 'Gerando previa...' : 'Gerar previa com IA'}
+                </button>
+              </div>
+              <p className="rounded-2xl bg-slate-50 px-4 py-3 text-sm font-bold text-slate-600">
+                Geracoes usadas: {aiGenerationsUsed} de {aiGenerationsLimit}. {aiUsageMessage}
+              </p>
             </form>
           </motion.section>
 
@@ -518,6 +639,18 @@ export function ProfilePage() {
                   {activeGroup.role}
                 </span>
               </div>
+              <button
+                type="button"
+                onClick={() => void handleGenerateActiveTripPreview()}
+                disabled={isGeneratingAI || aiGenerationBlocked}
+                className="mt-5 inline-flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-teal-700 px-5 font-black text-white transition hover:bg-teal-800 disabled:cursor-not-allowed disabled:opacity-70 sm:w-auto"
+              >
+                {isGeneratingAI ? <Loader2 className="h-5 w-5 animate-spin" /> : <Sparkles className="h-5 w-5" />}
+                {isGeneratingAI ? 'Gerando previa...' : 'Gerar previa com IA'}
+              </button>
+              <p className="mt-3 rounded-2xl bg-slate-50 px-4 py-3 text-sm font-bold text-slate-600">
+                Geracoes usadas: {aiGenerationsUsed} de {aiGenerationsLimit}. {aiUsageMessage}
+              </p>
               <div className="mt-6 grid gap-3 text-sm font-bold text-slate-600 sm:grid-cols-2">
                 <span className="rounded-2xl bg-slate-50 px-4 py-3">
                   <CalendarDays className="mr-2 inline h-4 w-4" />

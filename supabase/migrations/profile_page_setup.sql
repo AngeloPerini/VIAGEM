@@ -19,9 +19,17 @@ create table if not exists public.profiles (
   email text,
   full_name text,
   avatar_url text,
+  ai_generations_used integer not null default 0,
+  ai_generations_limit integer not null default 3,
+  last_ai_generation_at timestamptz,
   created_at timestamptz default now(),
   updated_at timestamptz default now()
 );
+
+alter table public.profiles
+  add column if not exists ai_generations_used integer not null default 0,
+  add column if not exists ai_generations_limit integer not null default 3,
+  add column if not exists last_ai_generation_at timestamptz;
 
 -- Extra planning fields for trips created by users after login.
 alter table public.travel_groups
@@ -190,7 +198,10 @@ begin
 end;
 $$;
 
-grant select, insert, update on public.profiles to authenticated;
+revoke insert, update on public.profiles from authenticated;
+grant select on public.profiles to authenticated;
+grant insert (id, email, full_name, avatar_url, created_at, updated_at) on public.profiles to authenticated;
+grant update (email, full_name, avatar_url, updated_at) on public.profiles to authenticated;
 grant execute on function public.can_view_profile(uuid, uuid) to authenticated;
 grant execute on function public.handle_auth_user_profile() to authenticated;
 grant execute on function public.accept_group_invite(text) to authenticated;

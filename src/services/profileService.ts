@@ -17,6 +17,9 @@ type ProfileRow = {
   email: string | null;
   full_name: string | null;
   avatar_url: string | null;
+  ai_generations_used?: number | null;
+  ai_generations_limit?: number | null;
+  last_ai_generation_at?: string | null;
   created_at?: string;
   updated_at?: string;
 };
@@ -50,6 +53,9 @@ const toProfile = (row: ProfileRow): UserProfile => ({
   email: row.email ?? undefined,
   fullName: row.full_name ?? undefined,
   avatarUrl: row.avatar_url ?? undefined,
+  aiGenerationsUsed: Number(row.ai_generations_used ?? 0),
+  aiGenerationsLimit: Number(row.ai_generations_limit ?? 3),
+  lastAiGenerationAt: row.last_ai_generation_at ?? undefined,
   createdAt: row.created_at,
   updatedAt: row.updated_at,
 });
@@ -98,7 +104,7 @@ export async function upsertCurrentProfile(userFromContext?: User | null) {
   const { data, error } = await supabase
     .from('profiles')
     .upsert(profilePayload, { onConflict: 'id' })
-    .select('id, email, full_name, avatar_url, created_at, updated_at')
+    .select('id, email, full_name, avatar_url, ai_generations_used, ai_generations_limit, last_ai_generation_at, created_at, updated_at')
     .single();
 
   if (error) throw error;
@@ -109,7 +115,7 @@ export async function getCurrentProfile() {
   const user = await requireUser();
   const { data, error } = await supabase
     .from('profiles')
-    .select('id, email, full_name, avatar_url, created_at, updated_at')
+    .select('id, email, full_name, avatar_url, ai_generations_used, ai_generations_limit, last_ai_generation_at, created_at, updated_at')
     .eq('id', user.id)
     .maybeSingle();
 

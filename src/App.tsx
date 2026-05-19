@@ -19,6 +19,7 @@ import { AuthPage } from './pages/AuthPage';
 import { InvitePage } from './pages/InvitePage';
 import { AttractionsPage } from './pages/AttractionsPage';
 import { ProfilePage } from './pages/ProfilePage';
+import { TripAIReviewPage } from './pages/TripAIReviewPage';
 import { getPendingInviteToken } from './services/groupsService';
 import {
   appendQuoteHistory,
@@ -104,6 +105,7 @@ export default function App() {
   const activeInviteToken = inviteToken ?? pendingInviteToken;
   const isAuthCallback = window.location.pathname === '/auth/callback';
   const isGroupsRoute = window.location.pathname === '/groups';
+  const isTripAIReviewRoute = window.location.pathname === '/trip-ai-review';
 
   useEffect(() => {
     if (!authLoading && user && !groupLoading && isAuthCallback && !activeInviteToken) {
@@ -128,6 +130,7 @@ export default function App() {
       />
     );
   }
+  if (isTripAIReviewRoute) return <TripAIReviewPage />;
   if (groupLoading && !activeGroup) return <LoadingScreen message="Carregando suas viagens..." />;
   if (!activeGroup) return <StandaloneProfileShell />;
 

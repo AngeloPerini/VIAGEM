@@ -126,6 +126,9 @@ export type UserProfile = {
   email?: string;
   fullName?: string;
   avatarUrl?: string;
+  aiGenerationsUsed?: number;
+  aiGenerationsLimit?: number;
+  lastAiGenerationAt?: string;
   createdAt?: string;
   updatedAt?: string;
 };
@@ -152,4 +155,48 @@ export type CreateTravelGroupInput = {
   endDate?: string;
   travelStyle?: string;
   notes?: string;
+};
+
+export type TripStyle = 'economica' | 'intermediaria' | 'confortavel';
+
+export type TripAIInput = {
+  tripName: string;
+  countries: string[];
+  description: string;
+  startDate: string;
+  endDate: string;
+  style: TripStyle;
+  notes: string;
+  groupId: string;
+};
+
+export type TripAIDocument = {
+  title: string;
+  detail: string;
+};
+
+export type TripAIRoute = {
+  from: string;
+  to: string;
+  transport: string;
+  duration?: string;
+  notes?: string;
+};
+
+export type TripAIPlan = {
+  generationId?: string;
+  summary: string;
+  documents: TripAIDocument[];
+  routes: TripAIRoute[];
+  itinerary_items: ItineraryItem[];
+  expenses: Expense[];
+  attractions: Attraction[];
+  warnings: string[];
+};
+
+export type TripAIReviewState = {
+  group: UserTravelGroup;
+  input: TripAIInput;
+  plan: TripAIPlan;
+  createdAt: number;
 };

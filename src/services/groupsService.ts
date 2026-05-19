@@ -147,7 +147,7 @@ export async function getUserGroups(): Promise<UserTravelGroup[]> {
   const userId = await requireUserId();
   const { data, error } = await supabase
     .from('group_members')
-    .select('role, travel_groups(id, name, description, owner_id, created_at, updated_at)')
+    .select('role, travel_groups(id, name, description, owner_id, countries, start_date, end_date, travel_style, notes, created_at, updated_at)')
     .eq('user_id', userId)
     .order('created_at', { ascending: true });
 
@@ -193,7 +193,7 @@ export async function createGroup(
   const { data, error } = await supabase
     .from('travel_groups')
     .insert(extendedPayload)
-    .select('id, name, description, owner_id, created_at, updated_at')
+    .select('id, name, description, owner_id, countries, start_date, end_date, travel_style, notes, created_at, updated_at')
     .single();
 
   if (error) {

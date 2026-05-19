@@ -168,6 +168,33 @@ VITE_SUPABASE_ANON_KEY=
 
 O arquivo `.env` ja esta no `.gitignore`; se criar um `.env.example`, mantenha apenas nomes de variaveis e valores ficticios.
 
+### Geracao de viagem com IA
+
+O modulo de IA roda em ambiente seguro por Supabase Edge Function:
+
+- Function: `supabase/functions/generate-trip-plan/index.ts`
+- Migration: `supabase/migrations/20260519130857_ai_trip_generations_setup.sql`
+- Historico: tabela `ai_trip_generations`
+- Limite inicial: 3 geracoes por viagem
+- A IA gera apenas uma previa. O usuario precisa revisar e clicar em **Aplicar roteiro** para salvar gastos, roteiro e pontos turisticos.
+
+Segredos da IA ficam apenas no Supabase, nunca no frontend. Configure no Dashboard em Edge Functions -> Secrets, ou via CLI:
+
+```bash
+supabase secrets set OPENAI_API_KEY=<sua-chave-openai>
+supabase secrets set AI_MODEL=gpt-4.1-mini
+```
+
+Para desenvolvimento local, use `supabase/functions/.env`; esse arquivo esta ignorado pelo Git.
+
+Deploy da function:
+
+```bash
+supabase functions deploy generate-trip-plan
+```
+
+A function valida o JWT do usuario, confirma participacao no `group_members`, aplica limite real no backend de 3 geracoes por usuario com cooldown de 30 segundos, grava logs em `ai_trip_generations` e retorna JSON estruturado para a tela `/trip-ai-review`.
+
 ### Configurar Google OAuth no Supabase
 
 O erro `Unsupported provider: missing OAuth secret` significa que o Google OAuth ainda nao esta completo no painel do Supabase. O frontend trata esse erro e mantem login por e-mail/senha disponivel, mas o Google so funciona apos esta configuracao manual.
