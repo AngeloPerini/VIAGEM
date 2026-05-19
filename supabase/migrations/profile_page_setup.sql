@@ -23,6 +23,14 @@ create table if not exists public.profiles (
   updated_at timestamptz default now()
 );
 
+-- Extra planning fields for trips created by users after login.
+alter table public.travel_groups
+  add column if not exists countries text[] default '{}',
+  add column if not exists start_date date,
+  add column if not exists end_date date,
+  add column if not exists travel_style text,
+  add column if not exists notes text;
+
 create index if not exists profiles_email_idx on public.profiles(lower(email));
 
 drop trigger if exists update_profiles_updated_at on public.profiles;
@@ -101,9 +109,91 @@ as $$
     );
 $$;
 
+-- Keep profile data available when a user joins by invite before opening the Profile page.
+create or replace function public.accept_group_invite(invite_token text)
+returns table (
+  id uuid,
+  name text,
+  description text,
+  owner_id uuid,
+  created_at timestamptz,
+  updated_at timestamptz,
+  role text
+)
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  current_user_id uuid := auth.uid();
+  target_invite public.group_invites%rowtype;
+  normalized_token text := upper(trim(invite_token));
+begin
+  if current_user_id is null then
+    raise exception 'Usuario nao autenticado.';
+  end if;
+
+  insert into public.profiles (id, email, full_name, avatar_url, created_at, updated_at)
+  select
+    auth_user.id,
+    auth_user.email,
+    coalesce(auth_user.raw_user_meta_data ->> 'full_name', auth_user.raw_user_meta_data ->> 'name'),
+    coalesce(auth_user.raw_user_meta_data ->> 'avatar_url', auth_user.raw_user_meta_data ->> 'picture'),
+    coalesce(auth_user.created_at, now()),
+    now()
+  from auth.users auth_user
+  where auth_user.id = current_user_id
+  on conflict (id) do update
+    set email = excluded.email,
+        full_name = coalesce(excluded.full_name, public.profiles.full_name),
+        avatar_url = coalesce(excluded.avatar_url, public.profiles.avatar_url),
+        updated_at = now();
+
+  select *
+  into target_invite
+  from public.group_invites
+  where upper(token) = normalized_token
+    and (single_use is false or used is false)
+    and (expires_at is null or expires_at > now())
+  for update;
+
+  if not found then
+    raise exception 'Convite invalido ou expirado.';
+  end if;
+
+  insert into public.group_members (group_id, user_id, role)
+  values (target_invite.group_id, current_user_id, target_invite.role)
+  on conflict (group_id, user_id) do update
+    set role = case
+      when public.group_members.role = 'owner' then public.group_members.role
+      else excluded.role
+    end;
+
+  update public.group_invites
+  set used_count = coalesce(used_count, 0) + 1,
+      used = case when target_invite.single_use then true else false end
+  where public.group_invites.id = target_invite.id;
+
+  return query
+  select travel_group.id,
+    travel_group.name,
+    travel_group.description,
+    travel_group.owner_id,
+    travel_group.created_at,
+    travel_group.updated_at,
+    member.role
+  from public.travel_groups travel_group
+  join public.group_members member
+    on member.group_id = travel_group.id
+   and member.user_id = current_user_id
+  where travel_group.id = target_invite.group_id;
+end;
+$$;
+
 grant select, insert, update on public.profiles to authenticated;
 grant execute on function public.can_view_profile(uuid, uuid) to authenticated;
 grant execute on function public.handle_auth_user_profile() to authenticated;
+grant execute on function public.accept_group_invite(text) to authenticated;
 revoke all on public.profiles from anon;
 
 alter table public.profiles enable row level security;

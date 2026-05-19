@@ -11,7 +11,8 @@ import {
   inviteMember as createInvite,
   storeActiveGroupId,
 } from '../services/groupsService';
-import type { UserTravelGroup } from '../types';
+import { upsertCurrentProfile } from '../services/profileService';
+import type { CreateTravelGroupInput, UserTravelGroup } from '../types';
 import { useAuth } from './AuthContext';
 
 type GroupContextValue = {
@@ -23,7 +24,7 @@ type GroupContextValue = {
   error: string | null;
   setActiveGroup: (group: UserTravelGroup | null) => void;
   refreshGroups: (options?: { silent?: boolean }) => Promise<UserTravelGroup[]>;
-  createGroup: (name: string, description?: string) => Promise<UserTravelGroup>;
+  createGroup: (input: string | CreateTravelGroupInput, description?: string) => Promise<UserTravelGroup>;
   inviteMember: (email?: string, singleUse?: boolean) => Promise<InviteDetails>;
   acceptInvite: (token: string) => Promise<UserTravelGroup>;
 };
@@ -190,8 +191,12 @@ export function GroupProvider({ children }: { children: ReactNode }) {
   }, [refreshGroups, userId]);
 
   const createGroup = useCallback(
-    async (name: string, description?: string) => {
-      const group = await createTravelGroup(name.trim(), description);
+    async (input: string | CreateTravelGroupInput, description?: string) => {
+      if (user) await upsertCurrentProfile(user).catch(() => null);
+      const group = await createTravelGroup(
+        typeof input === 'string' ? input.trim() : input,
+        description,
+      );
       const groups = await getUserGroups();
       setUserGroups(groups);
       userGroupsRef.current = groups;
@@ -199,7 +204,7 @@ export function GroupProvider({ children }: { children: ReactNode }) {
       setActiveGroup(group);
       return group;
     },
-    [setActiveGroup, userId],
+    [setActiveGroup, user, userId],
   );
 
   const inviteMember = useCallback(
@@ -212,6 +217,7 @@ export function GroupProvider({ children }: { children: ReactNode }) {
 
   const acceptInvite = useCallback(
     async (token: string) => {
+      if (user) await upsertCurrentProfile(user).catch(() => null);
       const group = await acceptInviteToken(token);
       const groups = await getUserGroups();
       setUserGroups(groups);
@@ -220,7 +226,7 @@ export function GroupProvider({ children }: { children: ReactNode }) {
       setActiveGroup(groups.find((item) => item.id === group.id) ?? group);
       return group;
     },
-    [setActiveGroup, userId],
+    [setActiveGroup, user, userId],
   );
 
   const value = useMemo<GroupContextValue>(

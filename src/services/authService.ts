@@ -3,7 +3,17 @@ import { supabase } from './supabaseClient';
 
 type AuthStateCallback = (user: User | null, session: Session | null, event: AuthChangeEvent) => void;
 
-const getRedirectUrl = () => `${window.location.origin}/auth/callback`;
+const PRODUCTION_CALLBACK_URL = 'https://viagem-europa-angelo.web.app/auth/callback';
+
+export const getRedirectUrl = () => {
+  const origin = window.location.origin;
+
+  if (origin.includes('localhost') || origin.includes('127.0.0.1')) {
+    return 'http://localhost:5173/auth/callback';
+  }
+
+  return PRODUCTION_CALLBACK_URL;
+};
 const GOOGLE_OAUTH_SETUP_ERROR =
   'Login com Google ainda nao esta configurado corretamente. Verifique Client ID e Client Secret no Supabase.';
 

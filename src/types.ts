@@ -100,6 +100,11 @@ export type TravelGroup = {
   name: string;
   description?: string;
   ownerId: string;
+  countries?: string[];
+  startDate?: string;
+  endDate?: string;
+  travelStyle?: string;
+  notes?: string;
   createdAt?: string;
   updatedAt?: string;
 };
@@ -137,4 +142,14 @@ export type UserStats = {
   totalAllEuro: CurrencyRange;
   totalActiveReal: CurrencyRange;
   totalActiveEuro: CurrencyRange;
+};
+
+export type CreateTravelGroupInput = {
+  name: string;
+  description?: string;
+  countries?: string[];
+  startDate?: string;
+  endDate?: string;
+  travelStyle?: string;
+  notes?: string;
 };

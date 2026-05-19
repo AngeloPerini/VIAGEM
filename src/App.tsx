@@ -16,7 +16,6 @@ import { useAuth } from './contexts/AuthContext';
 import { useGroup } from './contexts/GroupContext';
 import { categories, initialExpenses } from './data/initialExpenses';
 import { AuthPage } from './pages/AuthPage';
-import { GroupsPage } from './pages/GroupsPage';
 import { InvitePage } from './pages/InvitePage';
 import { AttractionsPage } from './pages/AttractionsPage';
 import { ProfilePage } from './pages/ProfilePage';
@@ -79,6 +78,23 @@ function LoadingScreen({ message }: { message: string }) {
   );
 }
 
+function StandaloneProfileShell() {
+  return (
+    <main className="min-h-screen overflow-hidden bg-[#edf4f2] text-slate-900">
+      <div className="pointer-events-none fixed inset-0">
+        <div className="absolute -left-24 top-0 h-96 w-96 rounded-full bg-teal-200/50 blur-3xl" />
+        <div className="absolute right-0 top-24 h-[30rem] w-[30rem] rounded-full bg-sky-200/50 blur-3xl" />
+      </div>
+      <div className="relative mx-auto flex w-full max-w-7xl flex-col gap-6 px-4 py-5 sm:px-6 md:gap-8 md:py-8 lg:px-8">
+        <div className="rounded-3xl border border-white/70 bg-white/85 p-4 shadow-xl shadow-slate-900/10 backdrop-blur-xl">
+          <p className="text-sm font-black tracking-tight text-slate-950 md:text-base">Controle de Viagem</p>
+        </div>
+        <ProfilePage />
+      </div>
+    </main>
+  );
+}
+
 export default function App() {
   const { loading: authLoading, user } = useAuth();
   const { activeGroup, loading: groupLoading } = useGroup();
@@ -91,13 +107,13 @@ export default function App() {
 
   useEffect(() => {
     if (!authLoading && user && !groupLoading && isAuthCallback && !activeInviteToken) {
-      window.history.replaceState({}, '', activeGroup ? '/dashboard' : '/groups');
+      window.history.replaceState({}, '', activeGroup ? '/dashboard' : '/perfil');
     }
   }, [activeGroup, activeInviteToken, authLoading, groupLoading, isAuthCallback, user]);
 
   useEffect(() => {
     if (!authLoading && user && !groupLoading && !activeGroup && !activeInviteToken && !isGroupsRoute) {
-      window.history.replaceState({}, '', '/groups');
+      window.history.replaceState({}, '', '/perfil');
     }
   }, [activeGroup, activeInviteToken, authLoading, groupLoading, isGroupsRoute, user]);
 
@@ -113,7 +129,7 @@ export default function App() {
     );
   }
   if (groupLoading && !activeGroup) return <LoadingScreen message="Carregando suas viagens..." />;
-  if (!activeGroup) return <GroupsPage />;
+  if (!activeGroup) return <StandaloneProfileShell />;
 
   return <TravelWorkspace key={activeGroup.id} groupId={activeGroup.id} />;
 }

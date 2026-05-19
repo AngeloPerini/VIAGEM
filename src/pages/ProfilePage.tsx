@@ -5,6 +5,8 @@ import {
   Copy,
   Link2,
   LogOut,
+  MapPin,
+  Plus,
   Send,
   ShieldCheck,
   Ticket,
@@ -24,7 +26,8 @@ import {
   removeGroupMember,
   upsertCurrentProfile,
 } from '../services/profileService';
-import { getInvites, type InviteDetails } from '../services/groupsService';
+import { getInvites, normalizeInviteToken, type InviteDetails } from '../services/groupsService';
+import { supabase } from '../services/supabaseClient';
 import type { GroupMemberProfile, UserProfile, UserStats } from '../types';
 import { formatRange } from '../utils/money';
 
@@ -60,6 +63,18 @@ const buildFallbackProfile = (user: ReturnType<typeof useAuth>['user']): UserPro
   };
 };
 
+const getEmailLocalPart = (email?: string | null) => email?.split('@')[0]?.trim() || null;
+
+const getProfileName = (profile?: UserProfile | null, fallbackEmail?: string | null, fallback = 'Viajante') =>
+  profile?.fullName?.trim() ||
+  profile?.email?.trim() ||
+  fallbackEmail?.trim() ||
+  getEmailLocalPart(profile?.email ?? fallbackEmail) ||
+  fallback;
+
+const getProfileEmail = (profile?: UserProfile | null, fallbackEmail?: string | null) =>
+  profile?.email?.trim() || fallbackEmail?.trim() || 'Perfil ainda sincronizando';
+
 function StatCard({ label, value, detail }: { label: string; value: string; detail?: string }) {
   return (
     <div className="rounded-[2rem] border border-white/80 bg-white/85 p-5 shadow-xl shadow-slate-900/10 backdrop-blur">
@@ -72,7 +87,7 @@ function StatCard({ label, value, detail }: { label: string; value: string; deta
 
 export function ProfilePage() {
   const { signOut, user } = useAuth();
-  const { activeGroup, inviteMember, refreshGroups, userGroups } = useGroup();
+  const { acceptInvite, activeGroup, createGroup, inviteMember, refreshGroups, userGroups } = useGroup();
   const [profile, setProfile] = useState<UserProfile | null>(() => buildFallbackProfile(user));
   const [members, setMembers] = useState<GroupMemberProfile[]>([]);
   const [stats, setStats] = useState<UserStats>(emptyStats);
@@ -81,23 +96,36 @@ export function ProfilePage() {
   const [inviteEmail, setInviteEmail] = useState('');
   const [singleUseInvite, setSingleUseInvite] = useState(false);
   const [copied, setCopied] = useState<string | null>(null);
+  const [tripName, setTripName] = useState('Minha viagem');
+  const [tripDescription, setTripDescription] = useState('');
+  const [tripCountries, setTripCountries] = useState('');
+  const [tripStartDate, setTripStartDate] = useState('');
+  const [tripEndDate, setTripEndDate] = useState('');
+  const [tripStyle, setTripStyle] = useState('intermediaria');
+  const [tripNotes, setTripNotes] = useState('');
+  const [inviteCodeInput, setInviteCodeInput] = useState('');
   const [status, setStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isInviting, setIsInviting] = useState(false);
+  const [isCreatingTrip, setIsCreatingTrip] = useState(false);
+  const [isJoiningTrip, setIsJoiningTrip] = useState(false);
   const [removingUserId, setRemovingUserId] = useState<string | null>(null);
 
   const isOwner = activeGroup?.role === 'owner';
   const avatarUrl = profile?.avatarUrl;
-  const displayName = profile?.fullName ?? profile?.email ?? 'Viajante';
-  const displayEmail = profile?.email ?? user?.email ?? 'E-mail nao informado';
+  const displayName = getProfileName(profile, user?.email);
+  const displayEmail = getProfileEmail(profile, user?.email);
 
   const ownerMember = useMemo(
     () => members.find((member) => member.userId === activeGroup?.ownerId),
     [activeGroup?.ownerId, members],
   );
 
-  const ownerName = ownerMember?.profile?.fullName ?? ownerMember?.profile?.email ?? 'Owner da viagem';
+  const ownerName =
+    activeGroup?.ownerId === user?.id
+      ? getProfileName(ownerMember?.profile ?? profile, user?.email, 'Dono da viagem')
+      : getProfileName(ownerMember?.profile, ownerMember?.profile?.email, 'Dono da viagem');
 
   const latestInvite = generatedInvite ?? knownInvites[0] ?? null;
 
@@ -132,6 +160,28 @@ export function ProfilePage() {
     void loadProfile();
   }, [loadProfile]);
 
+  useEffect(() => {
+    if (!activeGroup) return undefined;
+
+    const channel = supabase
+      .channel(`profile-members-${activeGroup.id}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'group_members', filter: `group_id=eq.${activeGroup.id}` },
+        () => void loadProfile(),
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'profiles' },
+        () => void loadProfile(),
+      )
+      .subscribe();
+
+    return () => {
+      void channel.unsubscribe();
+    };
+  }, [activeGroup, loadProfile]);
+
   const copyToClipboard = async (value: string, label: string) => {
     await navigator.clipboard.writeText(value);
     setCopied(label);
@@ -154,6 +204,61 @@ export function ProfilePage() {
       setError(caughtError instanceof Error ? caughtError.message : 'Nao foi possivel gerar o convite.');
     } finally {
       setIsInviting(false);
+    }
+  };
+
+  const handleCreateTrip = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setError(null);
+    setStatus(null);
+    setIsCreatingTrip(true);
+
+    try {
+      const countries = tripCountries
+        .split(',')
+        .map((country) => country.trim())
+        .filter(Boolean);
+
+      await createGroup({
+        name: tripName,
+        description: tripDescription,
+        countries,
+        startDate: tripStartDate,
+        endDate: tripEndDate,
+        travelStyle: tripStyle,
+        notes: tripNotes,
+      });
+      setStatus('Viagem criada.');
+      await refreshGroups({ silent: true });
+      window.history.replaceState({}, '', '/dashboard');
+      window.dispatchEvent(new PopStateEvent('popstate'));
+    } catch (caughtError) {
+      setError(caughtError instanceof Error ? caughtError.message : 'Nao foi possivel criar sua viagem.');
+    } finally {
+      setIsCreatingTrip(false);
+    }
+  };
+
+  const handleAcceptInvite = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const token = normalizeInviteToken(inviteCodeInput);
+    if (!token) return;
+
+    setError(null);
+    setStatus(null);
+    setIsJoiningTrip(true);
+
+    try {
+      const group = await acceptInvite(token);
+      setStatus(`Voce entrou em ${group.name}.`);
+      setInviteCodeInput('');
+      await refreshGroups({ silent: true });
+      window.history.replaceState({}, '', '/dashboard');
+      window.dispatchEvent(new PopStateEvent('popstate'));
+    } catch (caughtError) {
+      setError(caughtError instanceof Error ? caughtError.message : 'Nao foi possivel aceitar este convite.');
+    } finally {
+      setIsJoiningTrip(false);
     }
   };
 
@@ -250,6 +355,153 @@ export function ProfilePage() {
         />
       </section>
 
+      {!activeGroup ? (
+        <section className="grid gap-6 xl:grid-cols-[1.05fr_0.95fr]">
+          <motion.section
+            className="rounded-[2rem] border border-white/80 bg-white/90 p-6 shadow-xl shadow-slate-900/10 md:p-8"
+            initial={{ opacity: 0, y: 18 }}
+            animate={{ opacity: 1, y: 0 }}
+          >
+            <div className="mb-6 flex items-center gap-3">
+              <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-950 text-white">
+                <Plus className="h-6 w-6" />
+              </span>
+              <div>
+                <p className="text-sm font-black uppercase tracking-[0.18em] text-slate-400">Nova viagem</p>
+                <h2 className="text-2xl font-black">Criar minha viagem</h2>
+              </div>
+            </div>
+            <p className="mb-6 rounded-2xl bg-teal-50 px-4 py-3 text-sm font-bold text-teal-800">
+              Voce ainda nao possui uma viagem ativa.
+            </p>
+            <form onSubmit={handleCreateTrip} className="space-y-4">
+              <div className="grid gap-4 md:grid-cols-2">
+                <label className="block">
+                  <span className="mb-2 block text-sm font-bold text-slate-600">Nome da viagem</span>
+                  <input
+                    required
+                    value={tripName}
+                    onChange={(event) => setTripName(event.target.value)}
+                    className="h-12 w-full rounded-2xl border border-slate-200 px-4 font-semibold outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-100"
+                  />
+                </label>
+                <label className="block">
+                  <span className="mb-2 block text-sm font-bold text-slate-600">Paises que deseja visitar</span>
+                  <input
+                    value={tripCountries}
+                    onChange={(event) => setTripCountries(event.target.value)}
+                    placeholder="Italia, Franca, Suica"
+                    className="h-12 w-full rounded-2xl border border-slate-200 px-4 font-semibold outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-100"
+                  />
+                </label>
+              </div>
+              <label className="block">
+                <span className="mb-2 block text-sm font-bold text-slate-600">Descricao</span>
+                <textarea
+                  value={tripDescription}
+                  onChange={(event) => setTripDescription(event.target.value)}
+                  rows={3}
+                  className="w-full rounded-2xl border border-slate-200 px-4 py-3 font-semibold outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-100"
+                />
+              </label>
+              <div className="grid gap-4 md:grid-cols-3">
+                <label className="block">
+                  <span className="mb-2 block text-sm font-bold text-slate-600">Data inicial</span>
+                  <input
+                    type="date"
+                    value={tripStartDate}
+                    onChange={(event) => setTripStartDate(event.target.value)}
+                    className="h-12 w-full rounded-2xl border border-slate-200 px-4 font-semibold outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-100"
+                  />
+                </label>
+                <label className="block">
+                  <span className="mb-2 block text-sm font-bold text-slate-600">Data final</span>
+                  <input
+                    type="date"
+                    value={tripEndDate}
+                    onChange={(event) => setTripEndDate(event.target.value)}
+                    className="h-12 w-full rounded-2xl border border-slate-200 px-4 font-semibold outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-100"
+                  />
+                </label>
+                <label className="block">
+                  <span className="mb-2 block text-sm font-bold text-slate-600">Estilo</span>
+                  <select
+                    value={tripStyle}
+                    onChange={(event) => setTripStyle(event.target.value)}
+                    className="h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 font-semibold outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-100"
+                  >
+                    <option value="economica">Economica</option>
+                    <option value="intermediaria">Intermediaria</option>
+                    <option value="confortavel">Confortavel</option>
+                  </select>
+                </label>
+              </div>
+              <label className="block">
+                <span className="mb-2 block text-sm font-bold text-slate-600">Observacoes</span>
+                <textarea
+                  value={tripNotes}
+                  onChange={(event) => setTripNotes(event.target.value)}
+                  rows={3}
+                  className="w-full rounded-2xl border border-slate-200 px-4 py-3 font-semibold outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-100"
+                />
+              </label>
+              <button
+                type="submit"
+                disabled={isCreatingTrip}
+                className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-slate-950 px-5 font-black text-white transition hover:bg-teal-700 disabled:cursor-not-allowed disabled:opacity-70"
+              >
+                <Plus className="h-5 w-5" />
+                {isCreatingTrip ? 'Criando viagem...' : 'Criar minha viagem'}
+              </button>
+            </form>
+          </motion.section>
+
+          <motion.section
+            className="rounded-[2rem] border border-white/80 bg-white/90 p-6 shadow-xl shadow-slate-900/10 md:p-8"
+            initial={{ opacity: 0, y: 18 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.05 }}
+          >
+            <div className="mb-6 flex items-center gap-3">
+              <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-teal-600 text-white">
+                <MapPin className="h-6 w-6" />
+              </span>
+              <div>
+                <p className="text-sm font-black uppercase tracking-[0.18em] text-slate-400">Convite</p>
+                <h2 className="text-2xl font-black">Entrar com codigo</h2>
+              </div>
+            </div>
+            <form onSubmit={handleAcceptInvite} className="space-y-4">
+              <label className="block">
+                <span className="mb-2 block text-sm font-bold text-slate-600">Codigo ou link do convite</span>
+                <input
+                  value={inviteCodeInput}
+                  onChange={(event) => setInviteCodeInput(event.target.value.toUpperCase())}
+                  placeholder="EUROPA-7K9X2"
+                  className="h-12 w-full rounded-2xl border border-slate-200 px-4 font-semibold outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-100"
+                />
+              </label>
+              <button
+                type="submit"
+                disabled={isJoiningTrip || !normalizeInviteToken(inviteCodeInput)}
+                className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-5 font-black text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                <Ticket className="h-5 w-5" />
+                {isJoiningTrip ? 'Entrando...' : 'Entrar com codigo de convite'}
+              </button>
+            </form>
+            <button
+              type="button"
+              onClick={() => void handleSignOut()}
+              className="mt-6 inline-flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-rose-50 px-5 font-black text-rose-700 transition hover:bg-rose-100"
+            >
+              <LogOut className="h-5 w-5" />
+              Sair da conta
+            </button>
+          </motion.section>
+        </section>
+      ) : null}
+
       {activeGroup ? (
         <section className="grid gap-6 xl:grid-cols-[0.95fr_1.05fr]">
           <div className="space-y-6">
@@ -285,8 +537,9 @@ export function ProfilePage() {
               </div>
               <div className="space-y-3">
                 {members.map((member) => {
-                  const memberName = member.profile?.fullName ?? member.profile?.email ?? 'Viajante';
-                  const memberEmail = member.profile?.email ?? (member.userId === user?.id ? user.email : null);
+                  const fallbackEmail = member.userId === user?.id ? user?.email : null;
+                  const memberEmail = getProfileEmail(member.profile, fallbackEmail);
+                  const memberName = getProfileName(member.profile, fallbackEmail);
                   const canRemove = isOwner && member.role !== 'owner' && member.userId !== user?.id;
 
                   return (
@@ -304,9 +557,7 @@ export function ProfilePage() {
                         )}
                         <div className="min-w-0">
                           <p className="truncate font-black text-slate-950">{memberName}</p>
-                          <p className="truncate text-sm font-bold text-slate-500">
-                            {memberEmail ?? 'E-mail nao disponivel'}
-                          </p>
+                          <p className="truncate text-sm font-bold text-slate-500">{memberEmail}</p>
                           <p className="text-xs font-bold text-slate-400">
                             Entrada: {formatDate(member.createdAt)}
                           </p>

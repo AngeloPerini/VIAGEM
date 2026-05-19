@@ -377,7 +377,7 @@ export function AuthPage({ initialInviteCode }: AuthPageProps) {
               <input
                 value={inviteCode}
                 onChange={(event) => setInviteCode(event.target.value.toUpperCase())}
-                placeholder="EUROPA2026-X7K9"
+                placeholder="EUROPA-7K9X2"
                 className={sharedInputClass}
               />
             </label>

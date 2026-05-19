@@ -34,7 +34,7 @@ export function InvitePage({ token, onDone }: InvitePageProps) {
         setStatus('success');
         setMessage(`Voce entrou em ${group.name}. Abrindo dashboard...`);
         window.setTimeout(() => {
-          window.history.replaceState(null, '', '/');
+          window.history.replaceState(null, '', '/dashboard');
           onDone();
         }, 850);
       })

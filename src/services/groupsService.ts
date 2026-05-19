@@ -1,4 +1,4 @@
-import type { GroupMember, GroupRole, TravelGroup, UserTravelGroup } from '../types';
+import type { CreateTravelGroupInput, GroupMember, GroupRole, TravelGroup, UserTravelGroup } from '../types';
 import { supabase } from './supabaseClient';
 
 type TravelGroupRow = {
@@ -6,6 +6,11 @@ type TravelGroupRow = {
   name: string;
   description: string | null;
   owner_id: string;
+  countries?: string[] | null;
+  start_date?: string | null;
+  end_date?: string | null;
+  travel_style?: string | null;
+  notes?: string | null;
   created_at?: string;
   updated_at?: string;
 };
@@ -31,7 +36,7 @@ type MembershipWithGroupRow = {
 
 const ACTIVE_GROUP_KEY_PREFIX = 'europa-budget-active-group-v1';
 const PENDING_INVITE_KEY = 'europa-budget-pending-invite-v1';
-const INVITE_PREFIX = 'EUROPA2026';
+const INVITE_PREFIXES = ['EUROPA', 'VIAGEM'];
 
 export type InviteDetails = {
   code: string;
@@ -45,6 +50,11 @@ const toGroup = (row: TravelGroupRow): TravelGroup => ({
   name: row.name,
   description: row.description ?? '',
   ownerId: row.owner_id,
+  countries: Array.isArray(row.countries) ? row.countries : [],
+  startDate: row.start_date ?? undefined,
+  endDate: row.end_date ?? undefined,
+  travelStyle: row.travel_style ?? undefined,
+  notes: row.notes ?? undefined,
   createdAt: row.created_at,
   updatedAt: row.updated_at,
 });
@@ -109,9 +119,10 @@ export function clearPendingInviteToken() {
 
 function generateInviteCode() {
   const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-  const bytes = crypto.getRandomValues(new Uint8Array(4));
+  const bytes = crypto.getRandomValues(new Uint8Array(6));
+  const prefix = INVITE_PREFIXES[bytes[0] % INVITE_PREFIXES.length];
   const suffix = Array.from(bytes, (byte) => alphabet[byte % alphabet.length]).join('');
-  return `${INVITE_PREFIX}-${suffix}`;
+  return `${prefix}-${suffix.slice(1)}`;
 }
 
 export async function claimLegacyTripGroup() {
@@ -154,19 +165,60 @@ export async function getUserGroups(): Promise<UserTravelGroup[]> {
     .filter((group): group is UserTravelGroup => Boolean(group));
 }
 
-export async function createGroup(name: string, description?: string): Promise<UserTravelGroup> {
+const normalizeCreateGroupInput = (
+  input: string | CreateTravelGroupInput,
+  description?: string,
+): CreateTravelGroupInput =>
+  typeof input === 'string'
+    ? { name: input, description }
+    : input;
+
+export async function createGroup(
+  input: string | CreateTravelGroupInput,
+  description?: string,
+): Promise<UserTravelGroup> {
   const userId = await requireUserId();
+  const groupInput = normalizeCreateGroupInput(input, description);
+  const extendedPayload = {
+    name: groupInput.name.trim(),
+    description: groupInput.description?.trim() || null,
+    owner_id: userId,
+    countries: groupInput.countries ?? [],
+    start_date: groupInput.startDate || null,
+    end_date: groupInput.endDate || null,
+    travel_style: groupInput.travelStyle || null,
+    notes: groupInput.notes?.trim() || null,
+  };
+
   const { data, error } = await supabase
     .from('travel_groups')
-    .insert({
-      name,
-      description: description?.trim() || null,
-      owner_id: userId,
-    })
+    .insert(extendedPayload)
     .select('id, name, description, owner_id, created_at, updated_at')
     .single();
 
-  if (error) throw error;
+  if (error) {
+    const missingExtendedColumns =
+      error.message.includes('countries') ||
+      error.message.includes('start_date') ||
+      error.message.includes('end_date') ||
+      error.message.includes('travel_style') ||
+      error.message.includes('notes');
+
+    if (!missingExtendedColumns) throw error;
+
+    const { data: fallbackData, error: fallbackError } = await supabase
+      .from('travel_groups')
+      .insert({
+        name: groupInput.name.trim(),
+        description: groupInput.description?.trim() || null,
+        owner_id: userId,
+      })
+      .select('id, name, description, owner_id, created_at, updated_at')
+      .single();
+
+    if (fallbackError) throw fallbackError;
+    return { ...toGroup(fallbackData as TravelGroupRow), role: 'owner' };
+  }
 
   return { ...toGroup(data as TravelGroupRow), role: 'owner' };
 }
