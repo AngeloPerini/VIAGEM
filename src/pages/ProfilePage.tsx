@@ -1,8 +1,9 @@
-import { motion } from 'framer-motion';
+import { AnimatePresence, motion } from 'framer-motion';
 import {
   CalendarDays,
   CheckCircle2,
   Copy,
+  Eye,
   Link2,
   Loader2,
   LogOut,
@@ -16,6 +17,7 @@ import {
   UserRound,
   Users,
   WalletCards,
+  X,
 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { FormEvent } from 'react';
@@ -132,46 +134,30 @@ function StatCard({ label, value, detail }: { label: string; value: string; deta
 }
 
 function TripHistoryCard({
-  actionId,
   group,
   isActive,
-  isOwner,
-  onCancel,
-  onComplete,
-  onDelete,
-  onOpen,
+  onDetails,
   summary,
 }: {
-  actionId: string | null;
   group: UserTravelGroup;
   isActive: boolean;
-  isOwner: boolean;
-  onCancel: (group: UserTravelGroup) => void;
-  onComplete: (group: UserTravelGroup) => void;
-  onDelete: (group: UserTravelGroup) => void;
-  onOpen: (group: UserTravelGroup) => void;
+  onDetails: (group: UserTravelGroup) => void;
   summary?: TripSummary;
 }) {
   const status = group.status ?? 'planned';
-  const isBusy = actionId === group.id;
   const countries = group.countries?.length ? group.countries.join(', ') : 'Paises nao informados';
 
   return (
-    <article className="flex h-full flex-col justify-between rounded-[2rem] border border-white/80 bg-white/90 p-5 shadow-xl shadow-slate-900/10">
-      <div className="space-y-4">
+    <article className="flex h-full flex-col justify-between rounded-[1.5rem] border border-white/80 bg-white/90 p-5 shadow-xl shadow-slate-900/10">
+      <div>
         <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-400">
-              {isOwner ? 'Criada por voce' : 'Participante'}
-            </p>
-            <h3 className="mt-2 truncate text-2xl font-black text-slate-950">{group.name}</h3>
-          </div>
-          <span className={`rounded-2xl px-3 py-2 text-xs font-black uppercase tracking-[0.12em] ${statusClasses[status]}`}>
+          <h3 className="min-w-0 truncate text-2xl font-black text-slate-950">{group.name}</h3>
+          <span className={`shrink-0 rounded-2xl px-3 py-2 text-xs font-black uppercase tracking-[0.12em] ${statusClasses[status]}`}>
             {statusLabels[status]}
           </span>
         </div>
 
-        <div className="grid gap-2 text-sm font-bold text-slate-600 sm:grid-cols-2">
+        <div className="mt-4 grid gap-2 text-sm font-bold text-slate-600 sm:grid-cols-2">
           <span className="rounded-2xl bg-slate-50 px-3 py-2">
             <MapPin className="mr-2 inline h-4 w-4 text-teal-700" />
             {countries}
@@ -193,48 +179,160 @@ function TripHistoryCard({
         </div>
       </div>
 
-      <div className="mt-5 grid gap-2 sm:grid-cols-2">
-        <button
-          type="button"
-          onClick={() => onOpen(group)}
-          className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl bg-slate-950 px-4 text-sm font-black text-white transition hover:bg-teal-700"
-        >
-          Abrir viagem
-        </button>
-        {isOwner && status !== 'completed' && status !== 'canceled' ? (
-          <button
-            type="button"
-            onClick={() => onComplete(group)}
-            disabled={isBusy}
-            className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl bg-emerald-50 px-4 text-sm font-black text-emerald-700 transition hover:bg-emerald-100 disabled:opacity-60"
-          >
-            <CheckCircle2 className="h-4 w-4" />
-            Marcar realizada
-          </button>
-        ) : null}
-        {isOwner && status !== 'canceled' && status !== 'completed' ? (
-          <button
-            type="button"
-            onClick={() => onCancel(group)}
-            disabled={isBusy}
-            className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl bg-amber-50 px-4 text-sm font-black text-amber-800 transition hover:bg-amber-100 disabled:opacity-60"
-          >
-            Cancelar viagem
-          </button>
-        ) : null}
-        {isOwner ? (
-          <button
-            type="button"
-            onClick={() => onDelete(group)}
-            disabled={isBusy}
-            className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl bg-rose-50 px-4 text-sm font-black text-rose-700 transition hover:bg-rose-100 disabled:opacity-60"
-          >
-            <Trash2 className="h-4 w-4" />
-            Apagar viagem
-          </button>
-        ) : null}
-      </div>
+      <button
+        type="button"
+        onClick={() => onDetails(group)}
+        className="mt-5 inline-flex h-11 w-full items-center justify-center gap-2 rounded-2xl bg-slate-950 px-4 text-sm font-black text-white transition hover:bg-teal-700"
+      >
+        <Eye className="h-4 w-4" />
+        Ver detalhes
+      </button>
     </article>
+  );
+}
+
+function TripDetailsModal({
+  actionId,
+  group,
+  isActive,
+  isOwner,
+  onCancel,
+  onClose,
+  onComplete,
+  onDelete,
+  onOpen,
+  summary,
+}: {
+  actionId: string | null;
+  group: UserTravelGroup;
+  isActive: boolean;
+  isOwner: boolean;
+  onCancel: (group: UserTravelGroup) => void;
+  onClose: () => void;
+  onComplete: (group: UserTravelGroup) => void;
+  onDelete: (group: UserTravelGroup) => void;
+  onOpen: (group: UserTravelGroup) => void;
+  summary?: TripSummary;
+}) {
+  const status = group.status ?? 'planned';
+  const countries = group.countries?.length ? group.countries.join(', ') : 'Paises nao informados';
+  const isBusy = actionId === group.id;
+
+  return (
+    <motion.div
+      className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/45 px-4 py-4 backdrop-blur-sm sm:items-center"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      onMouseDown={onClose}
+    >
+      <motion.section
+        role="dialog"
+        aria-modal="true"
+        aria-label={`Detalhes da viagem ${group.name}`}
+        className="max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-[2rem] border border-white/80 bg-white p-5 shadow-2xl shadow-slate-950/25 md:p-7"
+        initial={{ opacity: 0, y: 24, scale: 0.98 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        exit={{ opacity: 0, y: 18, scale: 0.98 }}
+        transition={{ type: 'spring', stiffness: 360, damping: 32 }}
+        onMouseDown={(event) => event.stopPropagation()}
+      >
+        <div className="flex items-start justify-between gap-4">
+          <div className="min-w-0">
+            <p className="text-sm font-black uppercase tracking-[0.18em] text-slate-400">Detalhes da viagem</p>
+            <h2 className="mt-2 truncate text-3xl font-black text-slate-950">{group.name}</h2>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Fechar detalhes"
+            className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-slate-100 text-slate-600 transition hover:bg-slate-200"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+
+        <div className="mt-5 flex flex-wrap gap-2">
+          <span className={`rounded-2xl px-3 py-2 text-xs font-black uppercase tracking-[0.12em] ${statusClasses[status]}`}>
+            {statusLabels[status]}
+          </span>
+          <span className="rounded-2xl bg-slate-100 px-3 py-2 text-xs font-black uppercase tracking-[0.12em] text-slate-500">
+            {isOwner ? 'Owner' : 'Member'}
+          </span>
+          {isActive ? (
+            <span className="rounded-2xl bg-teal-50 px-3 py-2 text-xs font-black uppercase tracking-[0.12em] text-teal-700">
+              Aberta agora
+            </span>
+          ) : null}
+        </div>
+
+        <div className="mt-5 grid gap-3 text-sm font-bold text-slate-600 sm:grid-cols-2">
+          <span className="rounded-2xl bg-slate-50 px-4 py-3">
+            <MapPin className="mr-2 inline h-4 w-4 text-teal-700" />
+            {countries}
+          </span>
+          <span className="rounded-2xl bg-slate-50 px-4 py-3">
+            <CalendarDays className="mr-2 inline h-4 w-4 text-teal-700" />
+            {formatDate(group.startDate)} - {formatDate(group.endDate)}
+          </span>
+          <span className="rounded-2xl bg-slate-50 px-4 py-3">
+            Total estimado: {formatRange(summary?.totalReal ?? { min: 0, max: 0 }, 'BRL', true)}
+          </span>
+          <span className="rounded-2xl bg-slate-50 px-4 py-3">
+            Participantes: {summary?.participantsCount ?? 0}
+          </span>
+          <span className="rounded-2xl bg-slate-50 px-4 py-3 sm:col-span-2">
+            Pontos visitados: {summary?.visitedAttractionsCount ?? 0}
+          </span>
+        </div>
+
+        <div className="mt-6 grid gap-2 sm:grid-cols-2">
+          <button
+            type="button"
+            onClick={() => onOpen(group)}
+            className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl bg-slate-950 px-5 font-black text-white transition hover:bg-teal-700"
+          >
+            Abrir viagem
+          </button>
+          {isOwner && status !== 'completed' && status !== 'canceled' ? (
+            <button
+              type="button"
+              onClick={() => onComplete(group)}
+              disabled={isBusy}
+              className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl bg-emerald-50 px-5 font-black text-emerald-700 transition hover:bg-emerald-100 disabled:opacity-60"
+            >
+              <CheckCircle2 className="h-5 w-5" />
+              Marcar realizada
+            </button>
+          ) : null}
+          {isOwner && status !== 'canceled' && status !== 'completed' ? (
+            <button
+              type="button"
+              onClick={() => onCancel(group)}
+              disabled={isBusy}
+              className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl bg-amber-50 px-5 font-black text-amber-800 transition hover:bg-amber-100 disabled:opacity-60"
+            >
+              Cancelar viagem
+            </button>
+          ) : null}
+          {isOwner ? (
+            <button
+              type="button"
+              onClick={() => onDelete(group)}
+              disabled={isBusy}
+              className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl bg-rose-50 px-5 font-black text-rose-700 transition hover:bg-rose-100 disabled:opacity-60"
+            >
+              <Trash2 className="h-5 w-5" />
+              Apagar viagem
+            </button>
+          ) : (
+            <p className="rounded-2xl bg-slate-50 px-4 py-3 text-sm font-bold text-slate-500 sm:col-span-2">
+              Acoes administrativas ficam disponiveis apenas para o owner.
+            </p>
+          )}
+        </div>
+      </motion.section>
+    </motion.div>
   );
 }
 
@@ -246,6 +344,8 @@ export function ProfilePage() {
   const [stats, setStats] = useState<UserStats>(emptyStats);
   const [tripSummaries, setTripSummaries] = useState<Record<string, TripSummary>>({});
   const [activeTripTab, setActiveTripTab] = useState<TripTab>('planned');
+  const [selectedTrip, setSelectedTrip] = useState<UserTravelGroup | null>(null);
+  const [showCreateTripForm, setShowCreateTripForm] = useState(false);
   const [knownInvites, setKnownInvites] = useState<InviteDetails[]>([]);
   const [generatedInvite, setGeneratedInvite] = useState<InviteDetails | null>(null);
   const [inviteEmail, setInviteEmail] = useState('');
@@ -315,6 +415,7 @@ export function ProfilePage() {
       ),
     [activeTripTab, user?.id, userGroups],
   );
+  const shouldShowCreateTripForm = !activeGroup || showCreateTripForm;
   const parsedTripCountries = () =>
     tripCountries
       .split(',')
@@ -465,6 +566,7 @@ export function ProfilePage() {
         notes: tripNotes,
       });
       setStatus('Viagem criada.');
+      setShowCreateTripForm(false);
       await refreshGroups({ silent: true });
       window.history.replaceState({}, '', '/dashboard');
       window.dispatchEvent(new PopStateEvent('popstate'));
@@ -479,7 +581,7 @@ export function ProfilePage() {
     setError(null);
     setStatus(null);
     setIsGeneratingAI(true);
-    let groupForRetry: UserTravelGroup | null = activeGroup;
+    let groupForRetry: UserTravelGroup | null = null;
     let inputForRetry: TripAIInput | null = null;
 
     try {
@@ -487,7 +589,7 @@ export function ProfilePage() {
       if (!countries.length) throw new Error('Informe os paises antes de gerar a previa com IA.');
       if (!tripStartDate || !tripEndDate) throw new Error('Informe as datas da viagem antes de gerar a previa com IA.');
 
-      const group = activeGroup ?? await createGroup({
+      const group = await createGroup({
         name: tripName,
         description: tripDescription,
         countries,
@@ -643,6 +745,7 @@ export function ProfilePage() {
 
   const handleOpenTrip = (group: UserTravelGroup) => {
     setActiveGroup(group);
+    setSelectedTrip(null);
     window.history.pushState({}, '', '/dashboard');
     window.dispatchEvent(new PopStateEvent('popstate'));
   };
@@ -658,6 +761,7 @@ export function ProfilePage() {
 
     try {
       await updateTripStatus(group.id, 'canceled');
+      setSelectedTrip((current) => current?.id === group.id ? { ...current, status: 'canceled' } : current);
       if (activeGroup?.id === group.id) setActiveGroup(null);
       await refreshGroups({ silent: true });
       await loadProfile();
@@ -678,6 +782,7 @@ export function ProfilePage() {
 
     try {
       const updatedGroup = await updateTripStatus(group.id, 'completed');
+      setSelectedTrip((current) => current?.id === group.id ? { ...current, status: 'completed' } : current);
       if (activeGroup?.id === group.id) setActiveGroup({ ...group, ...updatedGroup, role: group.role });
       await refreshGroups({ silent: true });
       await loadProfile();
@@ -700,6 +805,7 @@ export function ProfilePage() {
 
     try {
       await deleteTrip(group.id);
+      setSelectedTrip(null);
       if (activeGroup?.id === group.id) setActiveGroup(null);
       await refreshGroups({ silent: true });
       await loadProfile();
@@ -826,21 +932,31 @@ export function ProfilePage() {
               Acesse viagens planejadas, ativas, realizadas ou canceladas em que voce participa.
             </p>
           </div>
-          <div className="flex flex-wrap gap-2">
-            {tripTabs.map((tab) => (
-              <button
-                key={tab.id}
-                type="button"
-                onClick={() => setActiveTripTab(tab.id)}
-                className={`inline-flex h-11 items-center justify-center rounded-2xl px-4 text-sm font-black transition ${
-                  activeTripTab === tab.id
-                    ? 'bg-slate-950 text-white'
-                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                }`}
-              >
-                {tab.label} ({tripCounts[tab.id]})
-              </button>
-            ))}
+          <div className="flex flex-col gap-3 lg:items-end">
+            <button
+              type="button"
+              onClick={() => setShowCreateTripForm((current) => !current)}
+              className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl bg-teal-700 px-4 text-sm font-black text-white transition hover:bg-teal-800"
+            >
+              <Plus className="h-4 w-4" />
+              {shouldShowCreateTripForm && activeGroup ? 'Fechar criacao' : 'Criar nova viagem'}
+            </button>
+            <div className="flex flex-wrap gap-2">
+              {tripTabs.map((tab) => (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => setActiveTripTab(tab.id)}
+                  className={`inline-flex h-11 items-center justify-center rounded-2xl px-4 text-sm font-black transition ${
+                    activeTripTab === tab.id
+                      ? 'bg-slate-950 text-white'
+                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                  }`}
+                >
+                  {tab.label} ({tripCounts[tab.id]})
+                </button>
+              ))}
+            </div>
           </div>
         </div>
 
@@ -849,14 +965,9 @@ export function ProfilePage() {
             visibleTrips.map((group) => (
               <TripHistoryCard
                 key={group.id}
-                actionId={tripActionId}
                 group={group}
                 isActive={activeGroup?.id === group.id}
-                isOwner={group.ownerId === user?.id}
-                onCancel={handleCancelTrip}
-                onComplete={handleCompleteTrip}
-                onDelete={handleDeleteTrip}
-                onOpen={handleOpenTrip}
+                onDetails={setSelectedTrip}
                 summary={tripSummaries[group.id]}
               />
             ))
@@ -868,8 +979,8 @@ export function ProfilePage() {
         </div>
       </section>
 
-      {!activeGroup ? (
-        <section className="grid gap-6 xl:grid-cols-[1.05fr_0.95fr]">
+      {shouldShowCreateTripForm ? (
+        <section className={activeGroup ? 'grid gap-6' : 'grid gap-6 xl:grid-cols-[1.05fr_0.95fr]'}>
           <motion.section
             className="rounded-[2rem] border border-white/80 bg-white/90 p-6 shadow-xl shadow-slate-900/10 md:p-8"
             initial={{ opacity: 0, y: 18 }}
@@ -881,11 +992,13 @@ export function ProfilePage() {
               </span>
               <div>
                 <p className="text-sm font-black uppercase tracking-[0.18em] text-slate-400">Nova viagem</p>
-                <h2 className="text-2xl font-black">Criar minha viagem</h2>
+                <h2 className="text-2xl font-black">{activeGroup ? 'Criar nova viagem' : 'Criar minha viagem'}</h2>
               </div>
             </div>
             <p className="mb-6 rounded-2xl bg-teal-50 px-4 py-3 text-sm font-bold text-teal-800">
-              Voce ainda nao possui uma viagem ativa.
+              {activeGroup
+                ? 'Crie outro grupo de viagem sem alterar a viagem ativa atual.'
+                : 'Voce ainda nao possui uma viagem ativa.'}
             </p>
             <form onSubmit={handleCreateTrip} className="space-y-4">
               <div className="grid gap-4 md:grid-cols-2">
@@ -983,7 +1096,8 @@ export function ProfilePage() {
             </form>
           </motion.section>
 
-          <motion.section
+          {!activeGroup ? (
+            <motion.section
             className="rounded-[2rem] border border-white/80 bg-white/90 p-6 shadow-xl shadow-slate-900/10 md:p-8"
             initial={{ opacity: 0, y: 18 }}
             animate={{ opacity: 1, y: 0 }}
@@ -1025,7 +1139,8 @@ export function ProfilePage() {
               <LogOut className="h-5 w-5" />
               Sair da conta
             </button>
-          </motion.section>
+            </motion.section>
+          ) : null}
         </section>
       ) : null}
 
@@ -1236,6 +1351,23 @@ export function ProfilePage() {
           Sair da conta
         </button>
       </section>
+
+      <AnimatePresence>
+        {selectedTrip ? (
+          <TripDetailsModal
+            actionId={tripActionId}
+            group={selectedTrip}
+            isActive={activeGroup?.id === selectedTrip.id}
+            isOwner={selectedTrip.ownerId === user?.id}
+            onCancel={handleCancelTrip}
+            onClose={() => setSelectedTrip(null)}
+            onComplete={handleCompleteTrip}
+            onDelete={handleDeleteTrip}
+            onOpen={handleOpenTrip}
+            summary={tripSummaries[selectedTrip.id]}
+          />
+        ) : null}
+      </AnimatePresence>
     </motion.div>
   );
 }
