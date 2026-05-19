@@ -81,8 +81,15 @@ export default function App() {
   const inviteToken = getInviteToken();
   const pendingInviteToken = user ? getPendingInviteToken() : null;
   const activeInviteToken = inviteToken ?? pendingInviteToken;
+  const isAuthCallback = window.location.pathname === '/auth/callback';
 
-  if (authLoading) return <LoadingScreen message="Verificando sessao..." />;
+  useEffect(() => {
+    if (!authLoading && user && isAuthCallback && !activeInviteToken) {
+      window.history.replaceState({}, '', '/');
+    }
+  }, [activeInviteToken, authLoading, isAuthCallback, user]);
+
+  if (authLoading && !user) return <LoadingScreen message="Verificando sessao..." />;
   if (!user) return <AuthPage initialInviteCode={inviteToken ?? getPendingInviteToken()} />;
   if (activeInviteToken) {
     return (
@@ -93,7 +100,7 @@ export default function App() {
       />
     );
   }
-  if (groupLoading) return <LoadingScreen message="Carregando suas viagens..." />;
+  if (groupLoading && !activeGroup) return <LoadingScreen message="Carregando suas viagens..." />;
   if (!activeGroup) return <GroupsPage />;
 
   return <TravelWorkspace key={activeGroup.id} groupId={activeGroup.id} />;

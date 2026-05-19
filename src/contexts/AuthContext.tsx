@@ -1,5 +1,5 @@
 import type { User } from '@supabase/supabase-js';
-import { createContext, useContext, useEffect, useMemo, useState } from 'react';
+import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import {
   getCurrentUser,
@@ -14,6 +14,8 @@ import {
 type AuthContextValue = {
   user: User | null;
   loading: boolean;
+  initialLoading: boolean;
+  isRefreshing: boolean;
   signIn: () => Promise<void>;
   signInWithEmail: (email: string, password: string) => Promise<User | null>;
   signUp: (email: string, password: string) => Promise<User | null>;
@@ -33,7 +35,10 @@ const withTimeout = async <T,>(promise: Promise<T>, timeoutMs: number): Promise<
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [initialLoading, setInitialLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const initialLoadDoneRef = useRef(false);
+  const refreshInFlightRef = useRef(false);
 
   useEffect(() => {
     let active = true;
@@ -46,16 +51,45 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (active) setUser(null);
       })
       .finally(() => {
-        if (active) setLoading(false);
+        initialLoadDoneRef.current = true;
+        if (active) setInitialLoading(false);
       });
 
-    const subscription = onAuthStateChange((nextUser) => {
+    const refreshSessionInBackground = async () => {
+      if (!initialLoadDoneRef.current || refreshInFlightRef.current) return;
+      refreshInFlightRef.current = true;
+      setIsRefreshing(true);
+
+      try {
+        const currentUser = await withTimeout(getCurrentUser(), 8000);
+        if (active) setUser(currentUser);
+      } catch {
+        // Keep the current UI visible on transient network/auth refresh failures.
+      } finally {
+        refreshInFlightRef.current = false;
+        if (active) setIsRefreshing(false);
+      }
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') void refreshSessionInBackground();
+    };
+
+    const subscription = onAuthStateChange((nextUser, _session, event) => {
       setUser(nextUser);
-      setLoading(false);
+      if (event === 'SIGNED_OUT') {
+        initialLoadDoneRef.current = true;
+        setInitialLoading(false);
+      }
     });
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', refreshSessionInBackground);
 
     return () => {
       active = false;
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', refreshSessionInBackground);
       subscription.unsubscribe();
     };
   }, []);
@@ -63,14 +97,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const value = useMemo<AuthContextValue>(
     () => ({
       user,
-      loading,
+      loading: initialLoading,
+      initialLoading,
+      isRefreshing,
       signIn: signInWithGoogle,
       signInWithEmail: signInWithPassword,
       signUp: signUpWithEmail,
       sendPasswordReset: resetPassword,
       signOut: signOutFromSupabase,
     }),
-    [loading, user],
+    [initialLoading, isRefreshing, user],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

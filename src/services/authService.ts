@@ -3,7 +3,7 @@ import { supabase } from './supabaseClient';
 
 type AuthStateCallback = (user: User | null, session: Session | null, event: AuthChangeEvent) => void;
 
-const getRedirectUrl = () => window.location.href;
+const getRedirectUrl = () => `${window.location.origin}/auth/callback`;
 const GOOGLE_OAUTH_SETUP_ERROR =
   'Login com Google ainda nao esta configurado corretamente. Verifique Client ID e Client Secret no Supabase.';
 
@@ -48,12 +48,18 @@ export async function signInWithGoogle() {
       method: 'GET',
       headers: { Accept: 'application/json' },
       credentials: 'omit',
+      redirect: 'manual',
       signal: controller.signal,
     });
   } catch {
     throw new Error(GOOGLE_OAUTH_SETUP_ERROR);
   } finally {
     window.clearTimeout(timeoutId);
+  }
+
+  if (response.type === 'opaqueredirect' || response.status === 0 || response.status === 302) {
+    window.location.assign(data.url);
+    return;
   }
 
   if (!response.ok) {

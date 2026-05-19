@@ -184,7 +184,9 @@ Supabase -> Authentication -> URL Configuration:
 - Site URL: `https://viagem-europa-angelo.web.app`
 - Redirect URLs:
   - `https://viagem-europa-angelo.web.app/**`
+  - `https://viagem-europa-angelo.web.app/auth/callback`
   - `http://localhost:5173/**`
+  - `http://localhost:5173/auth/callback`
 
 Google Cloud OAuth:
 

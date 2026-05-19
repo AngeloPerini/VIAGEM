@@ -164,20 +164,20 @@ export function AuthPage({ initialInviteCode }: AuthPageProps) {
               <Plane className="h-7 w-7" />
             </span>
             <p className="mt-8 text-sm font-black uppercase tracking-[0.22em] text-teal-200">
-              Minha Viagem Europa
+              MINHA VIAGEM
             </p>
             <h1 className="mt-3 max-w-xl text-4xl font-black tracking-tight md:text-6xl">
-              Uma viagem, um grupo, dados protegidos.
+              Viajar junto ficou muito mais simples.
             </h1>
             <p className="mt-5 max-w-lg text-lg leading-8 text-slate-300">
-              Entre para sincronizar gastos, roteiro, pontos turisticos e fotos apenas com quem participa da viagem.
+              Organize roteiro, gastos, reservas e memórias em um único lugar — compartilhado apenas com quem faz parte da viagem.
             </p>
           </div>
 
           <div className="mt-10 grid gap-3 text-sm font-bold text-slate-300 sm:grid-cols-3">
-            <span className="rounded-2xl bg-white/10 px-4 py-3">Google Auth</span>
-            <span className="rounded-2xl bg-white/10 px-4 py-3">Supabase RLS</span>
-            <span className="rounded-2xl bg-white/10 px-4 py-3">Convite seguro</span>
+            <span className="rounded-2xl bg-white/10 px-4 py-3">Controle de gastos</span>
+            <span className="rounded-2xl bg-white/10 px-4 py-3">Roteiro da viagem</span>
+            <span className="rounded-2xl bg-white/10 px-4 py-3">Sonho Europeu</span>
           </div>
         </motion.section>
 
