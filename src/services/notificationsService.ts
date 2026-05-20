@@ -35,6 +35,24 @@ type NotificationRow = {
   created_at: string;
 };
 
+export type NotificationRealtimeState =
+  | { available: true; status: string }
+  | { available: false; status: string; message: string };
+
+export type NotificationSubscription = {
+  unsubscribe: () => void;
+};
+
+type NotificationRealtimeEntry = {
+  userId: string;
+  channel: RealtimeChannel;
+  listeners: Set<() => void>;
+  statusListeners: Set<(state: NotificationRealtimeState) => void>;
+  lastState?: NotificationRealtimeState;
+};
+
+const notificationChannels = new Map<string, NotificationRealtimeEntry>();
+
 const isNotificationType = (value: string): value is NotificationType =>
   [
     'invite_received',
@@ -90,15 +108,133 @@ export async function getUnreadNotificationCount() {
   return count ?? 0;
 }
 
-export function subscribeNotifications(userId: string, onChange: () => void): RealtimeChannel {
-  return supabase
-    .channel(`notifications-${userId}`)
-    .on(
-      'postgres_changes',
-      { event: '*', schema: 'public', table: 'notifications', filter: `user_id=eq.${userId}` },
-      onChange,
-    )
-    .subscribe();
+function notifyStatus(
+  entry: NotificationRealtimeEntry,
+  state: NotificationRealtimeState,
+) {
+  entry.lastState = state;
+  entry.statusListeners.forEach((listener) => {
+    try {
+      listener(state);
+    } catch (error) {
+      console.warn('Erro em listener de status realtime de notificacoes.', error);
+    }
+  });
+}
+
+function removeStaleNotificationChannels(userId: string) {
+  const topics = new Set([
+    `realtime:notifications:${userId}`,
+    `realtime:notifications-${userId}`,
+  ]);
+
+  supabase.getChannels()
+    .filter((channel) => topics.has(channel.topic))
+    .forEach((channel) => {
+      void supabase.removeChannel(channel);
+    });
+}
+
+function getOrCreateNotificationChannel(userId: string): NotificationRealtimeEntry | null {
+  const currentEntry = notificationChannels.get(userId);
+  if (currentEntry) return currentEntry;
+
+  try {
+    removeStaleNotificationChannels(userId);
+
+    const entry: NotificationRealtimeEntry = {
+      userId,
+      channel: supabase
+        .channel(`notifications:${userId}`)
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'notifications', filter: `user_id=eq.${userId}` },
+          () => {
+            const activeEntry = notificationChannels.get(userId);
+            activeEntry?.listeners.forEach((listener) => {
+              try {
+                listener();
+              } catch (error) {
+                console.warn('Erro em listener realtime de notificacoes.', error);
+              }
+            });
+          },
+        ),
+      listeners: new Set(),
+      statusListeners: new Set(),
+      lastState: undefined,
+    };
+
+    entry.channel.subscribe((status) => {
+      if (status === 'SUBSCRIBED') {
+        notifyStatus(entry, { available: true, status });
+        return;
+      }
+
+      if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+        notifyStatus(entry, {
+          available: false,
+          status,
+          message: 'Notificacoes em tempo real indisponiveis no momento.',
+        });
+      }
+    });
+
+    notificationChannels.set(userId, entry);
+    return entry;
+  } catch (error) {
+    console.warn('Nao foi possivel iniciar realtime de notificacoes.', error);
+    return null;
+  }
+}
+
+export function subscribeNotifications(
+  userId: string | undefined,
+  onChange: () => void,
+  onStatus?: (state: NotificationRealtimeState) => void,
+): NotificationSubscription {
+  if (!userId) {
+    onStatus?.({
+      available: false,
+      status: 'NO_USER',
+      message: 'Notificacoes em tempo real indisponiveis no momento.',
+    });
+    return { unsubscribe: () => undefined };
+  }
+
+  const entry = getOrCreateNotificationChannel(userId);
+  if (!entry) {
+    onStatus?.({
+      available: false,
+      status: 'INIT_ERROR',
+      message: 'Notificacoes em tempo real indisponiveis no momento.',
+    });
+    return { unsubscribe: () => undefined };
+  }
+
+  entry.listeners.add(onChange);
+  if (onStatus) {
+    entry.statusListeners.add(onStatus);
+    if (entry.lastState) {
+      try {
+        onStatus(entry.lastState);
+      } catch (error) {
+        console.warn('Erro em listener de status realtime de notificacoes.', error);
+      }
+    }
+  }
+
+  return {
+    unsubscribe: () => {
+      entry.listeners.delete(onChange);
+      if (onStatus) entry.statusListeners.delete(onStatus);
+
+      if (entry.listeners.size === 0 && entry.statusListeners.size === 0) {
+        notificationChannels.delete(entry.userId);
+        void supabase.removeChannel(entry.channel);
+      }
+    },
+  };
 }
 
 export async function markNotificationAsRead(notificationId: string) {

@@ -556,6 +556,7 @@ export function ProfilePage() {
   const [inviteCodeInput, setInviteCodeInput] = useState('');
   const [status, setStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [notificationRealtimeWarning, setNotificationRealtimeWarning] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isInviting, setIsInviting] = useState(false);
   const [isCreatingTrip, setIsCreatingTrip] = useState(false);
@@ -759,10 +760,30 @@ export function ProfilePage() {
     if (!user?.id) return undefined;
 
     void loadNotifications().catch(() => null);
-    const channel = subscribeNotifications(user.id, () => void loadNotifications().catch(() => null));
+    let fallbackInterval: number | undefined;
+    const channel = subscribeNotifications(
+      user.id,
+      () => void loadNotifications().catch(() => null),
+      (state) => {
+        if (state.available) {
+          setNotificationRealtimeWarning(null);
+          if (fallbackInterval) {
+            window.clearInterval(fallbackInterval);
+            fallbackInterval = undefined;
+          }
+          return;
+        }
+
+        setNotificationRealtimeWarning(state.message);
+        fallbackInterval ??= window.setInterval(() => {
+          void loadNotifications().catch(() => null);
+        }, 60_000);
+      },
+    );
 
     return () => {
-      void channel.unsubscribe();
+      if (fallbackInterval) window.clearInterval(fallbackInterval);
+      channel.unsubscribe();
     };
   }, [loadNotifications, user?.id]);
 
@@ -1282,6 +1303,12 @@ export function ProfilePage() {
             Limpar lidas
           </button>
         </div>
+
+        {notificationRealtimeWarning ? (
+          <p className="mb-4 rounded-2xl bg-amber-50 px-4 py-3 text-sm font-bold text-amber-700">
+            {notificationRealtimeWarning}
+          </p>
+        ) : null}
 
         {notifications.length ? (
           <div className="space-y-3">

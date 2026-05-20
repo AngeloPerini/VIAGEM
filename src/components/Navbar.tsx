@@ -59,10 +59,28 @@ export function Navbar({ activeView, onNavigate }: NavbarProps) {
     }
 
     void loadUnreadNotifications();
-    const channel = subscribeNotifications(user.id, () => void loadUnreadNotifications());
+    let fallbackInterval: number | undefined;
+    const channel = subscribeNotifications(
+      user.id,
+      () => void loadUnreadNotifications(),
+      (state) => {
+        if (state.available) {
+          if (fallbackInterval) {
+            window.clearInterval(fallbackInterval);
+            fallbackInterval = undefined;
+          }
+          return;
+        }
+
+        fallbackInterval ??= window.setInterval(() => {
+          void loadUnreadNotifications();
+        }, 60_000);
+      },
+    );
 
     return () => {
-      void channel.unsubscribe();
+      if (fallbackInterval) window.clearInterval(fallbackInterval);
+      channel.unsubscribe();
     };
   }, [loadUnreadNotifications, user?.id]);
 
