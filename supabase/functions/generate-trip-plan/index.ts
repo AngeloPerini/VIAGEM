@@ -79,10 +79,24 @@ const getServiceKey = () => {
 const isTripStyle = (value: unknown): value is TripStyle =>
   value === 'economica' || value === 'intermediaria' || value === 'confortavel';
 
+const normalizeCountryList = (value: unknown) => {
+  const rawCountries = Array.isArray(value) ? value : [];
+  const seen = new Set<string>();
+
+  return rawCountries
+    .flatMap((country) => String(country).split(/[,\n;/|]+/))
+    .map((country) => country.trim())
+    .filter((country) => {
+      if (!country) return false;
+      const key = country.toLocaleLowerCase();
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+};
+
 const normalizeInput = (payload: Record<string, unknown>): TripPlanInput => {
-  const countries = Array.isArray(payload.countries)
-    ? payload.countries.map((country) => String(country).trim()).filter(Boolean)
-    : [];
+  const countries = normalizeCountryList(payload.countries);
 
   const style = isTripStyle(payload.style) ? payload.style : 'intermediaria';
   const input = {
@@ -102,6 +116,20 @@ const normalizeInput = (payload: Record<string, unknown>): TripPlanInput => {
   if (!input.startDate || !input.endDate) throw new Error('Informe as datas da viagem.');
 
   return input;
+};
+
+const logAiEvent = (
+  level: 'info' | 'warn' | 'error',
+  event: string,
+  details: Record<string, unknown> = {},
+) => {
+  const payload = {
+    event,
+    at: new Date().toISOString(),
+    ...details,
+  };
+
+  console[level](`[generate-trip-plan] ${event}`, payload);
 };
 
 const safeArray = (value: unknown) => (Array.isArray(value) ? value : []);
@@ -523,6 +551,33 @@ const getErrorMessage = (error: unknown, fallback = 'Nao foi possivel gerar a pr
   return fallback;
 };
 
+class AiProviderError extends Error {
+  status: number;
+
+  constructor(status: number, message: string) {
+    super(message);
+    this.name = 'AiProviderError';
+    this.status = status;
+  }
+}
+
+class AiJsonError extends Error {
+  constructor(message = 'A IA retornou uma resposta em formato invalido. Tente gerar novamente.') {
+    super(message);
+    this.name = 'AiJsonError';
+  }
+}
+
+class AiQualityError extends Error {
+  reasons: string[];
+
+  constructor(reasons: string[]) {
+    super(`A IA gerou um roteiro incompleto: ${reasons.join('; ') || 'qualidade insuficiente'}. Tente gerar novamente.`);
+    this.name = 'AiQualityError';
+    this.reasons = reasons;
+  }
+}
+
 const validatePlanQuality = (plan: ReturnType<typeof ensurePlanShape>, input: TripPlanInput) => {
   const reasons: string[] = [];
   const tripDays = getTripDayCount(input);
@@ -734,14 +789,34 @@ const generatePlanWithAI = async (
 
   if (!aiResponse.ok) {
     const errorText = await aiResponse.text().catch(() => '');
-    throw new Error(errorText || 'Falha ao chamar a API da IA.');
+    let providerMessage = errorText;
+
+    try {
+      const parsed = JSON.parse(errorText) as { error?: { message?: string; type?: string; code?: string } };
+      providerMessage = [
+        parsed.error?.message,
+        parsed.error?.type,
+        parsed.error?.code,
+      ].filter(Boolean).join(' ');
+    } catch {
+      // Keep the raw provider text when it is not JSON.
+    }
+
+    throw new AiProviderError(
+      aiResponse.status,
+      providerMessage || `OpenAI retornou HTTP ${aiResponse.status}.`,
+    );
   }
 
   const aiPayload = await aiResponse.json();
   const content = aiPayload?.choices?.[0]?.message?.content;
   if (typeof content !== 'string') throw new Error('A IA nao retornou conteudo valido.');
 
-  return extractJsonObject(content);
+  try {
+    return extractJsonObject(content);
+  } catch {
+    throw new AiJsonError();
+  }
 };
 
 Deno.serve(async (req) => {
@@ -786,6 +861,14 @@ Deno.serve(async (req) => {
     return jsonResponse({ error: error instanceof Error ? error.message : 'Entrada invalida.' }, 400);
   }
 
+  logAiEvent('info', 'request_received', {
+    group_id: input.groupId,
+    user_id: user.id,
+    countries: input.countries,
+    start_date: input.startDate,
+    end_date: input.endDate,
+  });
+
   const logFailedGeneration = async (feedback: string) => {
     try {
       await adminSupabase.from('ai_trip_generations').insert({
@@ -809,7 +892,15 @@ Deno.serve(async (req) => {
       .maybeSingle();
 
     if (membershipError) throw membershipError;
-    if (!membership) return errorResponse('FORBIDDEN', 'Voce nao participa desta viagem.', 403);
+    if (!membership) {
+      logAiEvent('warn', 'membership_denied', {
+        group_id: input.groupId,
+        user_id: user.id,
+        error_code: 'FORBIDDEN',
+      });
+
+      return errorResponse('FORBIDDEN', 'Voce nao participa desta viagem.', 403);
+    }
 
     const profilePayload = {
       id: user.id,
@@ -835,6 +926,14 @@ Deno.serve(async (req) => {
     const isUnlimitedTester = unlimitedAiTesterEmails.has(userEmail);
 
     if (!isUnlimitedTester && used >= limit) {
+      logAiEvent('warn', 'quota_limit_reached', {
+        group_id: input.groupId,
+        user_id: user.id,
+        error_code: 'AI_GENERATION_LIMIT_REACHED',
+        used,
+        limit,
+      });
+
       return errorResponse(
         'AI_GENERATION_LIMIT_REACHED',
         'Você atingiu o limite gratuito de 3 gerações de viagem com IA.',
@@ -847,6 +946,13 @@ Deno.serve(async (req) => {
       profile.last_ai_generation_at &&
       Date.now() - new Date(profile.last_ai_generation_at).getTime() < 30_000
     ) {
+      logAiEvent('warn', 'cooldown_active', {
+        group_id: input.groupId,
+        user_id: user.id,
+        error_code: 'AI_GENERATION_COOLDOWN',
+        last_ai_generation_at: profile.last_ai_generation_at,
+      });
+
       return errorResponse(
         'AI_GENERATION_COOLDOWN',
         'Aguarde alguns segundos antes de gerar novamente.',
@@ -856,11 +962,16 @@ Deno.serve(async (req) => {
 
     const apiKey = Deno.env.get('OPENAI_API_KEY') ?? Deno.env.get('AI_API_KEY');
     if (!apiKey) {
-      await logFailedGeneration('OPENAI_API_KEY/AI_API_KEY nao configurada.');
+      await logFailedGeneration('IA ainda nao configurada no servidor.');
+      logAiEvent('error', 'provider_missing_key', {
+        group_id: input.groupId,
+        user_id: user.id,
+        error_code: 'AI_PROVIDER_NOT_CONFIGURED',
+      });
 
       return errorResponse(
         'AI_PROVIDER_NOT_CONFIGURED',
-        'IA ainda nao configurada. Adicione OPENAI_API_KEY nos secrets da Supabase Edge Function.',
+        'IA ainda nao configurada no servidor. Verifique os secrets da Edge Function.',
         503,
       );
     }
@@ -871,22 +982,43 @@ Deno.serve(async (req) => {
 
     for (let attempt = 1; attempt <= 2; attempt += 1) {
       const qualityFeedback = qualityReasons.length ? qualityReasons.join('; ') : undefined;
+      logAiEvent('info', 'openai_attempt_started', {
+        group_id: input.groupId,
+        user_id: user.id,
+        attempt,
+        model,
+        has_quality_feedback: Boolean(qualityFeedback),
+      });
+
       const rawOutput = await generatePlanWithAI(apiKey, model, input, qualityFeedback);
       const candidate = ensurePlanShape(rawOutput, input);
       const quality = validatePlanQuality(candidate, input);
 
       if (quality.ok) {
+        logAiEvent('info', 'quality_passed', {
+          group_id: input.groupId,
+          user_id: user.id,
+          attempt,
+          itinerary_items: candidate.itinerary_items.length,
+          attractions: candidate.attractions.length,
+          expenses: candidate.expenses.length,
+        });
         output = candidate;
         break;
       }
 
       qualityReasons = quality.reasons;
+      logAiEvent('warn', 'quality_retry_needed', {
+        group_id: input.groupId,
+        user_id: user.id,
+        attempt,
+        reasons: qualityReasons,
+        itinerary_items: candidate.itinerary_items.length,
+      });
     }
 
     if (!output) {
-      throw new Error(
-        `Roteiro gerado esta incompleto: ${qualityReasons.join('; ') || 'qualidade insuficiente'}. Tente gerar novamente.`,
-      );
+      throw new AiQualityError(qualityReasons);
     }
 
     let quotaResult: QuotaResult | null = null;
@@ -900,6 +1032,12 @@ Deno.serve(async (req) => {
       quotaResult = data;
       if (!quotaResult.allowed) {
         await logFailedGeneration(quotaResult.message ?? 'Geracao bloqueada por limite de uso.');
+        logAiEvent('warn', 'quota_rpc_blocked', {
+          group_id: input.groupId,
+          user_id: user.id,
+          error_code: quotaResult.error_code ?? 'AI_GENERATION_BLOCKED',
+          message: quotaResult.message,
+        });
 
         return errorResponse(
           quotaResult.error_code ?? 'AI_GENERATION_BLOCKED',
@@ -923,6 +1061,15 @@ Deno.serve(async (req) => {
 
     if (insertError) throw insertError;
 
+    logAiEvent('info', 'generation_created', {
+      group_id: input.groupId,
+      user_id: user.id,
+      generation_id: generation.id,
+      quota_used: quotaResult?.ai_generations_used ?? used,
+      quota_limit: quotaResult?.ai_generations_limit ?? limit,
+      unlimited: isUnlimitedTester,
+    });
+
     return jsonResponse({
       generationId: generation.id,
       quota: {
@@ -935,6 +1082,59 @@ Deno.serve(async (req) => {
   } catch (error) {
     const message = getErrorMessage(error);
     await logFailedGeneration(message);
+
+    if (error instanceof AiProviderError) {
+      logAiEvent('error', 'openai_failed', {
+        group_id: input.groupId,
+        user_id: user.id,
+        error_code: 'AI_OPENAI_ERROR',
+        provider_status: error.status,
+        message,
+      });
+
+      return errorResponse(
+        'AI_OPENAI_ERROR',
+        `Erro da OpenAI: ${message}`,
+        502,
+      );
+    }
+
+    if (error instanceof AiJsonError) {
+      logAiEvent('error', 'json_parse_failed', {
+        group_id: input.groupId,
+        user_id: user.id,
+        error_code: 'AI_JSON_PARSE_ERROR',
+        message,
+      });
+
+      return errorResponse(
+        'AI_JSON_PARSE_ERROR',
+        message,
+        502,
+      );
+    }
+
+    if (error instanceof AiQualityError) {
+      logAiEvent('warn', 'quality_failed', {
+        group_id: input.groupId,
+        user_id: user.id,
+        error_code: 'AI_QUALITY_FAILED',
+        reasons: error.reasons,
+      });
+
+      return errorResponse(
+        'AI_QUALITY_FAILED',
+        message,
+        422,
+      );
+    }
+
+    logAiEvent('error', 'generation_failed', {
+      group_id: input.groupId,
+      user_id: user.id,
+      error_code: 'AI_GENERATION_FAILED',
+      message,
+    });
 
     return errorResponse(
       'AI_GENERATION_FAILED',

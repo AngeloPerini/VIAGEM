@@ -23,6 +23,8 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { FormEvent } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useGroup } from '../contexts/GroupContext';
+import { languageOptions, useLanguage } from '../contexts/LanguageContext';
+import type { LanguageCode } from '../i18n';
 import { countryLabel } from '../data/countries';
 import {
   getCurrentProfile,
@@ -53,6 +55,7 @@ import type {
   UserTravelGroup,
 } from '../types';
 import { formatRange } from '../utils/money';
+import { parseCountryInput } from '../utils/countryInput';
 
 const emptyStats: UserStats = {
   countriesCount: 0,
@@ -344,6 +347,7 @@ function TripDetailsModal({
 export function ProfilePage() {
   const { signOut, user } = useAuth();
   const { acceptInvite, activeGroup, createGroup, inviteMember, refreshGroups, setActiveGroup, userGroups } = useGroup();
+  const { language, setLanguage, t } = useLanguage();
   const [profile, setProfile] = useState<UserProfile | null>(() => buildFallbackProfile(user));
   const [members, setMembers] = useState<GroupMemberProfile[]>([]);
   const [stats, setStats] = useState<UserStats>(emptyStats);
@@ -402,15 +406,15 @@ export function ProfilePage() {
     : false;
   const aiGenerationBlocked = aiLimitReached || aiCooldownActive;
   const aiUsageMessage = isAiTestUser
-    ? 'Geracoes ilimitadas para conta de testes.'
+    ? t('profile.aiUnlimited')
     : aiLimitReached
-      ? 'Voce atingiu o limite gratuito de geracoes com IA.'
+      ? t('profile.aiLimitReached')
       : aiCooldownActive
-        ? 'Aguarde alguns segundos antes de gerar novamente.'
-        : 'A previa sera gerada para revisao antes de aplicar.';
+        ? t('profile.aiCooldown')
+        : t('profile.aiReviewInfo');
   const aiUsageLabel = isAiTestUser
-    ? 'Geracoes ilimitadas para conta de testes'
-    : `Geracoes usadas: ${aiGenerationsUsed} de ${aiGenerationsLimit}. ${aiUsageMessage}`;
+    ? t('profile.aiUsageUnlimited')
+    : t('profile.aiUsageCount', { used: aiGenerationsUsed, limit: aiGenerationsLimit, message: aiUsageMessage });
   const tripCounts = useMemo(() => ({
     planned: userGroups.filter((group) => (group.status ?? 'planned') === 'planned').length,
     active: userGroups.filter((group) => group.status === 'active').length,
@@ -428,11 +432,7 @@ export function ProfilePage() {
     [activeTripTab, user?.id, userGroups],
   );
   const shouldShowCreateTripForm = !activeGroup || showCreateTripForm;
-  const parsedTripCountries = () =>
-    tripCountries
-      .split(',')
-      .map((country) => country.trim())
-      .filter(Boolean);
+  const parsedTripCountries = () => parseCountryInput(tripCountries);
 
   const goToAIReview = (input: TripAIInput, group: UserTravelGroup, plan: TripAIPlan) => {
     storeTripAIReview({
@@ -447,12 +447,22 @@ export function ProfilePage() {
 
   const formatAIError = (caughtError: unknown) => {
     if (caughtError instanceof TripAIFunctionError) {
+      const friendlyMessages: Record<string, string> = {
+        AI_GENERATION_LIMIT_REACHED: t('profile.aiLimitReached'),
+        AI_GENERATION_COOLDOWN: t('profile.aiCooldown'),
+        AI_PROVIDER_NOT_CONFIGURED: 'IA ainda não configurada no servidor. Verifique os secrets da Edge Function.',
+        AI_OPENAI_ERROR: caughtError.message,
+        AI_JSON_PARSE_ERROR: 'A IA retornou JSON inválido. Tente gerar novamente.',
+        AI_QUALITY_FAILED: caughtError.message,
+        FORBIDDEN: 'Você não participa desta viagem ou o group_id não pertence ao seu usuário.',
+      };
       const details = [
         caughtError.code,
         caughtError.status ? `HTTP ${caughtError.status}` : null,
       ].filter(Boolean).join(' / ');
+      const message = caughtError.code ? friendlyMessages[caughtError.code] ?? caughtError.message : caughtError.message;
 
-      return details ? `${caughtError.message} (${details})` : caughtError.message;
+      return details ? `${message} (${details})` : message;
     }
 
     return caughtError instanceof Error ? caughtError.message : 'Nao foi possivel gerar a previa com IA.';
@@ -563,10 +573,7 @@ export function ProfilePage() {
     setIsCreatingTrip(true);
 
     try {
-      const countries = tripCountries
-        .split(',')
-        .map((country) => country.trim())
-        .filter(Boolean);
+      const countries = parsedTripCountries();
 
       await createGroup({
         name: tripName,
@@ -598,8 +605,8 @@ export function ProfilePage() {
 
     try {
       const countries = parsedTripCountries();
-      if (!countries.length) throw new Error('Informe os paises antes de gerar a previa com IA.');
-      if (!tripStartDate || !tripEndDate) throw new Error('Informe as datas da viagem antes de gerar a previa com IA.');
+      if (!countries.length) throw new Error(t('ai.missingCountries'));
+      if (!tripStartDate || !tripEndDate) throw new Error(t('ai.missingDates'));
 
       const group = await createGroup({
         name: tripName,
@@ -640,7 +647,9 @@ export function ProfilePage() {
     setIsGeneratingAI(true);
 
     try {
-      const countries = activeGroup.countries?.length ? activeGroup.countries : ['Europa'];
+      const countries = activeGroup.countries?.length
+        ? activeGroup.countries.flatMap((country) => parseCountryInput(country))
+        : ['Europa'];
       const input: TripAIInput = {
         tripName: activeGroup.name,
         countries,
@@ -660,7 +669,9 @@ export function ProfilePage() {
       setAiFailedGroup(activeGroup);
       setAiRetryInput({
         tripName: activeGroup.name,
-        countries: activeGroup.countries?.length ? activeGroup.countries : ['Europa'],
+        countries: activeGroup.countries?.length
+          ? activeGroup.countries.flatMap((country) => parseCountryInput(country))
+          : ['Europa'],
         description: activeGroup.description ?? '',
         startDate: activeGroup.startDate ?? '',
         endDate: activeGroup.endDate ?? '',
@@ -701,7 +712,7 @@ export function ProfilePage() {
     setAiFailedGroup(null);
     setAiRetryInput(null);
     setError(null);
-    setStatus('Voce pode continuar preenchendo sua viagem manualmente.');
+    setStatus(t('ai.manualContinue'));
     await refreshGroups({ silent: true }).catch(() => null);
     window.history.replaceState({}, '', '/dashboard');
     window.dispatchEvent(new PopStateEvent('popstate'));
@@ -850,27 +861,30 @@ export function ProfilePage() {
               </span>
             )}
             <div>
-              <p className="text-sm font-black uppercase tracking-[0.2em] text-teal-200">Perfil</p>
+              <p className="text-sm font-black uppercase tracking-[0.2em] text-teal-200">{t('profile.title')}</p>
               <h1 className="mt-2 text-3xl font-black tracking-tight md:text-5xl">{displayName}</h1>
               <p className="mt-2 font-bold text-slate-300">{displayEmail}</p>
             </div>
           </div>
-          <button
-            type="button"
-            onClick={() => void handleSignOut()}
-            className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl bg-white px-5 font-black text-slate-950 transition hover:bg-rose-50 hover:text-rose-700"
-          >
-            <LogOut className="h-5 w-5" />
-            Sair da conta
-          </button>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+            <img src="/logo.png" alt="TripFlow" className="hidden h-12 w-12 rounded-2xl bg-white object-contain p-1 sm:block" />
+            <button
+              type="button"
+              onClick={() => void handleSignOut()}
+              className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl bg-white px-5 font-black text-slate-950 transition hover:bg-rose-50 hover:text-rose-700"
+            >
+              <LogOut className="h-5 w-5" />
+              {t('actions.signOut')}
+            </button>
+          </div>
         </div>
         <div className="mt-6 grid gap-3 text-sm font-bold text-slate-300 md:grid-cols-3">
-          <span className="rounded-2xl bg-white/10 px-4 py-3">Conta criada: {formatDate(profile?.createdAt)}</span>
+          <span className="rounded-2xl bg-white/10 px-4 py-3">{t('profile.createdAt')}: {formatDate(profile?.createdAt)}</span>
           <span className="rounded-2xl bg-white/10 px-4 py-3">
-            Viagem ativa: {activeGroup?.name ?? 'Nenhuma'}
+            {t('profile.activeTrip')}: {activeGroup?.name ?? t('profile.noActiveTrip')}
           </span>
           <span className="rounded-2xl bg-white/10 px-4 py-3">
-            Participa de {userGroups.length} {userGroups.length === 1 ? 'viagem' : 'viagens'}
+            {t('profile.memberOf')} {userGroups.length} {userGroups.length === 1 ? t('profile.tripSingular') : t('profile.tripPlural')}
           </span>
           <span className="rounded-2xl bg-white/10 px-4 py-3">
             IA: {isAiTestUser ? 'geracoes ilimitadas' : `${aiGenerationsUsed} de ${aiGenerationsLimit} geracoes usadas`}
@@ -880,7 +894,7 @@ export function ProfilePage() {
 
       {(status || error || isLoading) ? (
         <p className="rounded-2xl border border-white/80 bg-white/85 px-4 py-3 text-sm font-bold text-slate-600 shadow-lg shadow-slate-900/5">
-          {isLoading ? 'Carregando perfil...' : error ?? status}
+          {isLoading ? t('profile.loading') : error ?? status}
         </p>
       ) : null}
 
@@ -888,10 +902,10 @@ export function ProfilePage() {
         <section className="rounded-[2rem] border border-amber-200 bg-amber-50 p-5 shadow-xl shadow-amber-900/10 md:p-6">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div>
-              <p className="text-sm font-black uppercase tracking-[0.16em] text-amber-700">IA nao concluiu</p>
-              <h2 className="mt-1 text-2xl font-black text-slate-950">A viagem foi criada e continua salva.</h2>
+              <p className="text-sm font-black uppercase tracking-[0.16em] text-amber-700">{t('ai.notCompleted')}</p>
+              <h2 className="mt-1 text-2xl font-black text-slate-950">{t('ai.tripSaved')}</h2>
               <p className="mt-2 text-sm font-bold leading-6 text-amber-900">
-                Voce pode tentar gerar a previa novamente para {aiFailedGroup.name} ou seguir sem IA e preencher os dados manualmente.
+                {t('ai.retryOrManual', { tripName: aiFailedGroup.name })}
               </p>
             </div>
             <div className="grid gap-2 sm:grid-cols-2 lg:min-w-[25rem]">
@@ -902,14 +916,14 @@ export function ProfilePage() {
                 className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl bg-teal-700 px-5 font-black text-white transition hover:bg-teal-800 disabled:cursor-not-allowed disabled:opacity-70"
               >
                 {isGeneratingAI ? <Loader2 className="h-5 w-5 animate-spin" /> : <Sparkles className="h-5 w-5" />}
-                Tentar gerar IA novamente
+                {t('ai.retry')}
               </button>
               <button
                 type="button"
                 onClick={() => void handleContinueWithoutAI()}
                 className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl bg-white px-5 font-black text-amber-900 transition hover:bg-amber-100"
               >
-                Continuar sem IA
+                {t('ai.continueWithout')}
               </button>
             </div>
           </div>
@@ -917,28 +931,52 @@ export function ProfilePage() {
       ) : null}
 
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
-        <StatCard label="Paises" value={String(stats.countriesCount)} detail="Unicos nas suas viagens" />
-        <StatCard label="Viagens" value={String(stats.travelCount)} detail="Grupos em que voce participa" />
-        <StatCard label="Viagem ativa" value={stats.hasActiveTrip ? 'Sim' : 'Nao'} detail={activeGroup?.name} />
+        <StatCard label={t('profile.countries')} value={String(stats.countriesCount)} detail={t('profile.uniqueCountries')} />
+        <StatCard label={t('profile.trips')} value={String(stats.travelCount)} detail={t('profile.groupsYouJoin')} />
+        <StatCard label={t('profile.activeTripStat')} value={stats.hasActiveTrip ? t('profile.yes') : t('profile.no')} detail={activeGroup?.name} />
         <StatCard
-          label="Total geral"
+          label={t('profile.totalAll')}
           value={formatRange(stats.totalAllReal, 'BRL', true)}
           detail={formatRange(stats.totalAllEuro, 'EUR', true)}
         />
         <StatCard
-          label="Total da ativa"
+          label={t('profile.totalActive')}
           value={formatRange(stats.totalActiveReal, 'BRL', true)}
           detail={formatRange(stats.totalActiveEuro, 'EUR', true)}
         />
       </section>
 
+      <section className="rounded-[2rem] border border-white/80 bg-white/90 p-5 shadow-xl shadow-slate-900/10 md:p-6">
+        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <div>
+            <p className="text-sm font-black uppercase tracking-[0.18em] text-slate-400">
+              {t('language.selectorTitle')}
+            </p>
+            <p className="mt-2 max-w-3xl text-sm font-bold leading-6 text-slate-600">
+              {t('language.selectorDescription')}
+            </p>
+          </div>
+          <select
+            value={language}
+            onChange={(event) => setLanguage(event.target.value as LanguageCode)}
+            className="h-12 rounded-2xl border border-slate-200 bg-white px-4 font-black text-slate-800 outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-100"
+          >
+            {languageOptions.map((option) => (
+              <option key={option.code} value={option.code}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        </div>
+      </section>
+
       <section className="rounded-[2rem] border border-white/80 bg-white/90 p-6 shadow-xl shadow-slate-900/10 md:p-8">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div>
-            <p className="text-sm font-black uppercase tracking-[0.18em] text-slate-400">Historico</p>
-            <h2 className="mt-2 text-3xl font-black tracking-tight text-slate-950">Minhas viagens</h2>
+            <p className="text-sm font-black uppercase tracking-[0.18em] text-slate-400">{t('profile.history')}</p>
+            <h2 className="mt-2 text-3xl font-black tracking-tight text-slate-950">{t('profile.myTrips')}</h2>
             <p className="mt-2 max-w-2xl text-sm font-bold leading-6 text-slate-500">
-              Acesse viagens planejadas, ativas, realizadas ou canceladas em que voce participa.
+              {t('profile.historyDescription')}
             </p>
           </div>
           <div className="flex flex-col gap-3 lg:items-end">
@@ -948,7 +986,7 @@ export function ProfilePage() {
               className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl bg-teal-700 px-4 text-sm font-black text-white transition hover:bg-teal-800"
             >
               <Plus className="h-4 w-4" />
-              {shouldShowCreateTripForm && activeGroup ? 'Fechar criacao' : 'Criar nova viagem'}
+              {shouldShowCreateTripForm && activeGroup ? t('profile.closeCreate') : t('profile.createNewTrip')}
             </button>
             <div className="flex flex-wrap gap-2">
               {tripTabs.map((tab) => (
@@ -1000,19 +1038,19 @@ export function ProfilePage() {
                 <Plus className="h-6 w-6" />
               </span>
               <div>
-                <p className="text-sm font-black uppercase tracking-[0.18em] text-slate-400">Nova viagem</p>
-                <h2 className="text-2xl font-black">{activeGroup ? 'Criar nova viagem' : 'Criar minha viagem'}</h2>
+                <p className="text-sm font-black uppercase tracking-[0.18em] text-slate-400">{t('profile.newTrip')}</p>
+                <h2 className="text-2xl font-black">{activeGroup ? t('profile.createNewTrip') : t('profile.createTrip')}</h2>
               </div>
             </div>
             <p className="mb-6 rounded-2xl bg-teal-50 px-4 py-3 text-sm font-bold text-teal-800">
               {activeGroup
-                ? 'Crie outro grupo de viagem sem alterar a viagem ativa atual.'
-                : 'Voce ainda nao possui uma viagem ativa.'}
+                ? t('profile.createAnotherGroup')
+                : t('profile.noTripYet')}
             </p>
             <form onSubmit={handleCreateTrip} className="space-y-4">
               <div className="grid gap-4 md:grid-cols-2">
                 <label className="block">
-                  <span className="mb-2 block text-sm font-bold text-slate-600">Nome da viagem</span>
+                  <span className="mb-2 block text-sm font-bold text-slate-600">{t('profile.tripName')}</span>
                   <input
                     required
                     value={tripName}
@@ -1021,17 +1059,17 @@ export function ProfilePage() {
                   />
                 </label>
                 <label className="block">
-                  <span className="mb-2 block text-sm font-bold text-slate-600">Paises que deseja visitar</span>
+                  <span className="mb-2 block text-sm font-bold text-slate-600">{t('profile.tripCountries')}</span>
                   <input
                     value={tripCountries}
                     onChange={(event) => setTripCountries(event.target.value)}
-                    placeholder="Italia, Franca, Suica"
+                    placeholder={t('profile.tripCountriesPlaceholder')}
                     className="h-12 w-full rounded-2xl border border-slate-200 px-4 font-semibold outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-100"
                   />
                 </label>
               </div>
               <label className="block">
-                <span className="mb-2 block text-sm font-bold text-slate-600">Descricao</span>
+                <span className="mb-2 block text-sm font-bold text-slate-600">{t('profile.description')}</span>
                 <textarea
                   value={tripDescription}
                   onChange={(event) => setTripDescription(event.target.value)}
@@ -1041,7 +1079,7 @@ export function ProfilePage() {
               </label>
               <div className="grid gap-4 md:grid-cols-3">
                 <label className="block">
-                  <span className="mb-2 block text-sm font-bold text-slate-600">Data inicial</span>
+                  <span className="mb-2 block text-sm font-bold text-slate-600">{t('profile.startDate')}</span>
                   <input
                     type="date"
                     value={tripStartDate}
@@ -1050,7 +1088,7 @@ export function ProfilePage() {
                   />
                 </label>
                 <label className="block">
-                  <span className="mb-2 block text-sm font-bold text-slate-600">Data final</span>
+                  <span className="mb-2 block text-sm font-bold text-slate-600">{t('profile.endDate')}</span>
                   <input
                     type="date"
                     value={tripEndDate}
@@ -1059,20 +1097,20 @@ export function ProfilePage() {
                   />
                 </label>
                 <label className="block">
-                  <span className="mb-2 block text-sm font-bold text-slate-600">Estilo</span>
+                  <span className="mb-2 block text-sm font-bold text-slate-600">{t('profile.style')}</span>
                   <select
                     value={tripStyle}
                     onChange={(event) => setTripStyle(event.target.value)}
                     className="h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 font-semibold outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-100"
                   >
-                    <option value="economica">Economica</option>
-                    <option value="intermediaria">Intermediaria</option>
-                    <option value="confortavel">Confortavel</option>
+                    <option value="economica">{t('profile.economic')}</option>
+                    <option value="intermediaria">{t('profile.balanced')}</option>
+                    <option value="confortavel">{t('profile.comfort')}</option>
                   </select>
                 </label>
               </div>
               <label className="block">
-                <span className="mb-2 block text-sm font-bold text-slate-600">Observacoes</span>
+                <span className="mb-2 block text-sm font-bold text-slate-600">{t('profile.notes')}</span>
                 <textarea
                   value={tripNotes}
                   onChange={(event) => setTripNotes(event.target.value)}
@@ -1087,7 +1125,7 @@ export function ProfilePage() {
                   className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-slate-950 px-5 font-black text-white transition hover:bg-teal-700 disabled:cursor-not-allowed disabled:opacity-70"
                 >
                   <Plus className="h-5 w-5" />
-                  {isCreatingTrip ? 'Criando viagem...' : 'Criar minha viagem'}
+                  {isCreatingTrip ? t('profile.creatingTrip') : t('profile.createTrip')}
                 </button>
                 <button
                   type="button"
@@ -1096,7 +1134,7 @@ export function ProfilePage() {
                   className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-teal-700 px-5 font-black text-white transition hover:bg-teal-800 disabled:cursor-not-allowed disabled:opacity-70"
                 >
                   {isGeneratingAI ? <Loader2 className="h-5 w-5 animate-spin" /> : <Sparkles className="h-5 w-5" />}
-                  {isGeneratingAI ? 'Gerando roteiro...' : 'Gerar com IA'}
+                  {isGeneratingAI ? t('profile.generatingAI') : t('profile.generateAI')}
                 </button>
               </div>
               <p className="rounded-2xl bg-slate-50 px-4 py-3 text-sm font-bold text-slate-600">
@@ -1117,13 +1155,13 @@ export function ProfilePage() {
                 <MapPin className="h-6 w-6" />
               </span>
               <div>
-                <p className="text-sm font-black uppercase tracking-[0.18em] text-slate-400">Convite</p>
-                <h2 className="text-2xl font-black">Entrar com codigo</h2>
+                <p className="text-sm font-black uppercase tracking-[0.18em] text-slate-400">{t('profile.invite')}</p>
+                <h2 className="text-2xl font-black">{t('profile.joinWithCode')}</h2>
               </div>
             </div>
             <form onSubmit={handleAcceptInvite} className="space-y-4">
               <label className="block">
-                <span className="mb-2 block text-sm font-bold text-slate-600">Codigo ou link do convite</span>
+                <span className="mb-2 block text-sm font-bold text-slate-600">{t('profile.inviteCodeOrLink')}</span>
                 <input
                   value={inviteCodeInput}
                   onChange={(event) => setInviteCodeInput(event.target.value.toUpperCase())}
@@ -1137,7 +1175,7 @@ export function ProfilePage() {
                 className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-5 font-black text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 <Ticket className="h-5 w-5" />
-                {isJoiningTrip ? 'Entrando...' : 'Entrar com codigo de convite'}
+                {isJoiningTrip ? t('profile.joining') : t('profile.joinWithInviteCode')}
               </button>
             </form>
             <button
@@ -1146,7 +1184,7 @@ export function ProfilePage() {
               className="mt-6 inline-flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-rose-50 px-5 font-black text-rose-700 transition hover:bg-rose-100"
             >
               <LogOut className="h-5 w-5" />
-              Sair da conta
+              {t('actions.signOut')}
             </button>
             </motion.section>
           ) : null}
@@ -1159,7 +1197,7 @@ export function ProfilePage() {
             <section className="rounded-[2rem] border border-white/80 bg-white/90 p-6 shadow-xl shadow-slate-900/10 md:p-8">
               <div className="flex items-start justify-between gap-4">
                 <div>
-                  <p className="text-sm font-black uppercase tracking-[0.18em] text-slate-400">Viagem ativa</p>
+                  <p className="text-sm font-black uppercase tracking-[0.18em] text-slate-400">{t('profile.activeTripSection')}</p>
                   <h2 className="mt-2 text-3xl font-black tracking-tight text-slate-950">{activeGroup.name}</h2>
                   {activeGroup.description ? (
                     <p className="mt-3 leading-7 text-slate-600">{activeGroup.description}</p>
@@ -1176,7 +1214,7 @@ export function ProfilePage() {
                 className="mt-5 inline-flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-teal-700 px-5 font-black text-white transition hover:bg-teal-800 disabled:cursor-not-allowed disabled:opacity-70 sm:w-auto"
               >
                 {isGeneratingAI ? <Loader2 className="h-5 w-5 animate-spin" /> : <Sparkles className="h-5 w-5" />}
-                {isGeneratingAI ? 'Gerando roteiro...' : 'Gerar com IA'}
+                {isGeneratingAI ? t('profile.generatingAI') : t('profile.generateAI')}
               </button>
               <p className="mt-3 rounded-2xl bg-slate-50 px-4 py-3 text-sm font-bold text-slate-600">
                 {aiUsageLabel}
@@ -1184,11 +1222,11 @@ export function ProfilePage() {
               <div className="mt-6 grid gap-3 text-sm font-bold text-slate-600 sm:grid-cols-2">
                 <span className="rounded-2xl bg-slate-50 px-4 py-3">
                   <CalendarDays className="mr-2 inline h-4 w-4" />
-                  Criada em {formatDate(activeGroup.createdAt)}
+                  {t('profile.createdIn')} {formatDate(activeGroup.createdAt)}
                 </span>
                 <span className="rounded-2xl bg-slate-50 px-4 py-3">
                   <ShieldCheck className="mr-2 inline h-4 w-4" />
-                  Dono: {ownerName}
+                  {t('profile.owner')}: {ownerName}
                 </span>
               </div>
             </section>
@@ -1196,7 +1234,7 @@ export function ProfilePage() {
             <section className="rounded-[2rem] border border-white/80 bg-white/90 p-6 shadow-xl shadow-slate-900/10 md:p-8">
               <div className="mb-5 flex items-center gap-3">
                 <Users className="h-5 w-5 text-teal-700" />
-                <h2 className="text-2xl font-black">Membros da viagem</h2>
+                <h2 className="text-2xl font-black">{t('profile.tripMembers')}</h2>
               </div>
               <div className="space-y-3">
                 {members.map((member) => {
@@ -1252,13 +1290,13 @@ export function ProfilePage() {
           <section className="rounded-[2rem] border border-white/80 bg-white/90 p-6 shadow-xl shadow-slate-900/10 md:p-8">
             <div className="mb-6 flex items-center gap-3">
               <Ticket className="h-5 w-5 text-teal-700" />
-              <h2 className="text-2xl font-black">Convidar pessoa para a viagem</h2>
+              <h2 className="text-2xl font-black">{t('profile.invitePerson')}</h2>
             </div>
             {isOwner ? (
               <>
                 <form onSubmit={handleInvite} className="space-y-4">
                   <label className="block">
-                    <span className="mb-2 block text-sm font-bold text-slate-600">E-mail opcional</span>
+                    <span className="mb-2 block text-sm font-bold text-slate-600">{t('profile.optionalEmail')}</span>
                     <input
                       type="email"
                       value={inviteEmail}
@@ -1273,7 +1311,7 @@ export function ProfilePage() {
                       onChange={(event) => setSingleUseInvite(event.target.checked)}
                       className="h-5 w-5 accent-teal-600"
                     />
-                    Convite de uso unico
+                    {t('profile.singleUseInvite')}
                   </label>
                   <button
                     type="submit"
@@ -1281,7 +1319,7 @@ export function ProfilePage() {
                     className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-slate-950 px-5 font-black text-white transition hover:bg-teal-700 disabled:cursor-not-allowed disabled:opacity-70"
                   >
                     <Send className="h-5 w-5" />
-                    {isInviting ? 'Gerando...' : 'Gerar convite'}
+                    {isInviting ? t('profile.generating') : t('profile.generateInvite')}
                   </button>
                 </form>
 
@@ -1297,10 +1335,10 @@ export function ProfilePage() {
                     </div>
                     <div className="grid gap-2 text-teal-700 sm:grid-cols-2">
                       <span className="rounded-2xl bg-white/70 px-3 py-2">
-                        Validade: {latestInvite.expiresAt ? formatDate(latestInvite.expiresAt) : '7 dias'}
+                        {t('profile.inviteValidity')}: {latestInvite.expiresAt ? formatDate(latestInvite.expiresAt) : '7 dias'}
                       </span>
                       <span className="rounded-2xl bg-white/70 px-3 py-2">
-                        Uso: {latestInvite.singleUse ? 'unico' : 'multiplo'}
+                        {t('profile.inviteUsage')}: {latestInvite.singleUse ? t('profile.inviteSingle') : t('profile.inviteMultiple')}
                       </span>
                     </div>
                     <div className="grid gap-2 sm:grid-cols-2">
@@ -1310,7 +1348,7 @@ export function ProfilePage() {
                         className="inline-flex h-10 items-center justify-center gap-2 rounded-2xl bg-white px-3 text-teal-800"
                       >
                         <Copy className="h-4 w-4" />
-                        Copiar codigo
+                        {t('actions.copyCode')}
                       </button>
                       <button
                         type="button"
@@ -1318,7 +1356,7 @@ export function ProfilePage() {
                         className="inline-flex h-10 items-center justify-center gap-2 rounded-2xl bg-white px-3 text-teal-800"
                       >
                         <Copy className="h-4 w-4" />
-                        Copiar link
+                        {t('actions.copyLink')}
                       </button>
                     </div>
                     {copied ? (
@@ -1330,13 +1368,13 @@ export function ProfilePage() {
                   </div>
                 ) : (
                   <p className="mt-6 rounded-2xl bg-slate-50 px-4 py-3 text-sm font-bold text-slate-500">
-                    Gere um convite para mostrar codigo e link aqui.
+                    {t('profile.generateInviteHint')}
                   </p>
                 )}
               </>
             ) : (
               <p className="rounded-2xl bg-slate-50 px-4 py-3 text-sm font-bold text-slate-600">
-                Apenas o owner da viagem pode gerar convites.
+                {t('profile.ownerInviteOnly')}
               </p>
             )}
           </section>
@@ -1346,10 +1384,10 @@ export function ProfilePage() {
       <section className="rounded-[2rem] border border-white/80 bg-white/90 p-6 shadow-xl shadow-slate-900/10 md:p-8">
         <div className="flex items-center gap-3">
           <WalletCards className="h-5 w-5 text-teal-700" />
-          <h2 className="text-2xl font-black">Sessao</h2>
+          <h2 className="text-2xl font-black">{t('profile.session')}</h2>
         </div>
         <p className="mt-3 leading-7 text-slate-600">
-          O logout fica centralizado aqui para manter o navbar limpo e evitar saidas acidentais.
+          {t('profile.sessionDescription')}
         </p>
         <button
           type="button"
@@ -1357,7 +1395,7 @@ export function ProfilePage() {
           className="mt-5 inline-flex h-12 w-full items-center justify-center gap-2 rounded-2xl border border-rose-100 bg-rose-50 px-5 font-black text-rose-700 transition hover:bg-rose-100 sm:w-auto"
         >
           <LogOut className="h-5 w-5" />
-          Sair da conta
+          {t('actions.signOut')}
         </button>
       </section>
 

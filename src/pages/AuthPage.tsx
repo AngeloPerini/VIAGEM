@@ -1,8 +1,9 @@
 import { AnimatePresence, motion } from 'framer-motion';
-import { ArrowRight, KeyRound, Lock, Mail, Plane, Ticket, UserPlus } from 'lucide-react';
+import { ArrowRight, KeyRound, Lock, Mail, Ticket, UserPlus } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import type { FormEvent } from 'react';
 import { useAuth } from '../contexts/AuthContext';
+import { useLanguage } from '../contexts/LanguageContext';
 import { normalizeInviteToken, storePendingInviteToken } from '../services/groupsService';
 
 type AuthMode = 'login' | 'signup' | 'reset';
@@ -41,13 +42,14 @@ const getOAuthErrorFromUrl = () => {
 
 export function AuthPage({ initialInviteCode }: AuthPageProps) {
   const { sendPasswordReset, signIn, signInWithEmail, signUp } = useAuth();
+  const { t } = useLanguage();
   const [mode, setMode] = useState<AuthMode>('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [passwordConfirmation, setPasswordConfirmation] = useState('');
   const [inviteCode, setInviteCode] = useState(initialInviteCode ?? '');
   const [message, setMessage] = useState<string | null>(
-    initialInviteCode ? 'Convite detectado. Entre para aceitar automaticamente.' : null,
+    initialInviteCode ? t('auth.inviteDetected') : null,
   );
   const [error, setError] = useState<string | null>(() => {
     const urlError = getOAuthErrorFromUrl();
@@ -85,7 +87,7 @@ export function AuthPage({ initialInviteCode }: AuthPageProps) {
 
     try {
       await signInWithEmail(email, password);
-      setMessage('Login concluido.');
+      setMessage(t('auth.loginDone'));
     } catch (caughtError) {
       setError(friendlyAuthError(caughtError instanceof Error ? caughtError.message : 'Falha no login.'));
     } finally {
@@ -108,7 +110,7 @@ export function AuthPage({ initialInviteCode }: AuthPageProps) {
 
     try {
       await signUp(email, password);
-      setMessage('Conta criada. Se o Supabase pedir confirmacao, verifique seu e-mail.');
+      setMessage(t('auth.signupDone'));
     } catch (caughtError) {
       setError(friendlyAuthError(caughtError instanceof Error ? caughtError.message : 'Falha ao criar conta.'));
     } finally {
@@ -124,7 +126,7 @@ export function AuthPage({ initialInviteCode }: AuthPageProps) {
 
     try {
       await sendPasswordReset(email);
-      setMessage('Enviamos um link de recuperacao para seu e-mail.');
+      setMessage(t('auth.resetDone'));
     } catch (caughtError) {
       setError(friendlyAuthError(caughtError instanceof Error ? caughtError.message : 'Falha ao enviar recuperacao.'));
     } finally {
@@ -143,7 +145,7 @@ export function AuthPage({ initialInviteCode }: AuthPageProps) {
       return;
     }
 
-    setMessage('Codigo salvo. Entre ou crie uma conta para acessar a viagem.');
+    setMessage(t('auth.inviteSaved'));
     setLoadingAction(null);
   };
 
@@ -160,24 +162,24 @@ export function AuthPage({ initialInviteCode }: AuthPageProps) {
           transition={{ duration: 0.5 }}
         >
           <div>
-            <span className="inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-white text-slate-950">
-              <Plane className="h-7 w-7" />
+            <span className="inline-flex h-16 w-16 items-center justify-center overflow-hidden rounded-2xl bg-white text-slate-950">
+              <img src="/logo.png" alt="TripFlow" className="h-full w-full object-contain p-1" />
             </span>
             <p className="mt-8 text-sm font-black uppercase tracking-[0.22em] text-teal-200">
-              MINHA VIAGEM
+              {t('app.heroKicker')}
             </p>
             <h1 className="mt-3 max-w-xl text-4xl font-black tracking-tight md:text-6xl">
-              Viajar junto ficou muito mais simples.
+              {t('app.heroTitle')}
             </h1>
             <p className="mt-5 max-w-lg text-lg leading-8 text-slate-300">
-              Organize roteiro, gastos, reservas e memórias em um único lugar — compartilhado apenas com quem faz parte da viagem.
+              {t('app.heroDescription')}
             </p>
           </div>
 
           <div className="mt-10 grid gap-3 text-sm font-bold text-slate-300 sm:grid-cols-3">
-            <span className="rounded-2xl bg-white/10 px-4 py-3">Controle de gastos</span>
-            <span className="rounded-2xl bg-white/10 px-4 py-3">Roteiro da viagem</span>
-            <span className="rounded-2xl bg-white/10 px-4 py-3">Sonho Europeu</span>
+            <span className="rounded-2xl bg-white/10 px-4 py-3">{t('app.featureExpenses')}</span>
+            <span className="rounded-2xl bg-white/10 px-4 py-3">{t('app.featureItinerary')}</span>
+            <span className="rounded-2xl bg-white/10 px-4 py-3">{t('app.featureDream')}</span>
           </div>
         </motion.section>
 
@@ -189,9 +191,9 @@ export function AuthPage({ initialInviteCode }: AuthPageProps) {
         >
           <div className="mb-6 flex flex-wrap gap-2 rounded-3xl bg-slate-100 p-1">
             {[
-              { id: 'login', label: 'Entrar' },
-              { id: 'signup', label: 'Criar conta' },
-              { id: 'reset', label: 'Esqueci minha senha' },
+              { id: 'login', label: t('auth.login') },
+              { id: 'signup', label: t('auth.signup') },
+              { id: 'reset', label: t('auth.reset') },
             ].map((item) => (
               <button
                 key={item.id}
@@ -226,12 +228,12 @@ export function AuthPage({ initialInviteCode }: AuthPageProps) {
             <span className="flex h-7 w-7 items-center justify-center rounded-full bg-white text-sm font-black text-slate-950">
               G
             </span>
-            {loadingAction === 'google' ? 'Abrindo Google...' : 'Entrar com Google'}
+            {loadingAction === 'google' ? t('auth.googleLoading') : t('auth.google')}
           </button>
 
           <div className="my-6 flex items-center gap-3 text-xs font-black uppercase tracking-[0.18em] text-slate-400">
             <span className="h-px flex-1 bg-slate-200" />
-            ou
+            {t('auth.or')}
             <span className="h-px flex-1 bg-slate-200" />
           </div>
 
@@ -247,7 +249,7 @@ export function AuthPage({ initialInviteCode }: AuthPageProps) {
               >
                 <label className="block">
                   <span className="mb-2 flex items-center gap-2 text-sm font-bold text-slate-600">
-                    <Mail className="h-4 w-4" /> E-mail
+                    <Mail className="h-4 w-4" /> {t('auth.email')}
                   </span>
                   <input
                     required
@@ -259,7 +261,7 @@ export function AuthPage({ initialInviteCode }: AuthPageProps) {
                 </label>
                 <label className="block">
                   <span className="mb-2 flex items-center gap-2 text-sm font-bold text-slate-600">
-                    <Lock className="h-4 w-4" /> Senha
+                    <Lock className="h-4 w-4" /> {t('auth.password')}
                   </span>
                   <input
                     required
@@ -274,7 +276,7 @@ export function AuthPage({ initialInviteCode }: AuthPageProps) {
                   disabled={loadingAction !== null}
                   className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-teal-600 px-5 font-black text-white transition hover:bg-teal-700 disabled:cursor-not-allowed disabled:opacity-70"
                 >
-                  {loadingAction === 'login' ? 'Entrando...' : 'Entrar com e-mail'}
+                  {loadingAction === 'login' ? t('auth.emailLoading') : t('auth.emailLogin')}
                   <ArrowRight className="h-5 w-5" />
                 </button>
               </motion.form>
@@ -289,7 +291,7 @@ export function AuthPage({ initialInviteCode }: AuthPageProps) {
               >
                 <label className="block">
                   <span className="mb-2 flex items-center gap-2 text-sm font-bold text-slate-600">
-                    <Mail className="h-4 w-4" /> E-mail
+                    <Mail className="h-4 w-4" /> {t('auth.email')}
                   </span>
                   <input
                     required
@@ -302,7 +304,7 @@ export function AuthPage({ initialInviteCode }: AuthPageProps) {
                 <div className="grid gap-4 sm:grid-cols-2">
                   <label className="block">
                     <span className="mb-2 flex items-center gap-2 text-sm font-bold text-slate-600">
-                      <Lock className="h-4 w-4" /> Senha
+                      <Lock className="h-4 w-4" /> {t('auth.password')}
                     </span>
                     <input
                       required
@@ -315,7 +317,7 @@ export function AuthPage({ initialInviteCode }: AuthPageProps) {
                   </label>
                   <label className="block">
                     <span className="mb-2 flex items-center gap-2 text-sm font-bold text-slate-600">
-                      <KeyRound className="h-4 w-4" /> Confirmar
+                      <KeyRound className="h-4 w-4" /> {t('auth.confirmPassword')}
                     </span>
                     <input
                       required
@@ -332,7 +334,7 @@ export function AuthPage({ initialInviteCode }: AuthPageProps) {
                   disabled={loadingAction !== null}
                   className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-teal-600 px-5 font-black text-white transition hover:bg-teal-700 disabled:cursor-not-allowed disabled:opacity-70"
                 >
-                  {loadingAction === 'signup' ? 'Criando...' : 'Criar conta'}
+                  {loadingAction === 'signup' ? t('auth.signupLoading') : t('auth.signup')}
                   <UserPlus className="h-5 w-5" />
                 </button>
               </motion.form>
@@ -347,7 +349,7 @@ export function AuthPage({ initialInviteCode }: AuthPageProps) {
               >
                 <label className="block">
                   <span className="mb-2 flex items-center gap-2 text-sm font-bold text-slate-600">
-                    <Mail className="h-4 w-4" /> E-mail
+                    <Mail className="h-4 w-4" /> {t('auth.email')}
                   </span>
                   <input
                     required
@@ -362,7 +364,7 @@ export function AuthPage({ initialInviteCode }: AuthPageProps) {
                   disabled={loadingAction !== null}
                   className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-teal-600 px-5 font-black text-white transition hover:bg-teal-700 disabled:cursor-not-allowed disabled:opacity-70"
                 >
-                  {loadingAction === 'reset' ? 'Enviando...' : 'Enviar link de recuperacao'}
+                  {loadingAction === 'reset' ? t('auth.resetLoading') : t('auth.resetSubmit')}
                   <ArrowRight className="h-5 w-5" />
                 </button>
               </motion.form>
@@ -372,7 +374,7 @@ export function AuthPage({ initialInviteCode }: AuthPageProps) {
           <form onSubmit={handleInvite} className="mt-6 rounded-3xl border border-slate-200 bg-slate-50 p-4">
             <label className="block">
               <span className="mb-2 flex items-center gap-2 text-sm font-bold text-slate-600">
-                <Ticket className="h-4 w-4" /> Tenho um codigo de convite
+                <Ticket className="h-4 w-4" /> {t('auth.inviteLabel')}
               </span>
               <input
                 value={inviteCode}
@@ -386,7 +388,7 @@ export function AuthPage({ initialInviteCode }: AuthPageProps) {
               disabled={loadingAction !== null || !normalizedInviteCode}
               className="mt-3 inline-flex h-11 w-full items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 font-black text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              {loadingAction === 'invite' ? 'Salvando...' : 'Usar convite apos login'}
+              {loadingAction === 'invite' ? t('auth.inviteSaving') : t('auth.inviteSubmit')}
             </button>
           </form>
 

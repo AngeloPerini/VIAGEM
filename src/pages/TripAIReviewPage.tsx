@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { countryLabel } from '../data/countries';
+import { useLanguage } from '../contexts/LanguageContext';
 import {
   applyTripPlan,
   clearTripAIReview,
@@ -738,6 +739,7 @@ function PlanEditor({ plan, onChange }: { plan: TripAIPlan; onChange: (plan: Tri
 }
 
 export function TripAIReviewPage() {
+  const { t } = useLanguage();
   const [review, setReview] = useState<TripAIReviewState | null>(() => getStoredTripAIReview());
   const [feedback, setFeedback] = useState('');
   const [isEditingPlan, setIsEditingPlan] = useState(false);
@@ -832,7 +834,7 @@ export function TripAIReviewPage() {
         <section className="rounded-[2rem] border border-white/80 bg-slate-950 p-6 text-white shadow-2xl shadow-slate-900/20 md:p-8">
           <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
             <div>
-              <p className="text-sm font-black uppercase tracking-[0.2em] text-teal-200">Previa com IA</p>
+              <p className="text-sm font-black uppercase tracking-[0.2em] text-teal-200">{t('ai.previewTitle')}</p>
               <h1 className="mt-3 text-4xl font-black tracking-tight md:text-5xl">{review.input.tripName}</h1>
               <p className="mt-4 max-w-3xl leading-7 text-slate-300">{plan.summary}</p>
             </div>
@@ -855,7 +857,7 @@ export function TripAIReviewPage() {
             <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
               <div>
                 <p className="text-lg font-black text-amber-950">
-                  O roteiro gerado parece incompleto. Deseja gerar novamente?
+                  {t('ai.incompleteWarning')}
                 </p>
                 <p className="mt-1 text-sm font-bold text-amber-800">{qualityWarning}</p>
               </div>
@@ -866,7 +868,7 @@ export function TripAIReviewPage() {
                 className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl bg-amber-900 px-5 font-black text-white transition hover:bg-amber-950 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {isRegenerating ? <Loader2 className="h-5 w-5 animate-spin" /> : <RefreshCcw className="h-5 w-5" />}
-                Gerar novamente
+                {t('ai.regenerate')}
               </button>
             </div>
           </section>
@@ -880,7 +882,7 @@ export function TripAIReviewPage() {
             className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl bg-teal-700 px-5 font-black text-white transition hover:bg-teal-800 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {isApplying ? <Loader2 className="h-5 w-5 animate-spin" /> : <CheckCircle2 className="h-5 w-5" />}
-            Aplicar roteiro
+            {t('ai.applyPlan')}
           </button>
           <button
             type="button"
@@ -889,7 +891,7 @@ export function TripAIReviewPage() {
             className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-5 font-black text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {isRegenerating ? <Loader2 className="h-5 w-5 animate-spin" /> : <RefreshCcw className="h-5 w-5" />}
-            Gerar novamente
+            {t('ai.regenerate')}
           </button>
           <button
             type="button"
@@ -897,7 +899,7 @@ export function TripAIReviewPage() {
             className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-5 font-black text-slate-700 transition hover:bg-slate-50"
           >
             <Pencil className="h-5 w-5" />
-            {isEditingPlan ? 'Ver previa' : 'Editar roteiro'}
+            {isEditingPlan ? t('ai.viewPreview') : t('ai.editPlan')}
           </button>
           <button
             type="button"
@@ -906,12 +908,12 @@ export function TripAIReviewPage() {
             className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl bg-rose-50 px-5 font-black text-rose-700 transition hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {isCancelling ? <Loader2 className="h-5 w-5 animate-spin" /> : <X className="h-5 w-5" />}
-            Cancelar
+            {t('ai.cancel')}
           </button>
         </section>
 
         <label className="block rounded-[2rem] border border-white/80 bg-white/90 p-5 shadow-xl shadow-slate-900/10">
-          <span className="mb-2 block text-sm font-bold text-slate-600">Feedback da geracao</span>
+          <span className="mb-2 block text-sm font-bold text-slate-600">{t('ai.feedback')}</span>
           <textarea
             value={feedback}
             onChange={(event) => setFeedback(event.target.value)}

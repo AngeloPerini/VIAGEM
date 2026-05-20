@@ -1,4 +1,6 @@
 import type { CreateTravelGroupInput, GroupMember, GroupRole, TravelGroup, TripStatus, UserTravelGroup } from '../types';
+import { buildPublicAppUrl } from '../config/appUrl';
+import { parseCountryInput } from '../utils/countryInput';
 import { supabase } from './supabaseClient';
 
 type TravelGroupRow = {
@@ -56,7 +58,7 @@ const toGroup = (row: TravelGroupRow): TravelGroup => ({
   description: row.description ?? '',
   ownerId: row.owner_id,
   status: tripStatuses.includes(row.status as TripStatus) ? row.status as TripStatus : 'planned',
-  countries: Array.isArray(row.countries) ? row.countries : [],
+  countries: Array.isArray(row.countries) ? row.countries.flatMap((country) => parseCountryInput(country)) : [],
   startDate: row.start_date ?? undefined,
   endDate: row.end_date ?? undefined,
   travelStyle: row.travel_style ?? undefined,
@@ -383,7 +385,7 @@ export async function inviteMember(groupId: string, email?: string, singleUse = 
     if (!error) {
       return {
         code,
-        link: `${window.location.origin}/invite/${code}`,
+        link: buildPublicAppUrl(`/invite/${code}`),
         expiresAt,
         singleUse,
       };
@@ -409,7 +411,7 @@ export async function getInvites(groupId: string): Promise<InviteDetails[]> {
 
   return ((data ?? []) as GroupInviteRow[]).map((invite) => ({
     code: invite.token,
-    link: `${window.location.origin}/invite/${invite.token}`,
+    link: buildPublicAppUrl(`/invite/${invite.token}`),
     expiresAt: invite.expires_at ?? '',
     singleUse: invite.single_use ?? false,
   }));

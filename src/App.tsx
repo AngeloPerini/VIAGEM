@@ -14,6 +14,7 @@ import { QuoteStatusCard } from './components/QuoteStatusCard';
 import { SummaryCards } from './components/SummaryCards';
 import { useAuth } from './contexts/AuthContext';
 import { useGroup } from './contexts/GroupContext';
+import { useLanguage } from './contexts/LanguageContext';
 import { categories, initialExpenses } from './data/initialExpenses';
 import { buildCountryOptions, normalizeCountryId } from './data/countries';
 import { AuthPage } from './pages/AuthPage';
@@ -80,6 +81,8 @@ function LoadingScreen({ message }: { message: string }) {
 }
 
 function StandaloneProfileShell() {
+  const { t } = useLanguage();
+
   return (
     <main className="min-h-screen overflow-hidden bg-[#edf4f2] text-slate-900">
       <div className="pointer-events-none fixed inset-0">
@@ -88,7 +91,10 @@ function StandaloneProfileShell() {
       </div>
       <div className="relative mx-auto flex w-full max-w-7xl flex-col gap-6 px-4 py-5 sm:px-6 md:gap-8 md:py-8 lg:px-8">
         <div className="rounded-3xl border border-white/70 bg-white/85 p-4 shadow-xl shadow-slate-900/10 backdrop-blur-xl">
-          <p className="text-sm font-black tracking-tight text-slate-950 md:text-base">Controle de Viagem</p>
+          <div className="flex items-center gap-2">
+            <img src="/logo.png" alt="TripFlow" className="h-9 w-9 rounded-xl object-contain" />
+            <p className="text-sm font-black tracking-tight text-slate-950 md:text-base">{t('app.name')}</p>
+          </div>
         </div>
         <ProfilePage />
       </div>
@@ -153,6 +159,7 @@ export default function App() {
 function TravelWorkspace({ groupId }: { groupId: string }) {
   const { user } = useAuth();
   const { activeGroup } = useGroup();
+  const { t } = useLanguage();
   const [expenses, setExpenses] = useState<Expense[]>(() => getCachedExpenses(groupId));
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -476,10 +483,10 @@ function TravelWorkspace({ groupId }: { groupId: string }) {
               <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
                 <div>
                   <p className="text-sm font-bold uppercase tracking-[0.2em] text-slate-500">
-                    Gastos
+                    {t('dashboard.expensesKicker')}
                   </p>
                   <h1 className="mt-1 text-3xl font-black text-slate-950 md:text-4xl">
-                    Itens da viagem
+                    {t('dashboard.tripItems')}
                   </h1>
                 </div>
                 <button
@@ -488,21 +495,21 @@ function TravelWorkspace({ groupId }: { groupId: string }) {
                   className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl bg-slate-950 px-5 font-bold text-white shadow-xl shadow-slate-900/20 transition hover:bg-teal-700"
                 >
                   <Plus className="h-5 w-5" />
-                  Novo gasto
+                  {t('dashboard.newExpense')}
                 </button>
               </div>
               <CountryFilter
                 value={expenseCountryFilter}
                 onChange={setExpenseCountryFilter}
-                label="Filtrar gastos por pais"
+                label={t('dashboard.filterExpenses')}
                 options={expenseCountryOptions}
               />
               {expenseSyncWarning || isExpenseLoading || isExpenseSaving ? (
                 <p className="rounded-2xl border border-white/70 bg-white/75 px-4 py-3 text-sm font-semibold text-slate-600 shadow-lg shadow-slate-900/5 backdrop-blur-xl">
                   {isExpenseSaving
-                    ? 'Salvando gastos no Supabase...'
+                    ? t('dashboard.savingExpenses')
                     : isExpenseLoading
-                      ? 'Sincronizando gastos...'
+                      ? t('dashboard.syncingExpenses')
                       : expenseSyncWarning}
                 </p>
               ) : null}
@@ -533,9 +540,9 @@ function TravelWorkspace({ groupId }: { groupId: string }) {
               {expenseSyncWarning || isExpenseLoading || isExpenseSaving ? (
                 <p className="rounded-2xl border border-white/70 bg-white/75 px-4 py-3 text-sm font-semibold text-slate-600 shadow-lg shadow-slate-900/5 backdrop-blur-xl">
                   {isExpenseSaving
-                    ? 'Salvando gastos no Supabase...'
+                    ? t('dashboard.savingExpenses')
                     : isExpenseLoading
-                      ? 'Sincronizando gastos...'
+                      ? t('dashboard.syncingExpenses')
                       : expenseSyncWarning}
                 </p>
               ) : null}
@@ -566,9 +573,9 @@ function TravelWorkspace({ groupId }: { groupId: string }) {
                   viewport={{ once: true }}
                 >
                   <p className="text-sm font-bold uppercase tracking-[0.22em] text-teal-200">
-                    Fechamento
+                    {t('dashboard.closeout')}
                   </p>
-                  <h2 className="mt-3 text-3xl font-black">Total geral da viagem</h2>
+                  <h2 className="mt-3 text-3xl font-black">{t('dashboard.tripGrandTotal')}</h2>
                   <div className="mt-6 space-y-4">
                     <AnimatePresence mode="wait">
                       <motion.div
@@ -581,7 +588,7 @@ function TravelWorkspace({ groupId }: { groupId: string }) {
                       >
                         <div>
                           <p className="text-sm font-semibold text-slate-400">
-                            {realValueMode === 'converted' ? 'Real convertido' : 'Euro'}
+                            {realValueMode === 'converted' ? t('dashboard.convertedReal') : t('dashboard.euro')}
                           </p>
                           <p className="text-3xl font-black">
                             {realValueMode === 'converted'
@@ -591,7 +598,7 @@ function TravelWorkspace({ groupId }: { groupId: string }) {
                         </div>
                         <div>
                           <p className="text-sm font-semibold text-slate-400">
-                            {realValueMode === 'converted' ? 'Euro original' : 'Real'}
+                            {realValueMode === 'converted' ? t('dashboard.euroOriginal') : t('dashboard.real')}
                           </p>
                           <p className="text-3xl font-black">
                             {realValueMode === 'converted'
@@ -609,7 +616,7 @@ function TravelWorkspace({ groupId }: { groupId: string }) {
                       className="mt-7 inline-flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-white px-5 font-bold text-slate-950 transition hover:bg-teal-100 focus:outline-none focus:ring-4 focus:ring-teal-300"
                     >
                       <RotateCcw className="h-5 w-5" />
-                      Resetar dados iniciais
+                      {t('dashboard.resetInitialData')}
                     </button>
                   ) : null}
                 </motion.section>

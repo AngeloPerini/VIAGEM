@@ -10,6 +10,7 @@ import {
 import { useMemo } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useGroup } from '../contexts/GroupContext';
+import { useLanguage } from '../contexts/LanguageContext';
 
 export type AppView = 'dashboard' | 'expenses' | 'itinerary' | 'attractions' | 'quote' | 'profile';
 
@@ -19,17 +20,18 @@ type NavbarProps = {
 };
 
 const navItems = [
-  { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { id: 'expenses', label: 'Gastos', icon: BarChart3 },
-  { id: 'itinerary', label: 'Roteiro', icon: Map },
-  { id: 'attractions', label: 'Pontos Turísticos', icon: Camera },
-  { id: 'quote', label: 'Cotação', icon: Coins },
-  { id: 'profile', label: 'Perfil', icon: UserRound },
+  { id: 'dashboard', labelKey: 'nav.dashboard', icon: LayoutDashboard },
+  { id: 'expenses', labelKey: 'nav.expenses', icon: BarChart3 },
+  { id: 'itinerary', labelKey: 'nav.itinerary', icon: Map },
+  { id: 'attractions', labelKey: 'nav.attractions', icon: Camera },
+  { id: 'quote', labelKey: 'nav.quote', icon: Coins },
+  { id: 'profile', labelKey: 'nav.profile', icon: UserRound },
 ] as const;
 
 export function Navbar({ activeView, onNavigate }: NavbarProps) {
   const { user } = useAuth();
   const { activeGroup, setActiveGroup, userGroups } = useGroup();
+  const { t } = useLanguage();
 
   const avatarUrl = user?.user_metadata?.avatar_url as string | undefined;
   const displayName = useMemo(
@@ -47,15 +49,16 @@ export function Navbar({ activeView, onNavigate }: NavbarProps) {
         <button
           type="button"
           onClick={() => onNavigate('dashboard')}
-          className="px-3 text-left text-sm font-black tracking-tight text-slate-950 md:px-4 md:text-base"
+          className="flex items-center gap-2 px-3 text-left text-sm font-black tracking-tight text-slate-950 md:px-4 md:text-base"
         >
-          Controle de Viagem
+          <img src="/logo.png" alt="TripFlow" className="h-9 w-9 rounded-xl object-contain" />
+          <span>{t('app.name')}</span>
         </button>
 
         {activeGroup ? (
           <div className="flex items-center gap-2 rounded-2xl bg-slate-100 px-3 py-2">
             <span className="hidden text-xs font-black uppercase tracking-[0.16em] text-slate-400 sm:inline">
-              Viagem
+              {t('nav.trip')}
             </span>
             {userGroups.length > 1 ? (
               <select
@@ -104,7 +107,7 @@ export function Navbar({ activeView, onNavigate }: NavbarProps) {
                 />
               ) : null}
               <Icon className="relative h-4 w-4" />
-              <span className="relative hidden sm:inline">{item.label}</span>
+              <span className="relative hidden sm:inline">{t(item.labelKey)}</span>
             </a>
           );
         })}

@@ -1,11 +1,14 @@
 import { motion } from 'framer-motion';
-import { Plane, Plus } from 'lucide-react';
+import { Plus } from 'lucide-react';
+import { useLanguage } from '../contexts/LanguageContext';
 
 type HeaderProps = {
   onAdd: () => void;
 };
 
 export function Header({ onAdd }: HeaderProps) {
+  const { t } = useLanguage();
+
   return (
     <motion.header
       className="flex flex-col gap-6 rounded-[2rem] border border-white/60 bg-white/75 p-6 shadow-2xl shadow-slate-900/10 backdrop-blur-xl md:flex-row md:items-center md:justify-between md:p-8"
@@ -15,15 +18,14 @@ export function Header({ onAdd }: HeaderProps) {
     >
       <div className="max-w-3xl">
         <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-teal-200 bg-teal-50 px-3 py-1 text-sm font-semibold text-teal-800">
-          <Plane className="h-4 w-4" />
-          Controle de Viagem
+          <img src="/logo.png" alt="TripFlow" className="h-5 w-5 rounded-md object-contain" />
+          {t('app.brand')}
         </div>
         <h1 className="text-4xl font-black tracking-tight text-slate-950 md:text-6xl">
-          Controle premium dos gastos da viagem.
+          {t('dashboard.headerTitle')}
         </h1>
         <p className="mt-4 max-w-2xl text-base leading-7 text-slate-600 md:text-lg">
-          Hospedagens, transportes e passeios com valores em euro e real,
-          intervalos de custo e sincronizacao por grupo no Supabase.
+          {t('dashboard.headerDescription')}
         </p>
       </div>
 
@@ -35,7 +37,7 @@ export function Header({ onAdd }: HeaderProps) {
         whileTap={{ scale: 0.98 }}
       >
         <Plus className="h-5 w-5" />
-        Novo gasto
+        {t('dashboard.newExpense')}
       </motion.button>
     </motion.header>
   );

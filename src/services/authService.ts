@@ -1,10 +1,11 @@
 import type { AuthChangeEvent, Session, Subscription, User } from '@supabase/supabase-js';
+import { buildPublicAppUrl } from '../config/appUrl';
 import { supabase } from './supabaseClient';
 
 type AuthStateCallback = (user: User | null, session: Session | null, event: AuthChangeEvent) => void;
 
 export const getAuthRedirectUrl = () => {
-  return import.meta.env.VITE_AUTH_REDIRECT_URL || 'https://viagem-europa-angelo.web.app/auth/callback';
+  return import.meta.env.VITE_AUTH_REDIRECT_URL || buildPublicAppUrl('/auth/callback');
 };
 export async function signInWithGoogle() {
   const { error } = await supabase.auth.signInWithOAuth({

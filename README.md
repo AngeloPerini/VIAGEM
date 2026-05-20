@@ -164,7 +164,8 @@ Variaveis publicas aceitas no frontend, caso sejam movidas para `.env` no futuro
 ```txt
 VITE_SUPABASE_URL=
 VITE_SUPABASE_ANON_KEY=
-VITE_AUTH_REDIRECT_URL=https://viagem-europa-angelo.web.app/auth/callback
+VITE_APP_URL=https://tripflow.online
+VITE_AUTH_REDIRECT_URL=https://tripflow.online/auth/callback
 ```
 
 O arquivo `.env` ja esta no `.gitignore`; se criar um `.env.example`, mantenha apenas nomes de variaveis e valores ficticios.
@@ -211,8 +212,10 @@ Supabase -> Authentication -> Providers -> Google:
 
 Supabase -> Authentication -> URL Configuration:
 
-- Site URL: `https://viagem-europa-angelo.web.app`
+- Site URL: `https://tripflow.online`
 - Redirect URLs:
+  - `https://tripflow.online/**`
+  - `https://tripflow.online/auth/callback`
   - `https://viagem-europa-angelo.web.app/**`
   - `https://viagem-europa-angelo.web.app/auth/callback`
 - Remover entradas locais antigas de desenvolvimento antes de validar producao.
@@ -220,19 +223,20 @@ Supabase -> Authentication -> URL Configuration:
 Google Cloud OAuth:
 
 - Authorized JavaScript origins:
+  - `https://tripflow.online`
   - `https://viagem-europa-angelo.web.app`
 - Authorized redirect URIs:
   - `https://sgtidxwwimuvcmearbul.supabase.co/auth/v1/callback`
 
 Google Cloud -> OAuth Consent Screen:
 
-- App name: `Controle de Viagem`
+- App name: `TripFlow`
 - App logo: usar o logo/favicon do projeto
-- App domain: `https://viagem-europa-angelo.web.app`
-- Authorized domains: `viagem-europa-angelo.web.app`
+- App domain: `https://tripflow.online`
+- Authorized domains: `tripflow.online` e `viagem-europa-angelo.web.app`
 - Support email: e-mail de suporte do projeto
 
-No frontend, `signInWithOAuth` envia `redirectTo` para `https://viagem-europa-angelo.web.app/auth/callback`.
+No frontend, `signInWithOAuth` envia `redirectTo` para `https://tripflow.online/auth/callback` por padrao. O dominio antigo `https://viagem-europa-angelo.web.app` continua documentado como fallback autorizado.
 
 O `localStorage` continua como cache/fallback. Se o Supabase estiver indisponivel, o app mostra um aviso discreto e preserva os dados locais sempre que possivel.
 
@@ -310,4 +314,8 @@ Configuracao de hosting:
 }
 ```
 
-A URL atual do Firebase Hosting e `https://viagem-europa-angelo.web.app/`.
+A URL principal do app e `https://tripflow.online/`.
+
+A URL antiga do Firebase Hosting continua como fallback: `https://viagem-europa-angelo.web.app/`.
+
+Se o dominio `tripflow.online` ainda nao aparecer no painel do Firebase Hosting, adicione-o manualmente em **Firebase Console -> Hosting -> Add custom domain** e aponte o DNS conforme os registros exibidos pelo Firebase.
