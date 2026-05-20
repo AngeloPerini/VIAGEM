@@ -26,6 +26,9 @@ type ProfileRow = {
   updated_at?: string;
 };
 
+const PROFILE_SELECT =
+  'id, email, full_name, avatar_url, ai_generations_used, ai_generations_limit, last_ai_generation_at, created_at, updated_at';
+
 type GroupMemberRow = {
   id: string;
   group_id: string;
@@ -111,18 +114,26 @@ export async function upsertCurrentProfile(userFromContext?: User | null) {
   const { data, error } = await supabase
     .from('profiles')
     .upsert(profilePayload, { onConflict: 'id' })
-    .select('id, email, full_name, avatar_url, ai_generations_used, ai_generations_limit, last_ai_generation_at, created_at, updated_at')
+    .select(PROFILE_SELECT)
     .single();
 
-  if (error) throw error;
-  return toProfile(data as ProfileRow);
+  if (!error && data) return toProfile(data as ProfileRow);
+
+  const { data: ensuredProfile, error: ensureError } = await supabase
+    .rpc('ensure_current_user_profile');
+
+  if (ensureError) throw error ?? ensureError;
+  if (!ensuredProfile) throw error ?? new Error('Perfil nao encontrado.');
+
+  const ensuredRow = Array.isArray(ensuredProfile) ? ensuredProfile[0] : ensuredProfile;
+  return toProfile(ensuredRow as ProfileRow);
 }
 
 export async function getCurrentProfile() {
   const user = await requireUser();
   const { data, error } = await supabase
     .from('profiles')
-    .select('id, email, full_name, avatar_url, ai_generations_used, ai_generations_limit, last_ai_generation_at, created_at, updated_at')
+    .select(PROFILE_SELECT)
     .eq('id', user.id)
     .maybeSingle();
 

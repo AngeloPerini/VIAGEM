@@ -469,9 +469,13 @@ export function ProfilePage() {
         VALIDATION_FAILED: caughtError.message,
         AI_QUALITY_FAILED: caughtError.message,
         DESCRIPTION_TOO_LONG: caughtError.message || TRIP_DESCRIPTION_TOO_LONG_MESSAGE,
+        PROFILE_NOT_FOUND: 'Perfil não encontrado. Saia e entre novamente para recriar seu perfil.',
+        SUPABASE_PROFILE_ERROR: caughtError.message || 'Não foi possível preparar seu perfil para gerar com IA.',
+        GROUP_NOT_CREATED: caughtError.message || 'Não foi possível criar o grupo da viagem antes da IA.',
         SUPABASE_INSERT_ERROR: caughtError.message,
         TIMEOUT: caughtError.message || 'A OpenAI demorou demais para responder. Tente gerar novamente.',
         FORBIDDEN: 'Você não participa desta viagem ou o group_id não pertence ao seu usuário.',
+        AI_GENERATION_FAILED: caughtError.message || 'A IA não concluiu a prévia. Tente gerar novamente.',
       };
       const details = [
         caughtError.code,

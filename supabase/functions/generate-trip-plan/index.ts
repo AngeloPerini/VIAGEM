@@ -13,6 +13,7 @@ type TripPlanInput = {
 };
 
 type QuotaProfile = {
+  id?: string;
   ai_generations_used: number | null;
   ai_generations_limit: number | null;
   last_ai_generation_at: string | null;
@@ -844,6 +845,16 @@ class SupabaseInsertError extends Error {
   }
 }
 
+class ProfileSyncError extends Error {
+  originalError: unknown;
+
+  constructor(error: unknown) {
+    super(`Nao foi possivel preparar o perfil para geracao com IA: ${getErrorMessage(error, 'perfil indisponivel')}`);
+    this.name = 'ProfileSyncError';
+    this.originalError = error;
+  }
+}
+
 const validateRawPlanSchema = (value: unknown) => {
   const plan = asRecord(value);
   const reasons: string[] = [];
@@ -1294,7 +1305,79 @@ Deno.serve(async (req) => {
     }
   };
 
+  const ensureQuotaProfile = async () => {
+    const fullName = user.user_metadata?.full_name ?? user.user_metadata?.name ?? null;
+    const avatarUrl = user.user_metadata?.avatar_url ?? user.user_metadata?.picture ?? null;
+    const now = new Date().toISOString();
+
+    const { data: existingProfile, error: existingProfileError } = await adminSupabase
+      .from('profiles')
+      .select('id, ai_generations_used, ai_generations_limit, last_ai_generation_at')
+      .eq('id', user.id)
+      .maybeSingle<QuotaProfile>();
+
+    if (existingProfileError) throw new ProfileSyncError(existingProfileError);
+
+    if (!existingProfile) {
+      const { data: createdProfile, error: createProfileError } = await adminSupabase
+        .from('profiles')
+        .insert({
+          id: user.id,
+          email: user.email ?? null,
+          full_name: fullName,
+          avatar_url: avatarUrl,
+          ai_generations_used: 0,
+          ai_generations_limit: 3,
+          last_ai_generation_at: null,
+          updated_at: now,
+        })
+        .select('id, ai_generations_used, ai_generations_limit, last_ai_generation_at')
+        .single<QuotaProfile>();
+
+      if (createProfileError || !createdProfile) {
+        throw new ProfileSyncError(createProfileError ?? new Error('Perfil nao foi criado.'));
+      }
+
+      return { profile: createdProfile, created: true };
+    }
+
+    const normalizedUsed = Number(existingProfile.ai_generations_used ?? 0);
+    const normalizedLimit = Number(existingProfile.ai_generations_limit ?? 3);
+    const { data: updatedProfile, error: updateProfileError } = await adminSupabase
+      .from('profiles')
+      .update({
+        email: user.email ?? null,
+        full_name: fullName,
+        avatar_url: avatarUrl,
+        ai_generations_used: normalizedUsed,
+        ai_generations_limit: normalizedLimit,
+        updated_at: now,
+      })
+      .eq('id', user.id)
+      .select('id, ai_generations_used, ai_generations_limit, last_ai_generation_at')
+      .single<QuotaProfile>();
+
+    if (updateProfileError || !updatedProfile) {
+      throw new ProfileSyncError(updateProfileError ?? new Error('Perfil nao foi atualizado.'));
+    }
+
+    return { profile: updatedProfile, created: false };
+  };
+
   try {
+    const { profile, created: profileCreated } = await ensureQuotaProfile();
+    const used = Number(profile.ai_generations_used ?? 0);
+    const limit = Number(profile.ai_generations_limit ?? 3);
+
+    logAiEvent('info', 'profile_ready', {
+      group_id: input.groupId,
+      user_id: user.id,
+      profile_created: profileCreated,
+      ai_generations_used: used,
+      ai_generations_limit: limit,
+      last_ai_generation_at: profile.last_ai_generation_at,
+    });
+
     const { data: membership, error: membershipError } = await supabase
       .from('group_members')
       .select('id')
@@ -1313,26 +1396,12 @@ Deno.serve(async (req) => {
       return errorResponse('FORBIDDEN', 'Voce nao participa desta viagem.', 403);
     }
 
-    const profilePayload = {
-      id: user.id,
-      email: user.email ?? null,
-      full_name: user.user_metadata?.full_name ?? user.user_metadata?.name ?? null,
-      avatar_url: user.user_metadata?.avatar_url ?? user.user_metadata?.picture ?? null,
-      updated_at: new Date().toISOString(),
-    };
+    logAiEvent('info', 'membership_valid', {
+      group_id: input.groupId,
+      user_id: user.id,
+      membership_id: membership.id,
+    });
 
-    await adminSupabase.from('profiles').upsert(profilePayload, { onConflict: 'id' });
-
-    const { data: profile, error: profileError } = await adminSupabase
-      .from('profiles')
-      .select('ai_generations_used, ai_generations_limit, last_ai_generation_at')
-      .eq('id', user.id)
-      .single<QuotaProfile>();
-
-    if (profileError) throw profileError;
-
-    const used = Number(profile.ai_generations_used ?? 0);
-    const limit = Number(profile.ai_generations_limit ?? 3);
     const userEmail = String(user.email ?? '').trim().toLowerCase();
     const isUnlimitedTester = unlimitedAiTesterEmails.has(userEmail);
 
@@ -1679,6 +1748,21 @@ Deno.serve(async (req) => {
 
       return errorResponse(
         'SUPABASE_INSERT_ERROR',
+        message,
+        500,
+      );
+    }
+
+    if (error instanceof ProfileSyncError) {
+      logAiEvent('error', 'profile_sync_failed', {
+        group_id: input.groupId,
+        user_id: user.id,
+        error_code: 'SUPABASE_PROFILE_ERROR',
+        message,
+      });
+
+      return errorResponse(
+        'SUPABASE_PROFILE_ERROR',
         message,
         500,
       );

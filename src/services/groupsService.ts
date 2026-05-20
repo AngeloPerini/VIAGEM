@@ -37,6 +37,10 @@ type MembershipWithGroupRow = {
   travel_groups: TravelGroupRow | TravelGroupRow[] | null;
 };
 
+type TravelGroupRpcRow = TravelGroupRow & {
+  role?: string | null;
+};
+
 const ACTIVE_GROUP_KEY_PREFIX = 'europa-budget-active-group-v1';
 const PENDING_INVITE_KEY = 'europa-budget-pending-invite-v1';
 const INVITE_PREFIXES = ['EUROPA', 'VIAGEM'];
@@ -198,6 +202,24 @@ const normalizeCreateGroupInput = (
 
 const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
+const isMissingCreateGroupRpc = (error: { code?: string; message?: string } | null) =>
+  Boolean(
+    error &&
+      (error.code === 'PGRST202' ||
+        error.message?.includes('create_travel_group_with_owner') ||
+        error.message?.includes('Could not find the function')),
+  );
+
+const formatCreateGroupError = (error: { code?: string; message?: string } | null) => {
+  const message = error?.message ?? '';
+  if (error?.code === '42501' || /row-level security|permission denied/i.test(message)) {
+    return 'Nao foi possivel criar a viagem por permissao/RLS. Verifique se seu perfil foi criado e tente novamente.';
+  }
+  if (/Usuario nao autenticado/i.test(message)) return 'Usuario nao autenticado.';
+  if (/Informe o nome da viagem/i.test(message)) return 'Informe o nome da viagem.';
+  return message || 'Nao foi possivel criar sua viagem.';
+};
+
 async function findLatestOwnedGroup(userId: string, groupName: string): Promise<UserTravelGroup | null> {
   for (let attempt = 0; attempt < 5; attempt += 1) {
     const { data, error } = await supabase
@@ -242,6 +264,30 @@ export async function createGroup(
     notes: groupInput.notes?.trim() || null,
   };
 
+  const { data: rpcData, error: rpcError } = await supabase
+    .rpc('create_travel_group_with_owner', {
+      group_name: extendedPayload.name,
+      group_description: extendedPayload.description,
+      group_countries: extendedPayload.countries,
+      group_start_date: extendedPayload.start_date,
+      group_end_date: extendedPayload.end_date,
+      group_travel_style: extendedPayload.travel_style,
+      group_notes: extendedPayload.notes,
+    })
+    .maybeSingle();
+
+  if (!rpcError && rpcData) {
+    const createdGroup = rpcData as TravelGroupRpcRow;
+    return {
+      ...toGroup(createdGroup),
+      role: createdGroup.role === 'member' ? 'member' : 'owner',
+    };
+  }
+
+  if (rpcError && !isMissingCreateGroupRpc(rpcError)) {
+    throw new Error(formatCreateGroupError(rpcError));
+  }
+
   const { error } = await supabase.from('travel_groups').insert(extendedPayload);
 
   if (error) {
@@ -252,7 +298,7 @@ export async function createGroup(
       error.message.includes('travel_style') ||
       error.message.includes('notes');
 
-    if (!missingExtendedColumns) throw error;
+    if (!missingExtendedColumns) throw new Error(formatCreateGroupError(error));
 
     const { error: fallbackError } = await supabase.from('travel_groups').insert({
       name: trimmedName,
@@ -260,7 +306,7 @@ export async function createGroup(
       owner_id: userId,
     });
 
-    if (fallbackError) throw fallbackError;
+    if (fallbackError) throw new Error(formatCreateGroupError(fallbackError));
   }
 
   const group = await findLatestOwnedGroup(userId, trimmedName);
