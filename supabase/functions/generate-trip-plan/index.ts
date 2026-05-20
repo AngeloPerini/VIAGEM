@@ -43,8 +43,13 @@ const jsonResponse = (body: unknown, status = 200) =>
     },
   });
 
-const errorResponse = (error: string, message: string, status = 400) =>
-  jsonResponse({ error, message }, status);
+const errorResponse = (
+  error: string,
+  message: string,
+  status = 400,
+  details?: Record<string, unknown>,
+) =>
+  jsonResponse({ error, code: error, message, details }, status);
 
 const getPublishableKey = () => {
   const legacyAnonKey = Deno.env.get('SUPABASE_ANON_KEY');
@@ -130,6 +135,26 @@ const logAiEvent = (
   };
 
   console[level](`[generate-trip-plan] ${event}`, payload);
+};
+
+const MAX_LOG_TEXT_LENGTH = 6000;
+
+const truncateForLog = (value: unknown, maxLength = MAX_LOG_TEXT_LENGTH) => {
+  const text = typeof value === 'string' ? value : JSON.stringify(value);
+  if (!text) return '';
+  return text.length > maxLength ? `${text.slice(0, maxLength)}...[truncated ${text.length - maxLength} chars]` : text;
+};
+
+const getOpenAITimeoutMs = () => {
+  const rawValue = Number(Deno.env.get('AI_OPENAI_TIMEOUT_MS') ?? 105_000);
+  if (!Number.isFinite(rawValue)) return 105_000;
+  return Math.min(115_000, Math.max(20_000, rawValue));
+};
+
+const getFunctionBudgetMs = () => {
+  const rawValue = Number(Deno.env.get('AI_FUNCTION_BUDGET_MS') ?? 135_000);
+  if (!Number.isFinite(rawValue)) return 135_000;
+  return Math.min(145_000, Math.max(60_000, rawValue));
 };
 
 const safeArray = (value: unknown) => (Array.isArray(value) ? value : []);
@@ -525,15 +550,87 @@ const ensurePlanShape = (value: unknown, input: TripPlanInput) => {
   };
 };
 
-const extractJsonObject = (content: string) => {
-  try {
-    return JSON.parse(content);
-  } catch {
-    const firstBrace = content.indexOf('{');
-    const lastBrace = content.lastIndexOf('}');
-    if (firstBrace === -1 || lastBrace === -1 || lastBrace <= firstBrace) throw new Error('A IA nao retornou JSON valido.');
-    return JSON.parse(content.slice(firstBrace, lastBrace + 1));
+const stripJsonFence = (content: string) =>
+  content.trim()
+    .replace(/^```(?:json)?\s*/i, '')
+    .replace(/\s*```$/i, '')
+    .trim();
+
+const findBalancedJsonObject = (content: string) => {
+  let start = -1;
+  let depth = 0;
+  let inString = false;
+  let escaped = false;
+
+  for (let index = 0; index < content.length; index += 1) {
+    const char = content[index];
+
+    if (start === -1) {
+      if (char === '{') {
+        start = index;
+        depth = 1;
+      }
+      continue;
+    }
+
+    if (escaped) {
+      escaped = false;
+      continue;
+    }
+
+    if (char === '\\') {
+      escaped = true;
+      continue;
+    }
+
+    if (char === '"') {
+      inString = !inString;
+      continue;
+    }
+
+    if (inString) continue;
+
+    if (char === '{') depth += 1;
+    if (char === '}') depth -= 1;
+
+    if (depth === 0) return content.slice(start, index + 1);
   }
+
+  return null;
+};
+
+const getResponseKind = (content: string) => {
+  const text = content.trim();
+  if (!text) return 'empty';
+  if (text.startsWith('{') && text.endsWith('}')) return 'json_object';
+  if (/^```(?:json)?/i.test(text)) return 'markdown_json';
+  if (text.includes('{') && text.includes('}')) return 'embedded_json';
+  return 'loose_text';
+};
+
+const extractJsonObject = (content: string) => {
+  const attempts = [
+    { strategy: 'direct', text: content.trim() },
+    { strategy: 'code_fence', text: stripJsonFence(content) },
+  ];
+  const balancedJson = findBalancedJsonObject(content);
+  if (balancedJson) attempts.push({ strategy: 'balanced_object', text: balancedJson });
+
+  let lastError = 'A IA nao retornou JSON valido.';
+
+  for (const attempt of attempts) {
+    if (!attempt.text) continue;
+    try {
+      return {
+        value: JSON.parse(attempt.text),
+        strategy: attempt.strategy,
+      };
+    } catch (error) {
+      lastError = getErrorMessage(error, lastError);
+    }
+  }
+
+  throw new Error(lastError);
 };
 
 const getErrorMessage = (error: unknown, fallback = 'Nao foi possivel gerar a previa com IA.') => {
@@ -561,10 +658,47 @@ class AiProviderError extends Error {
   }
 }
 
+class AiTimeoutError extends Error {
+  timeoutMs: number;
+
+  constructor(timeoutMs: number) {
+    super(`A OpenAI nao respondeu em ate ${Math.round(timeoutMs / 1000)} segundos.`);
+    this.name = 'AiTimeoutError';
+    this.timeoutMs = timeoutMs;
+  }
+}
+
 class AiJsonError extends Error {
-  constructor(message = 'A IA retornou uma resposta em formato invalido. Tente gerar novamente.') {
+  responseKind: string;
+  rawSample: string;
+  parseError: string;
+
+  constructor({
+    message = 'A IA retornou uma resposta em formato invalido. Tente gerar novamente.',
+    responseKind = 'unknown',
+    rawSample = '',
+    parseError = '',
+  }: {
+    message?: string;
+    responseKind?: string;
+    rawSample?: string;
+    parseError?: string;
+  } = {}) {
     super(message);
     this.name = 'AiJsonError';
+    this.responseKind = responseKind;
+    this.rawSample = rawSample;
+    this.parseError = parseError;
+  }
+}
+
+class AiSchemaError extends Error {
+  reasons: string[];
+
+  constructor(reasons: string[]) {
+    super(`A IA retornou JSON incompleto: ${reasons.join('; ') || 'schema incompleto'}. Tente gerar novamente.`);
+    this.name = 'AiSchemaError';
+    this.reasons = reasons;
   }
 }
 
@@ -577,6 +711,61 @@ class AiQualityError extends Error {
     this.reasons = reasons;
   }
 }
+
+class SupabaseInsertError extends Error {
+  originalError: unknown;
+
+  constructor(error: unknown) {
+    super(`Nao foi possivel salvar a previa gerada: ${getErrorMessage(error, 'erro ao inserir ai_trip_generations')}`);
+    this.name = 'SupabaseInsertError';
+    this.originalError = error;
+  }
+}
+
+const validateRawPlanSchema = (value: unknown) => {
+  const plan = asRecord(value);
+  const reasons: string[] = [];
+  const arrayFields = ['documents', 'routes', 'itinerary_items', 'expenses', 'attractions'];
+
+  arrayFields.forEach((field) => {
+    if (!Array.isArray(plan[field])) reasons.push(`${field} ausente ou nao e array`);
+  });
+
+  const itineraryItems = asRecords(plan.itinerary_items);
+  const expenses = asRecords(plan.expenses);
+  const attractions = asRecords(plan.attractions);
+
+  if (!asText(plan.summary)) reasons.push('summary ausente');
+  if (!itineraryItems.length) reasons.push('itinerary_items vazio');
+  if (!expenses.length) reasons.push('expenses vazio');
+  if (!attractions.length) reasons.push('attractions vazio');
+
+  const invalidItineraryIndex = itineraryItems.findIndex((item) =>
+    !asText(item.day) || !asText(item.country) || !asText(item.city) || !asText(item.title) || !asText(item.type)
+  );
+  if (invalidItineraryIndex >= 0) {
+    reasons.push(`itinerary_items[${invalidItineraryIndex}] sem day/country/city/title/type`);
+  }
+
+  const invalidExpenseIndex = expenses.findIndex((expense) =>
+    !asText(expense.category) || !asText(expense.country) || !asText(expense.title ?? expense.description)
+  );
+  if (invalidExpenseIndex >= 0) {
+    reasons.push(`expenses[${invalidExpenseIndex}] sem category/country/title`);
+  }
+
+  const invalidAttractionIndex = attractions.findIndex((attraction) =>
+    !asText(attraction.name ?? attraction.title) || !asText(attraction.country) || !asText(attraction.city)
+  );
+  if (invalidAttractionIndex >= 0) {
+    reasons.push(`attractions[${invalidAttractionIndex}] sem name/country/city`);
+  }
+
+  return {
+    ok: reasons.length === 0,
+    reasons,
+  };
+};
 
 const validatePlanQuality = (plan: ReturnType<typeof ensurePlanShape>, input: TripPlanInput) => {
   const reasons: string[] = [];
@@ -641,73 +830,39 @@ const buildPrompt = (input: TripPlanInput, qualityFeedback?: string) => {
   const tripDays = getTripDayCount(input);
   const minimumItems = getMinimumItineraryItems(input);
   const idealRange = getIdealItineraryRange(input);
+  const targetItems = Math.min(idealRange.max, Math.max(minimumItems, tripDays * 4));
 
   return `
-Voce e um planejador de viagens cuidadoso. Responda somente JSON valido, sem markdown.
+Voce e um planejador de viagens. Responda SOMENTE JSON valido, sem markdown, sem comentario e sem texto fora do objeto.
+Use frases curtas. Nao inclua links. Descricoes com ate 120 caracteres.
 
-Crie uma proposta completa para esta viagem:
+Viagem:
 - Nome: ${input.tripName}
-- Paises permitidos: ${input.countries.join(', ')}
+- Paises permitidos no campo country: ${input.countries.join(', ')} ou "international"
 - Datas: ${input.startDate} ate ${input.endDate} (${tripDays} dias, contando inicio e fim)
 - Estilo: ${input.style}
-- Descricao: ${input.description || 'Nao informada'}
-- Observacoes do usuario: ${input.notes || 'Nenhuma'}
+- Descricao/observacoes: ${[input.description, input.notes].filter(Boolean).join(' | ') || 'Nenhuma'}
 
-Regra principal de qualidade:
-- Gere um roteiro completo. Nao crie dias vazios ou com apenas uma atividade, exceto quando for inevitavel por voo longo ou deslocamento extenso. Para cada dia completo, gere entre 4 e 8 blocos com horarios, locais e descricao curta.
-- Para esta viagem, gere no minimo ${minimumItems} itinerary_items. O ideal e ficar entre ${idealRange.min} e ${idealRange.max} itens, distribuidos de forma equilibrada.
-- Cada dia util precisa ter manha, almoco, tarde e noite. Dias de chegada/voo podem ter menos blocos, mas ainda devem incluir chegada, deslocamento, check-in, passeio leve proximo e jantar/noite livre quando houver tempo.
-- Nao desperdice dias: se um dia ficar com 1 item sem justificativa forte, complemente com atividades leves, refeicoes, deslocamentos e noite livre.
+Qualidade obrigatoria:
+- Gere entre ${minimumItems} e ${targetItems} itinerary_items, distribuidos pelos ${tripDays} dias.
+- Cada dia completo deve ter manha, almoco, tarde e noite.
+- Nao crie dias vazios ou com 1 item, exceto voo/deslocamento muito longo.
+- Dias de chegada/voo ainda devem incluir chegada, deslocamento, check-in, passeio leve proximo e jantar/noite livre quando houver tempo.
+- Agrupe atracoes proximas no mesmo dia e evite zigue-zague.
 
-Regras de planejamento:
-- Agrupe atracoes proximas no mesmo dia e evite deslocamentos desnecessarios.
-- Respeite o ritmo da viagem:
-  - Economica: mais transporte publico, caminhadas e atracoes gratuitas ou baratas.
-  - Intermediaria: equilibrio entre transporte publico, conforto e atracoes pagas importantes.
-  - Confortavel: deslocamentos melhores, pausas maiores e menos correria.
-- Considere com prioridade as observacoes do usuario.
-- Se as observacoes indicarem motorhome, inclua retirada/devolucao do veiculo, deslocamentos por estrada, paradas estrategicas, cidades-base, tempo realista de direcao e blocos do tipo motorhome.
-- Em viagens de muitos dias, distribua cidades e atracoes de forma equilibrada. Dias de deslocamento devem ter atividades leves antes ou depois do trecho.
-- Gere roteiro cronologico e realista, com horarios em formato HHhMM ou HH:MM.
-- Use somente estes paises no campo country: ${input.countries.join(', ')}. Para voos/trechos internacionais sem pais especifico, use "international".
-- Nao use Italia, Suica, Franca ou qualquer pais antigo/hardcoded se eles nao estiverem nos paises permitidos.
+Ritmo:
+- economica: transporte publico e atracoes baratas/gratuitas.
+- intermediaria: equilibrio entre custo, conforto e atracoes pagas importantes.
+- confortavel: deslocamentos melhores e pausas maiores.
+- Se houver motorhome nas observacoes: retirada/devolucao, estrada, paradas, cidades-base e direcao realista.
 
-Tipos permitidos para itinerary_items:
-- chegada
-- hospedagem
-- passeio
-- transporte
-- alimentacao
-- voo
-- trem
-- motorhome
-- descanso
-- compras
-- documento
-- outro
+Tipos permitidos: chegada, hospedagem, passeio, transporte, alimentacao, voo, trem, motorhome, descanso, compras, documento, outro.
+Categorias de despesas: Hospedagem, Transporte, Passeios, Alimentacao, Comprinhas, Documentos, Seguro, Outros.
 
-Despesas:
-- Gere gastos aproximados compativeis com o roteiro completo, nao valores genericos demais.
-- Categorias permitidas: Hospedagem, Transporte, Passeios, Alimentacao, Comprinhas, Documentos, Seguro, Outros.
-- Inclua hospedagem por cidade/base, transportes por trecho, passeios pagos relevantes, alimentacao proporcional aos dias, documentos/seguro quando aplicavel e pequenos extras.
-- Use valores planejados em euro e real com faixas min/max realistas.
-
-Pontos turisticos:
-- Transforme todos os pontos turisticos reais do roteiro em attractions.
-- Nao inclua hotel, check-in, aeroporto, metro, almoco, jantar ou deslocamento em attractions.
-- Inclua somente atracoes, pracas, museus, mirantes, parques, bairros turisticos e experiencias relevantes.
-
-Rotas:
-- Gere rotas uteis com cidade origem, cidade destino, meio de transporte, tempo aproximado, custo aproximado e observacao.
-- Inclua rotas entre cidades-base, aeroportos/estacoes quando relevantes e deslocamentos de motorhome/estrada quando aplicavel.
-
-Validacao antes de retornar:
-- Verifique se cada dia tem itens suficientes.
-- Se algum dia tiver 1 item sem justificativa, complemente o dia.
-- Remova duplicados.
-- Garanta que paises sejam apenas os paises informados.
-- Garanta que os filtros de pais possam ser gerados apenas com base nos paises da viagem.
-- Garanta que nao aparecam paises de outra viagem.
+Despesas: gere 6 a 10 gastos aproximados compativeis com roteiro, em euro e real.
+Attractions: inclua apenas atracoes reais do roteiro: museus, pracas, mirantes, parques, bairros turisticos e experiencias. Nao inclua hotel, aeroporto, metro, refeicoes ou deslocamentos.
+Routes: inclua rotas uteis entre cidades-base/aeroportos/estacoes ou trechos de estrada.
+Validacao final: remova duplicados, nao use pais fora dos permitidos e complete dias fracos.
 
 ${qualityFeedback ? `A geracao anterior foi rejeitada por qualidade: ${qualityFeedback}. Refaça corrigindo esses pontos, com mais blocos por dia e sem paises fora da viagem.` : ''}
 
@@ -730,8 +885,7 @@ Retorne exatamente este objeto:
       "title": "string",
       "description": "string",
       "type": "um dos tipos permitidos",
-      "order_index": 0,
-      "links": []
+      "order_index": 0
     }
   ],
   "expenses": [
@@ -741,8 +895,7 @@ Retorne exatamente este objeto:
       "title": "string",
       "detail": "Aproximado / planejado",
       "euro": { "min": 0, "max": 0 },
-      "real": { "min": 0, "max": 0 },
-      "links": []
+      "real": { "min": 0, "max": 0 }
     }
   ],
   "attractions": [
@@ -752,8 +905,7 @@ Retorne exatamente este objeto:
       "city": "string",
       "day": "Dia 1",
       "time": "09h00",
-      "description": "string",
-      "links": []
+      "description": "string"
     }
   ],
   "warnings": ["string"]
@@ -766,33 +918,75 @@ const generatePlanWithAI = async (
   model: string,
   input: TripPlanInput,
   qualityFeedback?: string,
+  context: { groupId: string; userId: string; attempt: number } = {
+    groupId: input.groupId,
+    userId: 'unknown',
+    attempt: 1,
+  },
 ) => {
-  const aiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      model,
-      temperature: qualityFeedback ? 0.42 : 0.38,
-      response_format: { type: 'json_object' },
-      messages: [
-        {
-          role: 'system',
-          content: 'Voce gera apenas JSON valido para planejamento de viagem. Nao retorne texto fora do JSON.',
-        },
-        { role: 'user', content: buildPrompt(input, qualityFeedback) },
-      ],
-    }),
+  const timeoutMs = qualityFeedback ? Math.min(getOpenAITimeoutMs(), 45_000) : getOpenAITimeoutMs();
+  const controller = new AbortController();
+  const startedAt = Date.now();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+  let aiResponse: Response;
+
+  try {
+    aiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      signal: controller.signal,
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model,
+        temperature: qualityFeedback ? 0.42 : 0.38,
+        response_format: { type: 'json_object' },
+        messages: [
+          {
+            role: 'system',
+            content: 'Voce gera apenas JSON valido para planejamento de viagem. Nao retorne texto fora do JSON.',
+          },
+          { role: 'user', content: buildPrompt(input, qualityFeedback) },
+        ],
+      }),
+    });
+  } catch (error) {
+    const isAbort = error instanceof DOMException && error.name === 'AbortError';
+    logAiEvent('error', 'openai_request_failed', {
+      group_id: context.groupId,
+      user_id: context.userId,
+      attempt: context.attempt,
+      error_code: isAbort ? 'TIMEOUT' : 'OPENAI_ERROR',
+      timeout_ms: timeoutMs,
+      duration_ms: Date.now() - startedAt,
+      message: getErrorMessage(error),
+    });
+
+    if (isAbort) throw new AiTimeoutError(timeoutMs);
+    throw new AiProviderError(0, getErrorMessage(error, 'Falha ao chamar a OpenAI.'));
+  } finally {
+    clearTimeout(timeoutId);
+  }
+
+  const durationMs = Date.now() - startedAt;
+  const rawResponseText = await aiResponse.text().catch(() => '');
+
+  logAiEvent(aiResponse.ok ? 'info' : 'error', 'openai_http_response', {
+    group_id: context.groupId,
+    user_id: context.userId,
+    attempt: context.attempt,
+    provider_status: aiResponse.status,
+    duration_ms: durationMs,
+    raw_response_size: rawResponseText.length,
+    raw_response_sample: truncateForLog(rawResponseText, 3000),
   });
 
   if (!aiResponse.ok) {
-    const errorText = await aiResponse.text().catch(() => '');
-    let providerMessage = errorText;
+    let providerMessage = rawResponseText;
 
     try {
-      const parsed = JSON.parse(errorText) as { error?: { message?: string; type?: string; code?: string } };
+      const parsed = JSON.parse(rawResponseText) as { error?: { message?: string; type?: string; code?: string } };
       providerMessage = [
         parsed.error?.message,
         parsed.error?.type,
@@ -808,14 +1002,61 @@ const generatePlanWithAI = async (
     );
   }
 
-  const aiPayload = await aiResponse.json();
-  const content = aiPayload?.choices?.[0]?.message?.content;
-  if (typeof content !== 'string') throw new Error('A IA nao retornou conteudo valido.');
+  let aiPayload: Record<string, unknown>;
+  try {
+    aiPayload = JSON.parse(rawResponseText) as Record<string, unknown>;
+  } catch (error) {
+    throw new AiJsonError({
+      message: 'A OpenAI respondeu, mas o envelope da resposta nao era JSON valido.',
+      responseKind: 'provider_envelope_invalid',
+      rawSample: truncateForLog(rawResponseText, 3000),
+      parseError: getErrorMessage(error),
+    });
+  }
+
+  const choices = safeArray(aiPayload.choices);
+  const firstChoice = asRecord(choices[0]);
+  const message = asRecord(firstChoice.message);
+  const usage = asRecord(aiPayload.usage);
+  const finishReason = asText(firstChoice.finish_reason);
+  const content = message.content;
+  if (typeof content !== 'string' || !content.trim()) {
+    throw new AiJsonError({
+      message: 'A IA respondeu sem conteudo JSON.',
+      responseKind: 'empty',
+      rawSample: truncateForLog(rawResponseText, 3000),
+      parseError: 'choices[0].message.content ausente ou vazio',
+    });
+  }
+
+  const responseKind = getResponseKind(content);
+  logAiEvent('info', 'openai_content_received', {
+    group_id: context.groupId,
+    user_id: context.userId,
+    attempt: context.attempt,
+    finish_reason: finishReason,
+    response_kind: responseKind,
+    content_length: content.length,
+    usage,
+    content_sample: truncateForLog(content, 3000),
+  });
 
   try {
-    return extractJsonObject(content);
-  } catch {
-    throw new AiJsonError();
+    const parsed = extractJsonObject(content);
+    logAiEvent('info', 'openai_json_parsed', {
+      group_id: context.groupId,
+      user_id: context.userId,
+      attempt: context.attempt,
+      parse_strategy: parsed.strategy,
+      top_level_keys: Object.keys(asRecord(parsed.value)),
+    });
+    return parsed.value;
+  } catch (error) {
+    throw new AiJsonError({
+      responseKind,
+      rawSample: truncateForLog(content, 3000),
+      parseError: getErrorMessage(error),
+    });
   }
 };
 
@@ -878,7 +1119,13 @@ Deno.serve(async (req) => {
         status: 'failed',
         feedback,
       });
-    } catch {
+    } catch (error) {
+      logAiEvent('error', 'failed_generation_insert_failed', {
+        group_id: input.groupId,
+        user_id: user.id,
+        error_code: 'SUPABASE_INSERT_ERROR',
+        message: getErrorMessage(error),
+      });
       // Logging must never hide the original generation error.
     }
   };
@@ -977,20 +1224,62 @@ Deno.serve(async (req) => {
     }
 
     const model = Deno.env.get('AI_MODEL') ?? 'gpt-4.1-mini';
+    const functionStartedAt = Date.now();
+    const functionBudgetMs = getFunctionBudgetMs();
     let output: ReturnType<typeof ensurePlanShape> | null = null;
     let qualityReasons: string[] = [];
+    let validationFailureKind: 'schema' | 'quality' = 'quality';
 
     for (let attempt = 1; attempt <= 2; attempt += 1) {
+      const elapsedMs = Date.now() - functionStartedAt;
+      const remainingMs = functionBudgetMs - elapsedMs;
+      const retryTimeoutMs = Math.min(getOpenAITimeoutMs(), 45_000);
+      const minimumRetryBudgetMs = retryTimeoutMs + 8_000;
+
+      if (attempt > 1 && remainingMs < minimumRetryBudgetMs) {
+        logAiEvent('warn', 'quality_retry_skipped_due_budget', {
+          group_id: input.groupId,
+          user_id: user.id,
+          attempt,
+          error_code: 'VALIDATION_FAILED',
+          elapsed_ms: elapsedMs,
+          remaining_ms: remainingMs,
+          reasons: qualityReasons,
+        });
+        break;
+      }
+
       const qualityFeedback = qualityReasons.length ? qualityReasons.join('; ') : undefined;
       logAiEvent('info', 'openai_attempt_started', {
         group_id: input.groupId,
         user_id: user.id,
         attempt,
         model,
+        elapsed_ms: elapsedMs,
+        remaining_ms: remainingMs,
         has_quality_feedback: Boolean(qualityFeedback),
       });
 
-      const rawOutput = await generatePlanWithAI(apiKey, model, input, qualityFeedback);
+      const rawOutput = await generatePlanWithAI(apiKey, model, input, qualityFeedback, {
+        groupId: input.groupId,
+        userId: user.id,
+        attempt,
+      });
+      const schema = validateRawPlanSchema(rawOutput);
+      if (!schema.ok) {
+        qualityReasons = schema.reasons;
+        validationFailureKind = 'schema';
+        logAiEvent('warn', 'schema_validation_failed', {
+          group_id: input.groupId,
+          user_id: user.id,
+          attempt,
+          error_code: 'VALIDATION_FAILED',
+          reasons: qualityReasons,
+          raw_top_level_keys: Object.keys(asRecord(rawOutput)),
+        });
+        continue;
+      }
+
       const candidate = ensurePlanShape(rawOutput, input);
       const quality = validatePlanQuality(candidate, input);
 
@@ -1008,6 +1297,7 @@ Deno.serve(async (req) => {
       }
 
       qualityReasons = quality.reasons;
+      validationFailureKind = 'quality';
       logAiEvent('warn', 'quality_retry_needed', {
         group_id: input.groupId,
         user_id: user.id,
@@ -1018,33 +1308,8 @@ Deno.serve(async (req) => {
     }
 
     if (!output) {
+      if (validationFailureKind === 'schema') throw new AiSchemaError(qualityReasons);
       throw new AiQualityError(qualityReasons);
-    }
-
-    let quotaResult: QuotaResult | null = null;
-
-    if (!isUnlimitedTester) {
-      const { data, error } = await adminSupabase
-        .rpc('consume_ai_generation_quota', { target_user_id: user.id })
-        .single<QuotaResult>();
-
-      if (error) throw error;
-      quotaResult = data;
-      if (!quotaResult.allowed) {
-        await logFailedGeneration(quotaResult.message ?? 'Geracao bloqueada por limite de uso.');
-        logAiEvent('warn', 'quota_rpc_blocked', {
-          group_id: input.groupId,
-          user_id: user.id,
-          error_code: quotaResult.error_code ?? 'AI_GENERATION_BLOCKED',
-          message: quotaResult.message,
-        });
-
-        return errorResponse(
-          quotaResult.error_code ?? 'AI_GENERATION_BLOCKED',
-          quotaResult.message ?? 'Nao foi possivel consumir sua cota de IA.',
-          429,
-        );
-      }
     }
 
     const { data: generation, error: insertError } = await adminSupabase
@@ -1059,7 +1324,44 @@ Deno.serve(async (req) => {
       .select('id')
       .single();
 
-    if (insertError) throw insertError;
+    if (insertError) throw new SupabaseInsertError(insertError);
+
+    let quotaResult: QuotaResult | null = null;
+    let quotaWarning: Record<string, unknown> | null = null;
+
+    if (!isUnlimitedTester) {
+      const { data, error } = await adminSupabase
+        .rpc('consume_ai_generation_quota', { target_user_id: user.id })
+        .single<QuotaResult>();
+
+      if (error) {
+        quotaWarning = {
+          code: 'QUOTA_CONSUME_FAILED',
+          message: getErrorMessage(error, 'Nao foi possivel atualizar o contador interno.'),
+        };
+        logAiEvent('error', 'quota_consume_failed_after_generation', {
+          group_id: input.groupId,
+          user_id: user.id,
+          generation_id: generation.id,
+          error_code: quotaWarning.code,
+          message: quotaWarning.message,
+        });
+      } else if (!data?.allowed) {
+        quotaWarning = {
+          code: data?.error_code ?? 'AI_GENERATION_BLOCKED_AFTER_PREVIEW',
+          message: data?.message ?? 'A cota nao foi consumida, mas a previa valida foi gerada.',
+        };
+        logAiEvent('warn', 'quota_not_consumed_after_generation', {
+          group_id: input.groupId,
+          user_id: user.id,
+          generation_id: generation.id,
+          error_code: quotaWarning.code,
+          message: quotaWarning.message,
+        });
+      } else {
+        quotaResult = data;
+      }
+    }
 
     logAiEvent('info', 'generation_created', {
       group_id: input.groupId,
@@ -1067,18 +1369,32 @@ Deno.serve(async (req) => {
       generation_id: generation.id,
       quota_used: quotaResult?.ai_generations_used ?? used,
       quota_limit: quotaResult?.ai_generations_limit ?? limit,
+      quota_warning: quotaWarning,
       unlimited: isUnlimitedTester,
     });
 
-    return jsonResponse({
+    const responseBody = {
       generationId: generation.id,
       quota: {
         used: quotaResult?.ai_generations_used ?? used,
         limit: quotaResult?.ai_generations_limit ?? limit,
         unlimited: isUnlimitedTester,
+        warning: quotaWarning,
       },
       ...output,
+    };
+
+    logAiEvent('info', 'response_ready', {
+      group_id: input.groupId,
+      user_id: user.id,
+      generation_id: generation.id,
+      response_status: 200,
+      itinerary_items: output.itinerary_items.length,
+      attractions: output.attractions.length,
+      expenses: output.expenses.length,
     });
+
+    return jsonResponse(responseBody);
   } catch (error) {
     const message = getErrorMessage(error);
     await logFailedGeneration(message);
@@ -1087,15 +1403,33 @@ Deno.serve(async (req) => {
       logAiEvent('error', 'openai_failed', {
         group_id: input.groupId,
         user_id: user.id,
-        error_code: 'AI_OPENAI_ERROR',
+        error_code: 'OPENAI_ERROR',
         provider_status: error.status,
         message,
       });
 
       return errorResponse(
-        'AI_OPENAI_ERROR',
+        'OPENAI_ERROR',
         `Erro da OpenAI: ${message}`,
         502,
+        { providerStatus: error.status },
+      );
+    }
+
+    if (error instanceof AiTimeoutError) {
+      logAiEvent('error', 'openai_timeout', {
+        group_id: input.groupId,
+        user_id: user.id,
+        error_code: 'TIMEOUT',
+        timeout_ms: error.timeoutMs,
+        message,
+      });
+
+      return errorResponse(
+        'TIMEOUT',
+        message,
+        504,
+        { timeoutMs: error.timeoutMs },
       );
     }
 
@@ -1103,14 +1437,37 @@ Deno.serve(async (req) => {
       logAiEvent('error', 'json_parse_failed', {
         group_id: input.groupId,
         user_id: user.id,
-        error_code: 'AI_JSON_PARSE_ERROR',
+        error_code: 'INVALID_JSON',
         message,
+        response_kind: error.responseKind,
+        parse_error: error.parseError,
+        raw_sample: error.rawSample,
       });
 
       return errorResponse(
-        'AI_JSON_PARSE_ERROR',
+        'INVALID_JSON',
         message,
         502,
+        {
+          responseKind: error.responseKind,
+          parseError: error.parseError,
+        },
+      );
+    }
+
+    if (error instanceof AiSchemaError) {
+      logAiEvent('warn', 'schema_validation_failed_final', {
+        group_id: input.groupId,
+        user_id: user.id,
+        error_code: 'VALIDATION_FAILED',
+        reasons: error.reasons,
+      });
+
+      return errorResponse(
+        'VALIDATION_FAILED',
+        message,
+        422,
+        { reasons: error.reasons },
       );
     }
 
@@ -1118,14 +1475,30 @@ Deno.serve(async (req) => {
       logAiEvent('warn', 'quality_failed', {
         group_id: input.groupId,
         user_id: user.id,
-        error_code: 'AI_QUALITY_FAILED',
+        error_code: 'VALIDATION_FAILED',
         reasons: error.reasons,
       });
 
       return errorResponse(
-        'AI_QUALITY_FAILED',
+        'VALIDATION_FAILED',
         message,
         422,
+        { reasons: error.reasons },
+      );
+    }
+
+    if (error instanceof SupabaseInsertError) {
+      logAiEvent('error', 'generation_insert_failed', {
+        group_id: input.groupId,
+        user_id: user.id,
+        error_code: 'SUPABASE_INSERT_ERROR',
+        message,
+      });
+
+      return errorResponse(
+        'SUPABASE_INSERT_ERROR',
+        message,
+        500,
       );
     }
 

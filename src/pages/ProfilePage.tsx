@@ -451,9 +451,14 @@ export function ProfilePage() {
         AI_GENERATION_LIMIT_REACHED: t('profile.aiLimitReached'),
         AI_GENERATION_COOLDOWN: t('profile.aiCooldown'),
         AI_PROVIDER_NOT_CONFIGURED: 'IA ainda não configurada no servidor. Verifique os secrets da Edge Function.',
+        OPENAI_ERROR: caughtError.message,
         AI_OPENAI_ERROR: caughtError.message,
-        AI_JSON_PARSE_ERROR: 'A IA retornou JSON inválido. Tente gerar novamente.',
+        INVALID_JSON: caughtError.message || 'A IA retornou JSON inválido. Tente gerar novamente.',
+        AI_JSON_PARSE_ERROR: caughtError.message || 'A IA retornou JSON inválido. Tente gerar novamente.',
+        VALIDATION_FAILED: caughtError.message,
         AI_QUALITY_FAILED: caughtError.message,
+        SUPABASE_INSERT_ERROR: caughtError.message,
+        TIMEOUT: caughtError.message || 'A OpenAI demorou demais para responder. Tente gerar novamente.',
         FORBIDDEN: 'Você não participa desta viagem ou o group_id não pertence ao seu usuário.',
       };
       const details = [
