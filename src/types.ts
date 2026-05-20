@@ -58,6 +58,9 @@ export type ItineraryType =
   | 'food'
   | 'flight'
   | 'train'
+  | 'motorhome'
+  | 'shopping'
+  | 'document'
   | 'rest'
   | 'other';
 

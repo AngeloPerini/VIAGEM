@@ -29,6 +29,7 @@ import type {
   ItineraryItem,
   ItineraryType,
   TripAIDocument,
+  TripAIInput,
   TripAIPlan,
   TripAIRoute,
   TripAIReviewState,
@@ -43,6 +44,9 @@ const typeLabels: Record<string, string> = {
   food: 'Alimentacao',
   flight: 'Voo',
   train: 'Trem',
+  motorhome: 'Motorhome',
+  shopping: 'Compras',
+  document: 'Documento',
   rest: 'Descanso',
   other: 'Outro',
 };
@@ -125,6 +129,52 @@ const validatePlan = (plan: TripAIPlan) => {
   if (plan.attractions.some((attraction) => !attraction.name.trim())) {
     return 'Todos os pontos turisticos precisam de nome.';
   }
+  return null;
+};
+
+const parseTripDate = (value: string) => {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  if (!match) return null;
+
+  const date = new Date(Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3])));
+  return Number.isNaN(date.getTime()) ? null : date;
+};
+
+const getTripDayCount = (input: TripAIInput) => {
+  const start = parseTripDate(input.startDate);
+  const end = parseTripDate(input.endDate);
+  if (!start || !end || end < start) return 1;
+  return Math.max(1, Math.floor((end.getTime() - start.getTime()) / 86_400_000) + 1);
+};
+
+const getDayNumber = (day: string) => {
+  const match = /(?:dia|day)\s*(\d{1,3})/i.exec(day) ?? /^(\d{1,3})(?:\D|$)/.exec(day);
+  const value = Number(match?.[1]);
+  return Number.isFinite(value) && value > 0 ? value : null;
+};
+
+const getPlanCompletenessWarning = (plan: TripAIPlan, input: TripAIInput) => {
+  const dayCount = getTripDayCount(input);
+  const minimumItems = dayCount * 3;
+
+  if (plan.itinerary_items.length < minimumItems) {
+    return `Foram gerados ${plan.itinerary_items.length} itens para ${dayCount} dias. O minimo esperado e ${minimumItems}.`;
+  }
+
+  const countsByDay = plan.itinerary_items.reduce<Record<number, number>>((counts, item) => {
+    const dayNumber = getDayNumber(item.day);
+    if (!dayNumber) return counts;
+    counts[dayNumber] = (counts[dayNumber] ?? 0) + 1;
+    return counts;
+  }, {});
+
+  const thinDays = Array.from({ length: dayCount }, (_, index) => index + 1)
+    .filter((day) => (countsByDay[day] ?? 0) === 1);
+
+  if (thinDays.length) {
+    return `Dias com apenas uma atividade: ${thinDays.map((day) => `Dia ${day}`).join(', ')}.`;
+  }
+
   return null;
 };
 
@@ -698,6 +748,10 @@ export function TripAIReviewPage() {
   const [error, setError] = useState<string | null>(null);
 
   const plan = useMemo<TripAIPlan | null>(() => review?.plan ?? null, [review]);
+  const qualityWarning = useMemo(
+    () => (review?.plan ? getPlanCompletenessWarning(review.plan, review.input) : null),
+    [review],
+  );
 
   if (!review || !plan) return <EmptyReview />;
 
@@ -794,6 +848,28 @@ export function TripAIReviewPage() {
           <p className="rounded-2xl border border-white/80 bg-white/90 px-4 py-3 text-sm font-bold text-slate-700 shadow-lg shadow-slate-900/5">
             {error ?? status}
           </p>
+        ) : null}
+
+        {qualityWarning ? (
+          <section className="rounded-[2rem] border border-amber-200 bg-amber-50 p-5 shadow-xl shadow-amber-900/10">
+            <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+              <div>
+                <p className="text-lg font-black text-amber-950">
+                  O roteiro gerado parece incompleto. Deseja gerar novamente?
+                </p>
+                <p className="mt-1 text-sm font-bold text-amber-800">{qualityWarning}</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => void handleRegenerate()}
+                disabled={isApplying || isRegenerating || isCancelling}
+                className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl bg-amber-900 px-5 font-black text-white transition hover:bg-amber-950 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {isRegenerating ? <Loader2 className="h-5 w-5 animate-spin" /> : <RefreshCcw className="h-5 w-5" />}
+                Gerar novamente
+              </button>
+            </div>
+          </section>
         ) : null}
 
         <section className="grid gap-3 md:grid-cols-4">

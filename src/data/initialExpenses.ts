@@ -8,6 +8,8 @@ export const categories: CategoryMeta[] = [
   { id: 'tours', name: 'Passeios', label: 'Passeio', accent: '#db2777' },
   { id: 'Alimentação', name: 'Alimentação', label: 'Gasto', accent: '#7c3aed' },
   { id: 'Comprinhas', name: 'Comprinhas', label: 'Gasto', accent: '#ea580c' },
+  { id: 'Documentos', name: 'Documentos', label: 'Documento', accent: '#0891b2' },
+  { id: 'Seguro', name: 'Seguro', label: 'Seguro', accent: '#65a30d' },
   { id: 'Outros', name: 'Outros', label: 'Gasto', accent: '#475569' },
 ];
 
@@ -17,6 +19,8 @@ export const categoryNames: Record<string, string> = {
   tours: 'Passeios',
   Alimentação: 'Alimentação',
   Comprinhas: 'Comprinhas',
+  Documentos: 'Documentos',
+  Seguro: 'Seguro',
   Outros: 'Outros',
 };
 

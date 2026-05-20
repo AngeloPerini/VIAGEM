@@ -25,6 +25,9 @@ const validTypes: ItineraryType[] = [
   'food',
   'flight',
   'train',
+  'motorhome',
+  'shopping',
+  'document',
   'rest',
   'other',
 ];
@@ -46,6 +49,11 @@ const categoryAliases: Record<string, string> = {
   compras: 'Comprinhas',
   comprinhas: 'Comprinhas',
   shopping: 'Comprinhas',
+  documento: 'Documentos',
+  documentos: 'Documentos',
+  document: 'Documentos',
+  seguro: 'Seguro',
+  insurance: 'Seguro',
   outros: 'Outros',
   other: 'Outros',
   others: 'Outros',
@@ -93,13 +101,23 @@ const normalizeKeyPart = (value: unknown) =>
 const normalizeType = (value: unknown): ItineraryType => {
   const normalized = stripDiacritics(asString(value));
   if (validTypes.includes(normalized as ItineraryType)) return normalized as ItineraryType;
+  if (normalized.includes('motorhome') || normalized.includes('trailer') || normalized.includes('rv')) return 'motorhome';
+  if (normalized.includes('compr') || normalized.includes('shopping')) return 'shopping';
+  if (normalized.includes('document') || normalized.includes('passaport') || normalized.includes('visto')) return 'document';
   if (normalized.includes('hotel') || normalized.includes('hosped')) return 'lodging';
   if (normalized.includes('trem')) return 'train';
   if (normalized.includes('voo') || normalized.includes('flight')) return 'flight';
   if (normalized.includes('trans')) return 'transport';
-  if (normalized.includes('comida') || normalized.includes('aliment')) return 'food';
+  if (
+    normalized.includes('comida') ||
+    normalized.includes('aliment') ||
+    normalized.includes('almoco') ||
+    normalized.includes('jantar') ||
+    normalized.includes('cafe')
+  ) return 'food';
   if (normalized.includes('chegada')) return 'arrival';
   if (normalized.includes('descanso')) return 'rest';
+  if (normalized.includes('outro')) return 'other';
   return 'tour';
 };
 

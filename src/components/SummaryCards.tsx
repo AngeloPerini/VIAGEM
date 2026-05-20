@@ -1,5 +1,5 @@
 import { AnimatePresence, motion } from 'framer-motion';
-import { BedDouble, Landmark, Route, WalletCards } from 'lucide-react';
+import { BedDouble, FileText, Landmark, Route, ShieldCheck, WalletCards } from 'lucide-react';
 import type { CategoryMeta, RealValueMode } from '../types';
 import type { Totals } from '../utils/money';
 import { formatRange } from '../utils/money';
@@ -8,6 +8,8 @@ const icons: Record<string, typeof WalletCards> = {
   lodging: BedDouble,
   transport: Route,
   tours: Landmark,
+  Documentos: FileText,
+  Seguro: ShieldCheck,
 };
 
 type SummaryCardsProps = {
