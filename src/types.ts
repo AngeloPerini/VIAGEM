@@ -179,7 +179,6 @@ export type TripAIInput = {
   startDate: string;
   endDate: string;
   style: TripStyle;
-  notes: string;
   groupId: string;
 };
 

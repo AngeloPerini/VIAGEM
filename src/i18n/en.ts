@@ -74,7 +74,7 @@ export const en: TranslationMap = {
   'profile.tripName': 'Trip name',
   'profile.tripCountries': 'Countries to visit',
   'profile.tripCountriesPlaceholder': 'Italy, France, Switzerland',
-  'profile.description': 'Description',
+  'profile.description': 'Trip description',
   'profile.startDate': 'Start date',
   'profile.endDate': 'End date',
   'profile.style': 'Style',

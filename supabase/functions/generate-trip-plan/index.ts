@@ -9,7 +9,6 @@ type TripPlanInput = {
   startDate: string;
   endDate: string;
   style: TripStyle;
-  notes: string;
   groupId: string;
 };
 
@@ -33,6 +32,19 @@ const corsHeaders = {
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 };
 const unlimitedAiTesterEmails = new Set(['r.perini351@gmail.com']);
+const DESCRIPTION_MAX_LENGTH = 2500;
+
+class InputValidationError extends Error {
+  code: string;
+  status: number;
+
+  constructor(code: string, message: string, status = 400) {
+    super(message);
+    this.name = 'InputValidationError';
+    this.code = code;
+    this.status = status;
+  }
+}
 
 const jsonResponse = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), {
@@ -111,7 +123,6 @@ const normalizeInput = (payload: Record<string, unknown>): TripPlanInput => {
     startDate: String(payload.startDate ?? '').trim(),
     endDate: String(payload.endDate ?? '').trim(),
     style,
-    notes: String(payload.notes ?? '').trim(),
     groupId: String(payload.groupId ?? '').trim(),
   };
 
@@ -119,6 +130,12 @@ const normalizeInput = (payload: Record<string, unknown>): TripPlanInput => {
   if (!input.groupId) throw new Error('Informe o grupo da viagem.');
   if (!input.countries.length) throw new Error('Informe pelo menos um pais.');
   if (!input.startDate || !input.endDate) throw new Error('Informe as datas da viagem.');
+  if (input.description.length > DESCRIPTION_MAX_LENGTH) {
+    throw new InputValidationError(
+      'DESCRIPTION_TOO_LONG',
+      'A descrição está muito longa. Reduza o texto e tente novamente.',
+    );
+  }
 
   return input;
 };
@@ -312,11 +329,19 @@ const getDateForDay = (input: TripPlanInput, dayNumber: number) => {
 
 const getMinimumItineraryItems = (input: TripPlanInput) => {
   const days = getTripDayCount(input);
+  if (days > 15) return days;
   return days >= 10 ? Math.max(days * 3, 35) : days * 3;
 };
 
 const getIdealItineraryRange = (input: TripPlanInput) => {
   const days = getTripDayCount(input);
+  if (days > 15) {
+    return {
+      min: getMinimumItineraryItems(input),
+      max: Math.min(days * 2, 70),
+    };
+  }
+
   return {
     min: Math.max(days * 4, getMinimumItineraryItems(input)),
     max: Math.max(days * 6, days * 4),
@@ -889,11 +914,11 @@ const validatePlanQuality = (plan: ReturnType<typeof ensurePlanShape>, input: Tr
     reasons.push(`dias sem roteiro: ${missingDays.map((day) => `Dia ${day}`).join(', ')}`);
   }
 
-  if (singleItemDays.length) {
+  if (tripDays <= 15 && singleItemDays.length) {
     reasons.push(`dias com apenas 1 item sem justificativa: ${singleItemDays.map((day) => `Dia ${day}`).join(', ')}`);
   }
 
-  if (tripDays >= 4 && veryThinDays.length > Math.max(1, Math.floor(tripDays * 0.2))) {
+  if (tripDays <= 15 && tripDays >= 4 && veryThinDays.length > Math.max(1, Math.floor(tripDays * 0.2))) {
     reasons.push(`muitos dias com menos de 3 itens: ${veryThinDays.map((day) => `Dia ${day}`).join(', ')}`);
   }
 
@@ -903,11 +928,38 @@ const validatePlanQuality = (plan: ReturnType<typeof ensurePlanShape>, input: Tr
   };
 };
 
+const isUsableCompactLongTripPlan = (plan: ReturnType<typeof ensurePlanShape>, input: TripPlanInput) => {
+  const tripDays = getTripDayCount(input);
+  if (tripDays <= 15) return false;
+  if (findInvalidCountries(plan, input).length) return false;
+  if (plan.itinerary_items.length < Math.ceil(tripDays * 0.9)) return false;
+
+  const itemsByDay = new Map<number, Record<string, unknown>[]>();
+  plan.itinerary_items.forEach((item) => {
+    const dayNumber = getDayNumberFromItem(item);
+    if (!dayNumber) return;
+    itemsByDay.set(dayNumber, [...(itemsByDay.get(dayNumber) ?? []), item]);
+  });
+
+  const missingDays: number[] = [];
+  const singleItemDays: number[] = [];
+  for (let day = 1; day <= tripDays; day += 1) {
+    const items = itemsByDay.get(day) ?? [];
+    if (!items.length) missingDays.push(day);
+    if (items.length === 1 && !isUnavoidableSingleItemDay(items[0])) singleItemDays.push(day);
+  }
+
+  return missingDays.length === 0 && singleItemDays.length <= Math.max(2, Math.floor(tripDays * 0.75));
+};
+
 const buildPrompt = (input: TripPlanInput, qualityFeedback?: string) => {
   const tripDays = getTripDayCount(input);
   const minimumItems = getMinimumItineraryItems(input);
   const idealRange = getIdealItineraryRange(input);
-  const targetItems = Math.min(idealRange.max, Math.max(minimumItems, tripDays * 4));
+  const isLongTrip = tripDays > 15;
+  const targetItems = isLongTrip
+    ? Math.min(idealRange.max, Math.max(minimumItems, Math.ceil(tripDays * 1.5)))
+    : Math.min(idealRange.max, Math.max(minimumItems, tripDays * 4));
 
   return `
 Voce e um planejador de viagens. Responda SOMENTE JSON valido, sem markdown, sem comentario e sem texto fora do objeto.
@@ -921,20 +973,22 @@ Viagem:
 - Brasil/Brazil so pode aparecer como destino se estiver em allowedCountries. Se o usuario mencionar saida/origem Brasil, trate como voo internacional com country "international"; nao crie Brasil em attractions, expenses, filtros ou paises da viagem.
 - Datas: ${input.startDate} ate ${input.endDate} (${tripDays} dias, contando inicio e fim)
 - Estilo: ${input.style}
-- Descricao/observacoes: ${[input.description, input.notes].filter(Boolean).join(' | ') || 'Nenhuma'}
+- Descricao da viagem: ${input.description || 'Nao informada'}
 
 Qualidade obrigatoria:
 - Gere entre ${minimumItems} e ${targetItems} itinerary_items, distribuidos pelos ${tripDays} dias.
-- Cada dia completo deve ter manha, almoco, tarde e noite.
-- Nao crie dias vazios ou com 1 item, exceto voo/deslocamento muito longo.
+- ${isLongTrip ? 'Viagem longa: use roteiro compacto com 1 a 3 blocos por dia; cada bloco pode resumir meio-dia ou uma cidade-base, e os dias principais podem ter mais detalhes.' : 'Cada dia completo deve ter manha, almoco, tarde e noite.'}
+- ${isLongTrip ? 'Nao crie dias vazios; dias de deslocamento ou pausa podem ter 1 bloco resumido, mas dias principais devem ter 2 ou 3 blocos.' : 'Nao crie dias vazios ou com 1 item, exceto voo/deslocamento muito longo.'}
 - Dias de chegada/voo ainda devem incluir chegada, deslocamento, check-in, passeio leve proximo e jantar/noite livre quando houver tempo.
 - Agrupe atracoes proximas no mesmo dia e evite zigue-zague.
+- ${isLongTrip ? 'Em viagem longa, nenhum dia pode ficar sem item; use itens resumidos por periodo quando necessario.' : 'Dias completos devem ter entre 4 e 8 blocos quando possivel.'}
+- Nao ultrapasse ${targetItems} itinerary_items; para viagem longa, mantenha descricoes objetivas para evitar resposta gigante.
 
 Ritmo:
 - economica: transporte publico e atracoes baratas/gratuitas.
 - intermediaria: equilibrio entre custo, conforto e atracoes pagas importantes.
 - confortavel: deslocamentos melhores e pausas maiores.
-- Se houver motorhome nas observacoes: retirada/devolucao, estrada, paradas, cidades-base e direcao realista.
+- Se a descricao indicar motorhome: retirada/devolucao, estrada, paradas, cidades-base e direcao realista.
 
 Tipos permitidos: chegada, hospedagem, passeio, transporte, alimentacao, voo, trem, motorhome, descanso, compras, documento, outro.
 Categorias de despesas: Hospedagem, Transporte, Passeios, Alimentacao, Comprinhas, Documentos, Seguro, Outros.
@@ -1179,7 +1233,15 @@ Deno.serve(async (req) => {
   try {
     input = normalizeInput(await req.json());
   } catch (error) {
-    return jsonResponse({ error: error instanceof Error ? error.message : 'Entrada invalida.' }, 400);
+    if (error instanceof InputValidationError) {
+      return errorResponse(error.code, error.message, error.status);
+    }
+
+    return errorResponse(
+      'INVALID_INPUT',
+      error instanceof Error ? error.message : 'Entrada invalida.',
+      400,
+    );
   }
 
   logAiEvent('info', 'request_received', {
@@ -1371,6 +1433,24 @@ Deno.serve(async (req) => {
           itinerary_items: candidate.itinerary_items.length,
           attractions: candidate.attractions.length,
           expenses: candidate.expenses.length,
+        });
+        output = candidate;
+        break;
+      }
+
+      if (isUsableCompactLongTripPlan(candidate, input)) {
+        candidate.warnings = [
+          ...new Set([
+            ...candidate.warnings,
+            'Viagem longa gerada em formato compacto para evitar timeout.',
+          ]),
+        ];
+        logAiEvent('warn', 'compact_long_trip_accepted', {
+          group_id: input.groupId,
+          user_id: user.id,
+          attempt,
+          reasons: quality.reasons,
+          itinerary_items: candidate.itinerary_items.length,
         });
         output = candidate;
         break;

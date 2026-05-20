@@ -50,7 +50,7 @@ export const es: TranslationMap = {
   'profile.newTrip': 'Nuevo viaje',
   'profile.tripName': 'Nombre del viaje',
   'profile.tripCountries': 'Países que quieres visitar',
-  'profile.description': 'Descripción',
+  'profile.description': 'Descripción del viaje',
   'profile.startDate': 'Fecha inicial',
   'profile.endDate': 'Fecha final',
   'profile.style': 'Estilo',

@@ -87,7 +87,7 @@ export const ptBR = {
   'profile.tripName': 'Nome da viagem',
   'profile.tripCountries': 'Países que deseja visitar',
   'profile.tripCountriesPlaceholder': 'Itália, França, Suíça',
-  'profile.description': 'Descrição',
+  'profile.description': 'Descrição da viagem',
   'profile.startDate': 'Data inicial',
   'profile.endDate': 'Data final',
   'profile.style': 'Estilo',

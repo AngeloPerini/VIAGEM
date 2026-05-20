@@ -127,6 +127,11 @@ const tripTabs = [
 
 type TripTab = typeof tripTabs[number]['id'];
 
+const TRIP_DESCRIPTION_MAX_LENGTH = 2500;
+const TRIP_DESCRIPTION_TOO_LONG_MESSAGE = 'A descrição está muito longa. Resuma para até 2500 caracteres.';
+const TRIP_DESCRIPTION_PLACEHOLDER =
+  'Descreva sua viagem, preferências, cidades desejadas, ritmo, orçamento, restrições, transporte, hospedagem e qualquer detalhe importante.';
+
 function StatCard({ label, value, detail }: { label: string; value: string; detail?: string }) {
   return (
     <div className="rounded-[2rem] border border-white/80 bg-white/85 p-5 shadow-xl shadow-slate-900/10 backdrop-blur">
@@ -366,7 +371,6 @@ export function ProfilePage() {
   const [tripStartDate, setTripStartDate] = useState('');
   const [tripEndDate, setTripEndDate] = useState('');
   const [tripStyle, setTripStyle] = useState('intermediaria');
-  const [tripNotes, setTripNotes] = useState('');
   const [inviteCodeInput, setInviteCodeInput] = useState('');
   const [status, setStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -433,6 +437,13 @@ export function ProfilePage() {
   );
   const shouldShowCreateTripForm = !activeGroup || showCreateTripForm;
   const parsedTripCountries = () => parseCountryInput(tripCountries);
+  const isTripDescriptionTooLong = tripDescription.length > TRIP_DESCRIPTION_MAX_LENGTH;
+
+  const validateDescriptionLength = (description: string) => {
+    if (description.length > TRIP_DESCRIPTION_MAX_LENGTH) {
+      throw new Error(TRIP_DESCRIPTION_TOO_LONG_MESSAGE);
+    }
+  };
 
   const goToAIReview = (input: TripAIInput, group: UserTravelGroup, plan: TripAIPlan) => {
     storeTripAIReview({
@@ -457,6 +468,7 @@ export function ProfilePage() {
         AI_JSON_PARSE_ERROR: caughtError.message || 'A IA retornou JSON inválido. Tente gerar novamente.',
         VALIDATION_FAILED: caughtError.message,
         AI_QUALITY_FAILED: caughtError.message,
+        DESCRIPTION_TOO_LONG: caughtError.message || TRIP_DESCRIPTION_TOO_LONG_MESSAGE,
         SUPABASE_INSERT_ERROR: caughtError.message,
         TIMEOUT: caughtError.message || 'A OpenAI demorou demais para responder. Tente gerar novamente.',
         FORBIDDEN: 'Você não participa desta viagem ou o group_id não pertence ao seu usuário.',
@@ -480,7 +492,6 @@ export function ProfilePage() {
     startDate: tripStartDate,
     endDate: tripEndDate,
     style: tripStyle as TripStyle,
-    notes: tripNotes,
     groupId: group.id,
   });
 
@@ -580,6 +591,7 @@ export function ProfilePage() {
     setIsCreatingTrip(true);
 
     try {
+      validateDescriptionLength(tripDescription);
       const countries = parsedTripCountries();
 
       await createGroup({
@@ -589,7 +601,6 @@ export function ProfilePage() {
         startDate: tripStartDate,
         endDate: tripEndDate,
         travelStyle: tripStyle,
-        notes: tripNotes,
       });
       setStatus('Viagem criada.');
       setShowCreateTripForm(false);
@@ -611,6 +622,7 @@ export function ProfilePage() {
     let inputForRetry: TripAIInput | null = null;
 
     try {
+      validateDescriptionLength(tripDescription);
       const countries = parsedTripCountries();
       if (!countries.length) throw new Error(t('ai.missingCountries'));
       if (!tripStartDate || !tripEndDate) throw new Error(t('ai.missingDates'));
@@ -622,7 +634,6 @@ export function ProfilePage() {
         startDate: tripStartDate,
         endDate: tripEndDate,
         travelStyle: tripStyle,
-        notes: tripNotes,
       });
 
       groupForRetry = group;
@@ -653,6 +664,7 @@ export function ProfilePage() {
     setIsGeneratingAI(true);
 
     try {
+      validateDescriptionLength(activeGroup.description ?? '');
       const countries = activeGroup.countries?.length
         ? activeGroup.countries.flatMap((country) => parseCountryInput(country))
         : ['Europa'];
@@ -663,7 +675,6 @@ export function ProfilePage() {
         startDate: activeGroup.startDate ?? '',
         endDate: activeGroup.endDate ?? '',
         style: (activeGroup.travelStyle as TripStyle | undefined) ?? 'intermediaria',
-        notes: activeGroup.notes ?? '',
         groupId: activeGroup.id,
       };
       await openAIReview(input, activeGroup);
@@ -682,7 +693,6 @@ export function ProfilePage() {
         startDate: activeGroup.startDate ?? '',
         endDate: activeGroup.endDate ?? '',
         style: (activeGroup.travelStyle as TripStyle | undefined) ?? 'intermediaria',
-        notes: activeGroup.notes ?? '',
         groupId: activeGroup.id,
       });
       await loadProfile().catch(() => null);
@@ -1079,9 +1089,21 @@ export function ProfilePage() {
                 <textarea
                   value={tripDescription}
                   onChange={(event) => setTripDescription(event.target.value)}
-                  rows={3}
-                  className="w-full rounded-2xl border border-slate-200 px-4 py-3 font-semibold outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-100"
+                  placeholder={TRIP_DESCRIPTION_PLACEHOLDER}
+                  rows={5}
+                  aria-invalid={isTripDescriptionTooLong}
+                  className={`w-full rounded-2xl border px-4 py-3 font-semibold outline-none focus:ring-4 ${
+                    isTripDescriptionTooLong
+                      ? 'border-rose-300 focus:border-rose-400 focus:ring-rose-100'
+                      : 'border-slate-200 focus:border-teal-400 focus:ring-teal-100'
+                  }`}
                 />
+                <span className={`mt-2 flex justify-between gap-3 text-xs font-black ${
+                  isTripDescriptionTooLong ? 'text-rose-600' : 'text-slate-400'
+                }`}>
+                  <span>{isTripDescriptionTooLong ? TRIP_DESCRIPTION_TOO_LONG_MESSAGE : 'Use este campo para todos os detalhes que a IA deve considerar.'}</span>
+                  <span className="shrink-0">{tripDescription.length} / {TRIP_DESCRIPTION_MAX_LENGTH}</span>
+                </span>
               </label>
               <div className="grid gap-4 md:grid-cols-3">
                 <label className="block">
@@ -1115,19 +1137,10 @@ export function ProfilePage() {
                   </select>
                 </label>
               </div>
-              <label className="block">
-                <span className="mb-2 block text-sm font-bold text-slate-600">{t('profile.notes')}</span>
-                <textarea
-                  value={tripNotes}
-                  onChange={(event) => setTripNotes(event.target.value)}
-                  rows={3}
-                  className="w-full rounded-2xl border border-slate-200 px-4 py-3 font-semibold outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-100"
-                />
-              </label>
               <div className="grid gap-3 md:grid-cols-2">
                 <button
                   type="submit"
-                  disabled={isCreatingTrip || isGeneratingAI}
+                  disabled={isCreatingTrip || isGeneratingAI || isTripDescriptionTooLong}
                   className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-slate-950 px-5 font-black text-white transition hover:bg-teal-700 disabled:cursor-not-allowed disabled:opacity-70"
                 >
                   <Plus className="h-5 w-5" />
@@ -1136,7 +1149,7 @@ export function ProfilePage() {
                 <button
                   type="button"
                   onClick={() => void handleGenerateTripPreview()}
-                  disabled={isCreatingTrip || isGeneratingAI || aiGenerationBlocked}
+                  disabled={isCreatingTrip || isGeneratingAI || aiGenerationBlocked || isTripDescriptionTooLong}
                   className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-teal-700 px-5 font-black text-white transition hover:bg-teal-800 disabled:cursor-not-allowed disabled:opacity-70"
                 >
                   {isGeneratingAI ? <Loader2 className="h-5 w-5 animate-spin" /> : <Sparkles className="h-5 w-5" />}

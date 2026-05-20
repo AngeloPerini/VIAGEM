@@ -505,7 +505,6 @@ export async function applyTripPlan(review: TripAIReviewState, plan: TripAIPlan,
       start_date: review.input.startDate || null,
       end_date: review.input.endDate || null,
       travel_style: review.input.style,
-      notes: review.input.notes || null,
     })
     .eq('id', groupId);
 

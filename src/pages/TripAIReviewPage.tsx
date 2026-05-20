@@ -156,7 +156,7 @@ const getDayNumber = (day: string) => {
 
 const getPlanCompletenessWarning = (plan: TripAIPlan, input: TripAIInput) => {
   const dayCount = getTripDayCount(input);
-  const minimumItems = dayCount * 3;
+  const minimumItems = dayCount > 15 ? dayCount : dayCount * 3;
 
   if (plan.itinerary_items.length < minimumItems) {
     return `Foram gerados ${plan.itinerary_items.length} itens para ${dayCount} dias. O minimo esperado e ${minimumItems}.`;
@@ -172,7 +172,7 @@ const getPlanCompletenessWarning = (plan: TripAIPlan, input: TripAIInput) => {
   const thinDays = Array.from({ length: dayCount }, (_, index) => index + 1)
     .filter((day) => (countsByDay[day] ?? 0) === 1);
 
-  if (thinDays.length) {
+  if (dayCount <= 15 && thinDays.length) {
     return `Dias com apenas uma atividade: ${thinDays.map((day) => `Dia ${day}`).join(', ')}.`;
   }
 

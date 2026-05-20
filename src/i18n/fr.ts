@@ -38,7 +38,7 @@ export const fr: TranslationMap = {
   'profile.createNewTrip': 'Créer un nouveau voyage',
   'profile.tripName': 'Nom du voyage',
   'profile.tripCountries': 'Pays à visiter',
-  'profile.description': 'Description',
+  'profile.description': 'Description du voyage',
   'profile.startDate': 'Date de début',
   'profile.endDate': 'Date de fin',
   'profile.style': 'Style',
