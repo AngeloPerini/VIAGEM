@@ -485,9 +485,11 @@ export function ProfilePage() {
   });
 
   const openAIReview = async (input: TripAIInput, group: UserTravelGroup) => {
+    setActiveGroup(group);
     const plan = await generateTripPlan(input);
     setAiFailedGroup(null);
     setAiRetryInput(null);
+    setShowCreateTripForm(false);
     goToAIReview(input, group, plan);
   };
 
@@ -625,7 +627,6 @@ export function ProfilePage() {
 
       groupForRetry = group;
       inputForRetry = buildAIInput(group, countries);
-      await refreshGroups({ silent: true }).catch(() => null);
       await openAIReview(inputForRetry, group);
     } catch (caughtError) {
       console.error('Falha no fluxo Gerar previa com IA', {

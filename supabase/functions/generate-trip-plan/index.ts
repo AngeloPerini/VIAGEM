@@ -228,6 +228,60 @@ const resolveAllowedCountry = (
   return countryMap.get(key) ?? null;
 };
 
+const travelText = (item: Record<string, unknown>) =>
+  stripDiacritics([
+    item.type,
+    item.category,
+    item.title,
+    item.description,
+    item.detail,
+    item.details,
+    item.country,
+  ].map((part) => asText(part)).join(' '));
+
+const isInternationalTransportLike = (item: Record<string, unknown>) => {
+  const text = travelText(item);
+  const hasTransportSignal = [
+    'voo',
+    'flight',
+    'aereo',
+    'aerea',
+    'aeroporto',
+    'airport',
+    'transporte',
+    'transport',
+  ].some((keyword) => text.includes(keyword));
+  const hasInternationalSignal = [
+    'internacional',
+    'international',
+    'brasil',
+    'brazil',
+    'partida',
+    'origem',
+    'saida',
+    'saindo',
+  ].some((keyword) => text.includes(keyword));
+
+  return hasTransportSignal && hasInternationalSignal;
+};
+
+const resolvePlanCountry = (
+  value: unknown,
+  countryMap: Map<string, string>,
+  fallbackCountry: string,
+  item: Record<string, unknown>,
+  options: { allowInternational: boolean; allowTransportFallback?: boolean },
+) => {
+  const resolved = resolveAllowedCountry(value, countryMap, fallbackCountry);
+
+  if (!resolved) {
+    return options.allowTransportFallback && isInternationalTransportLike(item) ? 'international' : null;
+  }
+
+  if (resolved === 'international' && !options.allowInternational) return null;
+  return resolved;
+};
+
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
 const parseDateOnly = (value: string) => {
@@ -467,23 +521,31 @@ const ensurePlanShape = (value: unknown, input: TripPlanInput) => {
         const date = asText(item.date) || getDateForDay(input, dayNumber);
         const rawDay = asText(item.day, `Dia ${dayNumber}`);
         const day = date && !rawDay.includes(date) ? `${rawDay} - ${date}` : rawDay;
-        const country = resolveAllowedCountry(item.country, countryMap, fallbackCountry) ?? asText(item.country);
+        const normalizedItem = {
+          ...item,
+          type: asText(item.type, 'outro'),
+          title: asText(item.title, 'Atividade sugerida'),
+          description: asText(item.description),
+        };
+        const country = resolvePlanCountry(item.country, countryMap, fallbackCountry, normalizedItem, {
+          allowInternational: true,
+          allowTransportFallback: true,
+        });
+        if (!country) return null;
         const orderIndex = Number(item.order_index ?? item.orderIndex ?? index);
 
         return {
-          ...item,
+          ...normalizedItem,
           day,
           date,
           time: asText(item.time),
           country,
           city: asText(item.city),
-          title: asText(item.title, 'Atividade sugerida'),
-          description: asText(item.description),
-          type: asText(item.type, 'outro'),
           order_index: Number.isFinite(orderIndex) ? orderIndex : index,
           links: safeArray(item.links),
         };
       })
+      .filter((item): item is Record<string, unknown> => Boolean(item))
       .filter((item) => asText(item.day) && asText(item.title)),
     itemKey,
   ).sort((a, b) => {
@@ -500,33 +562,48 @@ const ensurePlanShape = (value: unknown, input: TripPlanInput) => {
 
   const expenses = uniqueByKey(
     asRecords(plan.expenses)
-      .map((expense) => ({
-        ...expense,
-        category: asText(expense.category, 'Outros'),
-        country: resolveAllowedCountry(expense.country, countryMap, fallbackCountry) ?? asText(expense.country),
-        title: asText(expense.title ?? expense.description, 'Gasto planejado'),
-        detail: asText(expense.detail ?? expense.details, 'Aproximado / planejado'),
-        links: safeArray(expense.links),
-      }))
+      .map((expense) => {
+        const normalizedExpense = {
+          ...expense,
+          category: asText(expense.category, 'Outros'),
+          title: asText(expense.title ?? expense.description, 'Gasto planejado'),
+          detail: asText(expense.detail ?? expense.details, 'Aproximado / planejado'),
+          links: safeArray(expense.links),
+        };
+        const country = resolvePlanCountry(expense.country, countryMap, fallbackCountry, normalizedExpense, {
+          allowInternational: true,
+          allowTransportFallback: true,
+        });
+        if (!country) return null;
+        return { ...normalizedExpense, country };
+      })
+      .filter((expense): expense is Record<string, unknown> => Boolean(expense))
       .filter((expense) => asText(expense.title)),
     expenseKey,
   );
 
   const explicitAttractions = asRecords(plan.attractions)
-    .map((attraction) => ({
-      ...attraction,
-      name: asText(attraction.name ?? attraction.title),
-      country: resolveAllowedCountry(attraction.country, countryMap, fallbackCountry) ?? asText(attraction.country),
-      city: asText(attraction.city),
-      day: asText(attraction.day),
-      time: asText(attraction.time),
-      description: asText(attraction.description),
-      links: safeArray(attraction.links),
-    }))
+    .map((attraction) => {
+      const normalizedAttraction = {
+        ...attraction,
+        name: asText(attraction.name ?? attraction.title),
+        city: asText(attraction.city),
+        day: asText(attraction.day),
+        time: asText(attraction.time),
+        description: asText(attraction.description),
+        links: safeArray(attraction.links),
+      };
+      const country = resolvePlanCountry(attraction.country, countryMap, fallbackCountry, normalizedAttraction, {
+        allowInternational: false,
+      });
+      if (!country) return null;
+      return { ...normalizedAttraction, country };
+    })
+    .filter((attraction): attraction is Record<string, unknown> => Boolean(attraction))
     .filter((attraction) => looksLikeAttraction(attraction, false));
 
   const itineraryAttractions = itineraryItems
-    .filter((item) => looksLikeAttraction(item, true))
+    .filter((item) => countryMap.has(countryKey(item.country)) && looksLikeAttraction(item, true))
     .map((item) => ({
       name: asText(item.title),
       country: item.country,
@@ -838,7 +915,10 @@ Use frases curtas. Nao inclua links. Descricoes com ate 120 caracteres.
 
 Viagem:
 - Nome: ${input.tripName}
-- Paises permitidos no campo country: ${input.countries.join(', ')} ou "international"
+- allowedCountries: ${input.countries.join(', ')}
+- itinerary_items.country, expenses.country e attractions.country devem usar SOMENTE allowedCountries.
+- Excecao: voo internacional pode usar country "international"; esse valor nunca e destino nem filtro principal.
+- Brasil/Brazil so pode aparecer como destino se estiver em allowedCountries. Se o usuario mencionar saida/origem Brasil, trate como voo internacional com country "international"; nao crie Brasil em attractions, expenses, filtros ou paises da viagem.
 - Datas: ${input.startDate} ate ${input.endDate} (${tripDays} dias, contando inicio e fim)
 - Estilo: ${input.style}
 - Descricao/observacoes: ${[input.description, input.notes].filter(Boolean).join(' | ') || 'Nenhuma'}
@@ -862,7 +942,7 @@ Categorias de despesas: Hospedagem, Transporte, Passeios, Alimentacao, Comprinha
 Despesas: gere 6 a 10 gastos aproximados compativeis com roteiro, em euro e real.
 Attractions: inclua apenas atracoes reais do roteiro: museus, pracas, mirantes, parques, bairros turisticos e experiencias. Nao inclua hotel, aeroporto, metro, refeicoes ou deslocamentos.
 Routes: inclua rotas uteis entre cidades-base/aeroportos/estacoes ou trechos de estrada.
-Validacao final: remova duplicados, nao use pais fora dos permitidos e complete dias fracos.
+Validacao final: remova duplicados, remova Brasil/paises fora dos allowedCountries, converta voo de origem Brasil para "international" e complete dias fracos.
 
 ${qualityFeedback ? `A geracao anterior foi rejeitada por qualidade: ${qualityFeedback}. Refaça corrigindo esses pontos, com mais blocos por dia e sem paises fora da viagem.` : ''}
 
@@ -880,7 +960,7 @@ Retorne exatamente este objeto:
       "day": "Dia 1",
       "date": "2026-01-01",
       "time": "09h00",
-      "country": "um dos paises permitidos ou international",
+      "country": "um dos allowedCountries ou international apenas em voo",
       "city": "string",
       "title": "string",
       "description": "string",
@@ -891,7 +971,7 @@ Retorne exatamente este objeto:
   "expenses": [
     {
       "category": "uma das categorias permitidas",
-      "country": "um dos paises permitidos ou international",
+      "country": "um dos allowedCountries ou international apenas em transporte internacional",
       "title": "string",
       "detail": "Aproximado / planejado",
       "euro": { "min": 0, "max": 0 },
@@ -901,7 +981,7 @@ Retorne exatamente este objeto:
   "attractions": [
     {
       "name": "string",
-      "country": "um dos paises permitidos ou international",
+      "country": "um dos allowedCountries",
       "city": "string",
       "day": "Dia 1",
       "time": "09h00",

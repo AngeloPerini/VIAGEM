@@ -255,6 +255,70 @@ export const dedupeAttractions = (items: Attraction[]) =>
 export const dedupeExpenses = (items: Expense[]) =>
   uniqueByKey(items, expenseKey);
 
+const getAllowedCountryIds = (countries: string[]) =>
+  new Set(countries.map((country) => normalizeCountry(country)).filter((country) => country !== 'international'));
+
+const transportText = (value: {
+  type?: string | null;
+  category?: string | null;
+  title?: string | null;
+  detail?: string | null;
+  description?: string | null;
+}) =>
+  stripDiacritics([
+    value.type,
+    value.category,
+    value.title,
+    value.detail,
+    value.description,
+  ].map((part) => asString(part)).join(' '));
+
+const looksLikeInternationalTransport = (value: {
+  type?: string | null;
+  category?: string | null;
+  title?: string | null;
+  detail?: string | null;
+  description?: string | null;
+}) => {
+  const text = transportText(value);
+  const hasTransportSignal = ['voo', 'flight', 'aereo', 'aerea', 'transporte', 'transport']
+    .some((keyword) => text.includes(keyword));
+  const hasInternationalSignal = ['internacional', 'international', 'brasil', 'brazil', 'partida', 'origem', 'saida', 'saindo']
+    .some((keyword) => text.includes(keyword));
+
+  return hasTransportSignal && hasInternationalSignal;
+};
+
+const scopePlanToAllowedCountries = (plan: TripAIPlan, allowedCountries: string[]): TripAIPlan => {
+  const allowed = getAllowedCountryIds(allowedCountries);
+
+  const itineraryItems = plan.itinerary_items.flatMap((item) => {
+    const country = normalizeCountry(item.country);
+    if (allowed.has(country)) return [{ ...item, country }];
+    if (looksLikeInternationalTransport(item)) return [{ ...item, country: 'international' }];
+    return [];
+  });
+
+  const expenses = plan.expenses.flatMap((expense) => {
+    const country = normalizeCountry(expense.country);
+    if (allowed.has(country)) return [{ ...expense, country }];
+    if (looksLikeInternationalTransport(expense)) return [{ ...expense, country: 'international' }];
+    return [];
+  });
+
+  const attractions = plan.attractions.flatMap((attraction) => {
+    const country = normalizeCountry(attraction.country);
+    return allowed.has(country) ? [{ ...attraction, country }] : [];
+  });
+
+  return {
+    ...plan,
+    itinerary_items: dedupeItineraryItems(itineraryItems),
+    expenses: dedupeExpenses(expenses),
+    attractions: dedupeAttractions(attractions),
+  };
+};
+
 export const normalizeTripAIPlan = (value: unknown): TripAIPlan => {
   const record = asRecord(value);
   const warnings = asArray<unknown>(record.warnings).map((warning) => asString(warning)).filter(Boolean);
@@ -420,6 +484,7 @@ export async function updateTripGenerationFeedback(
 export async function applyTripPlan(review: TripAIReviewState, plan: TripAIPlan, feedback?: string) {
   const userId = await requireCurrentUserId();
   const { groupId } = review.input;
+  const scopedPlan = scopePlanToAllowedCountries(plan, review.input.countries);
 
   const { data: membership, error: membershipError } = await supabase
     .from('group_members')
@@ -500,13 +565,13 @@ export async function applyTripPlan(review: TripAIReviewState, plan: TripAIPlan,
     ),
   );
 
-  const itineraryItemsToInsert = dedupeItineraryItems(plan.itinerary_items).filter(
+  const itineraryItemsToInsert = dedupeItineraryItems(scopedPlan.itinerary_items).filter(
     (item) => !existingItineraryKeys.has(itineraryItemKey(item)),
   );
-  const expensesToInsert = dedupeExpenses(plan.expenses).filter(
+  const expensesToInsert = dedupeExpenses(scopedPlan.expenses).filter(
     (expense) => !existingExpenseKeys.has(expenseKey(expense)),
   );
-  const attractionsToInsert = dedupeAttractions(plan.attractions).filter(
+  const attractionsToInsert = dedupeAttractions(scopedPlan.attractions).filter(
     (attraction) => !existingAttractionKeys.has(attractionKey(attraction)),
   );
 

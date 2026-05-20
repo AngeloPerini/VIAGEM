@@ -134,7 +134,7 @@ function ItineraryFormModal({
     () =>
       countryOptions.some((country) => country.id !== 'all')
         ? countryOptions
-        : buildCountryOptions(['international']),
+        : buildCountryOptions(['international'], [], { includeInternational: true }),
     [countryOptions],
   );
   const defaultCountry = selectableCountryOptions.find((country) => country.id !== 'all')?.id ?? 'international';

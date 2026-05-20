@@ -43,7 +43,7 @@ export function ExpenseFormModal({
     () =>
       countryOptions.some((item) => item.id !== 'all')
         ? countryOptions
-        : buildCountryOptions(['international']),
+        : buildCountryOptions(['international'], [], { includeInternational: true }),
     [countryOptions],
   );
   const [category, setCategory] = useState('lodging');

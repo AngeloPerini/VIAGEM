@@ -14,6 +14,8 @@ const knownCountryNames: Record<string, string> = {
   escocia: 'Escócia',
   united_kingdom: 'Reino Unido',
   reino_unido: 'Reino Unido',
+  brazil: 'Brasil',
+  brasil: 'Brasil',
   international: 'Internacional',
 };
 
@@ -38,6 +40,8 @@ const countryAliases: Record<string, string> = {
   reino_unido: 'united_kingdom',
   united_kingdom: 'united_kingdom',
   uk: 'united_kingdom',
+  brasil: 'brazil',
+  brazil: 'brazil',
   international: 'international',
   internacional: 'international',
 };
@@ -111,19 +115,20 @@ export const countryNames = new Proxy(knownCountryNames, {
 export const buildCountryOptions = (
   values: Array<string | null | undefined> = [],
   fallbackValues: Array<string | null | undefined> = [],
+  config: { includeInternational?: boolean } = {},
 ): CountryMeta[] => {
   const seen = new Set<string>();
-  const options: CountryMeta[] = [
+  const countryOptions: CountryMeta[] = [
     { id: 'all', name: 'Todos', shortName: 'Todos', accent: '#0f172a' },
   ];
 
   [...fallbackValues, ...values].forEach((value) => {
     const id = normalizeCountryId(value);
-    if (!id || id === 'all' || seen.has(id)) {
+    if (!id || id === 'all' || (!config.includeInternational && id === 'international') || seen.has(id)) {
       return;
     }
     seen.add(id);
-    options.push({
+    countryOptions.push({
       id,
       name: countryLabel(id),
       shortName: countryShortName(id),
@@ -131,7 +136,7 @@ export const buildCountryOptions = (
     });
   });
 
-  return options;
+  return countryOptions;
 };
 
 export const countries: CountryMeta[] = buildCountryOptions(['italy', 'switzerland', 'france']);
