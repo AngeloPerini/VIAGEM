@@ -1,5 +1,6 @@
 import { AnimatePresence, motion } from 'framer-motion';
 import {
+  Bell,
   CalendarDays,
   CheckCircle2,
   Copy,
@@ -8,7 +9,9 @@ import {
   Loader2,
   LogOut,
   MapPin,
+  Pencil,
   Plus,
+  Save,
   Send,
   ShieldCheck,
   Sparkles,
@@ -37,13 +40,21 @@ import {
 import {
   deleteTrip,
   getInvites,
-  getPendingInvites,
+  leaveTrip,
   normalizeInviteToken,
   rejectInvite,
+  updateTrip,
   updateTripStatus,
   type InviteDetails,
-  type PendingInvite,
+  type UpdateTravelGroupInput,
 } from '../services/groupsService';
+import {
+  clearReadNotifications,
+  getNotifications,
+  markNotificationAsRead,
+  subscribeNotifications,
+  type AppNotification,
+} from '../services/notificationsService';
 import { supabase } from '../services/supabaseClient';
 import { generateTripPlan, storeTripAIReview, TripAIFunctionError } from '../services/tripAIService';
 import type {
@@ -214,7 +225,9 @@ function TripDetailsModal({
   onClose,
   onComplete,
   onDelete,
+  onLeave,
   onOpen,
+  onUpdate,
   summary,
 }: {
   actionId: string | null;
@@ -225,7 +238,9 @@ function TripDetailsModal({
   onClose: () => void;
   onComplete: (group: UserTravelGroup) => void;
   onDelete: (group: UserTravelGroup) => void;
+  onLeave: (group: UserTravelGroup) => void;
   onOpen: (group: UserTravelGroup) => void;
+  onUpdate: (group: UserTravelGroup, input: UpdateTravelGroupInput) => Promise<void>;
   summary?: TripSummary;
 }) {
   const status = group.status ?? 'planned';
@@ -233,6 +248,51 @@ function TripDetailsModal({
     ? group.countries.map((country) => countryLabel(country)).join(', ')
     : 'Paises nao informados';
   const isBusy = actionId === group.id;
+  const [isEditing, setIsEditing] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [draft, setDraft] = useState({
+    name: group.name,
+    description: group.description ?? '',
+    countries: group.countries?.join(', ') ?? '',
+    startDate: group.startDate ?? '',
+    endDate: group.endDate ?? '',
+    travelStyle: group.travelStyle ?? 'intermediaria',
+    status,
+  });
+
+  useEffect(() => {
+    setIsEditing(false);
+    setIsSaving(false);
+    setDraft({
+      name: group.name,
+      description: group.description ?? '',
+      countries: group.countries?.join(', ') ?? '',
+      startDate: group.startDate ?? '',
+      endDate: group.endDate ?? '',
+      travelStyle: group.travelStyle ?? 'intermediaria',
+      status: group.status ?? 'planned',
+    });
+  }, [group]);
+
+  const handleEditSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setIsSaving(true);
+
+    try {
+      await onUpdate(group, {
+        name: draft.name,
+        description: draft.description,
+        countries: parseCountryInput(draft.countries),
+        startDate: draft.startDate,
+        endDate: draft.endDate,
+        travelStyle: draft.travelStyle,
+        status: draft.status as TripStatus,
+      });
+      setIsEditing(false);
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   return (
     <motion.div
@@ -258,15 +318,123 @@ function TripDetailsModal({
             <p className="text-sm font-black uppercase tracking-[0.18em] text-slate-400">Detalhes da viagem</p>
             <h2 className="mt-2 truncate text-3xl font-black text-slate-950">{group.name}</h2>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Fechar detalhes"
-            className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-slate-100 text-slate-600 transition hover:bg-slate-200"
-          >
-            <X className="h-5 w-5" />
-          </button>
+          <div className="flex shrink-0 items-center gap-2">
+            {isOwner ? (
+              <button
+                type="button"
+                onClick={() => setIsEditing((current) => !current)}
+                aria-label="Editar viagem"
+                className="inline-flex h-10 w-10 items-center justify-center rounded-2xl bg-teal-50 text-teal-700 transition hover:bg-teal-100"
+              >
+                <Pencil className="h-5 w-5" />
+              </button>
+            ) : null}
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label="Fechar detalhes"
+              className="inline-flex h-10 w-10 items-center justify-center rounded-2xl bg-slate-100 text-slate-600 transition hover:bg-slate-200"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </div>
         </div>
+
+        {isEditing ? (
+          <form onSubmit={handleEditSubmit} className="mt-5 space-y-4 rounded-3xl border border-teal-100 bg-teal-50/60 p-4">
+            <div className="grid gap-4 sm:grid-cols-2">
+              <label className="block">
+                <span className="mb-2 block text-sm font-bold text-slate-600">Nome</span>
+                <input
+                  required
+                  value={draft.name}
+                  onChange={(event) => setDraft((current) => ({ ...current, name: event.target.value }))}
+                  className="h-11 w-full rounded-2xl border border-slate-200 px-4 font-semibold outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-100"
+                />
+              </label>
+              <label className="block">
+                <span className="mb-2 block text-sm font-bold text-slate-600">Paises</span>
+                <input
+                  value={draft.countries}
+                  onChange={(event) => setDraft((current) => ({ ...current, countries: event.target.value }))}
+                  className="h-11 w-full rounded-2xl border border-slate-200 px-4 font-semibold outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-100"
+                />
+              </label>
+            </div>
+            <label className="block">
+              <span className="mb-2 block text-sm font-bold text-slate-600">Descricao</span>
+              <textarea
+                value={draft.description}
+                onChange={(event) => setDraft((current) => ({ ...current, description: event.target.value }))}
+                rows={3}
+                className="w-full rounded-2xl border border-slate-200 px-4 py-3 font-semibold outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-100"
+              />
+            </label>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <label className="block">
+                <span className="mb-2 block text-sm font-bold text-slate-600">Data inicial</span>
+                <input
+                  type="date"
+                  value={draft.startDate}
+                  onChange={(event) => setDraft((current) => ({ ...current, startDate: event.target.value }))}
+                  className="h-11 w-full rounded-2xl border border-slate-200 px-4 font-semibold outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-100"
+                />
+              </label>
+              <label className="block">
+                <span className="mb-2 block text-sm font-bold text-slate-600">Data final</span>
+                <input
+                  type="date"
+                  value={draft.endDate}
+                  onChange={(event) => setDraft((current) => ({ ...current, endDate: event.target.value }))}
+                  className="h-11 w-full rounded-2xl border border-slate-200 px-4 font-semibold outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-100"
+                />
+              </label>
+              <label className="block">
+                <span className="mb-2 block text-sm font-bold text-slate-600">Estilo</span>
+                <select
+                  value={draft.travelStyle}
+                  onChange={(event) => setDraft((current) => ({ ...current, travelStyle: event.target.value }))}
+                  className="h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 font-semibold outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-100"
+                >
+                  <option value="economica">Economica</option>
+                  <option value="intermediaria">Intermediaria</option>
+                  <option value="confortavel">Confortavel</option>
+                </select>
+              </label>
+              <label className="block">
+                <span className="mb-2 block text-sm font-bold text-slate-600">Status</span>
+                <select
+                  value={draft.status}
+                  onChange={(event) => setDraft((current) => ({ ...current, status: event.target.value as TripStatus }))}
+                  className="h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 font-semibold outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-100"
+                >
+                  <option value="planned">Planejada</option>
+                  <option value="active">Ativa</option>
+                  <option value="completed">Realizada</option>
+                  <option value="canceled">Cancelada</option>
+                </select>
+              </label>
+            </div>
+            <div className="grid gap-2 sm:grid-cols-2">
+              <button
+                type="submit"
+                disabled={isSaving}
+                className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl bg-slate-950 px-4 text-sm font-black text-white transition hover:bg-teal-700 disabled:opacity-60"
+              >
+                {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                Salvar alteracoes
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsEditing(false)}
+                disabled={isSaving}
+                className="inline-flex h-11 items-center justify-center rounded-2xl bg-white px-4 text-sm font-black text-slate-600 transition hover:bg-slate-100 disabled:opacity-60"
+              >
+                Cancelar
+              </button>
+            </div>
+          </form>
+        ) : null}
 
         <div className="mt-5 flex flex-wrap gap-2">
           <span className={`rounded-2xl px-3 py-2 text-xs font-black uppercase tracking-[0.12em] ${statusClasses[status]}`}>
@@ -342,9 +510,20 @@ function TripDetailsModal({
               Apagar viagem
             </button>
           ) : (
-            <p className="rounded-2xl bg-slate-50 px-4 py-3 text-sm font-bold text-slate-500 sm:col-span-2">
-              Acoes administrativas ficam disponiveis apenas para o owner.
-            </p>
+            <>
+              <button
+                type="button"
+                onClick={() => onLeave(group)}
+                disabled={isBusy}
+                className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl bg-rose-50 px-5 font-black text-rose-700 transition hover:bg-rose-100 disabled:opacity-60"
+              >
+                <LogOut className="h-5 w-5" />
+                Sair desta viagem
+              </button>
+              <p className="rounded-2xl bg-slate-50 px-4 py-3 text-sm font-bold text-slate-500">
+                Acoes administrativas ficam disponiveis apenas para o owner.
+              </p>
+            </>
           )}
         </div>
       </motion.section>
@@ -364,7 +543,7 @@ export function ProfilePage() {
   const [selectedTrip, setSelectedTrip] = useState<UserTravelGroup | null>(null);
   const [showCreateTripForm, setShowCreateTripForm] = useState(false);
   const [knownInvites, setKnownInvites] = useState<InviteDetails[]>([]);
-  const [pendingInvites, setPendingInvites] = useState<PendingInvite[]>([]);
+  const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [generatedInvite, setGeneratedInvite] = useState<InviteDetails | null>(null);
   const [inviteEmail, setInviteEmail] = useState('');
   const [copied, setCopied] = useState<string | null>(null);
@@ -384,7 +563,7 @@ export function ProfilePage() {
   const [aiFailedGroup, setAiFailedGroup] = useState<UserTravelGroup | null>(null);
   const [aiRetryInput, setAiRetryInput] = useState<TripAIInput | null>(null);
   const [isJoiningTrip, setIsJoiningTrip] = useState(false);
-  const [inviteActionToken, setInviteActionToken] = useState<string | null>(null);
+  const [notificationActionId, setNotificationActionId] = useState<string | null>(null);
   const [tripActionId, setTripActionId] = useState<string | null>(null);
   const [removingUserId, setRemovingUserId] = useState<string | null>(null);
 
@@ -404,6 +583,7 @@ export function ProfilePage() {
       : getProfileName(ownerMember?.profile, ownerMember?.profile?.email, 'Dono da viagem');
 
   const latestInvite = generatedInvite ?? knownInvites[0] ?? null;
+  const unreadNotifications = notifications.filter((notification) => !notification.read).length;
   const isAiTestUser = user?.email?.trim().toLowerCase() === 'r.perini351@gmail.com';
   const aiGenerationsUsed = profile?.aiGenerationsUsed ?? 0;
   const aiGenerationsLimit = profile?.aiGenerationsLimit ?? 3;
@@ -512,6 +692,12 @@ export function ProfilePage() {
     goToAIReview(input, group, plan);
   };
 
+  const loadNotifications = useCallback(async () => {
+    const nextNotifications = await getNotifications();
+    setNotifications(nextNotifications);
+    return nextNotifications;
+  }, []);
+
   const loadProfile = useCallback(async () => {
     setIsLoading(true);
     setError(null);
@@ -521,12 +707,12 @@ export function ProfilePage() {
         await upsertCurrentProfile(user).catch(() => null);
       }
 
-      const [nextProfile, nextStats, nextMembers, nextInvites, nextPendingInvites, nextTripSummaries] = await Promise.all([
+      const [nextProfile, nextStats, nextMembers, nextInvites, nextNotifications, nextTripSummaries] = await Promise.all([
         getCurrentProfile().catch(() => buildFallbackProfile(user)),
         getUserStats(user?.id, activeGroup?.id),
         activeGroup ? getGroupMembers(activeGroup.id) : Promise.resolve([]),
         activeGroup && isOwner ? getInvites(activeGroup.id).catch(() => []) : Promise.resolve([]),
-        getPendingInvites().catch(() => []),
+        getNotifications().catch(() => []),
         getProfileTripStats().catch(() => []),
       ]);
 
@@ -534,7 +720,7 @@ export function ProfilePage() {
       setStats(nextStats);
       setMembers(nextMembers);
       setKnownInvites(nextInvites);
-      setPendingInvites(nextPendingInvites);
+      setNotifications(nextNotifications);
       setTripSummaries(Object.fromEntries(nextTripSummaries.map((summary) => [summary.groupId, summary])));
     } catch (caughtError) {
       setError(caughtError instanceof Error ? caughtError.message : 'Nao foi possivel carregar o perfil.');
@@ -568,6 +754,17 @@ export function ProfilePage() {
       void channel.unsubscribe();
     };
   }, [activeGroup, loadProfile]);
+
+  useEffect(() => {
+    if (!user?.id) return undefined;
+
+    void loadNotifications().catch(() => null);
+    const channel = subscribeNotifications(user.id, () => void loadNotifications().catch(() => null));
+
+    return () => {
+      void channel.unsubscribe();
+    };
+  }, [loadNotifications, user?.id]);
 
   const copyToClipboard = async (value: string, label: string) => {
     await navigator.clipboard.writeText(value);
@@ -761,7 +958,7 @@ export function ProfilePage() {
       const group = await acceptInvite(token);
       setStatus(`Voce entrou em ${group.name}.`);
       setInviteCodeInput('');
-      setPendingInvites((current) => current.filter((invite) => invite.token !== token));
+      await loadNotifications().catch(() => null);
       await refreshGroups({ silent: true });
       window.history.replaceState({}, '', '/dashboard');
       window.dispatchEvent(new PopStateEvent('popstate'));
@@ -772,14 +969,55 @@ export function ProfilePage() {
     }
   };
 
-  const handleAcceptPendingInvite = async (invite: PendingInvite) => {
+  const handleMarkNotificationRead = async (notification: AppNotification) => {
+    setNotificationActionId(notification.id);
     setError(null);
     setStatus(null);
-    setInviteActionToken(invite.token);
 
     try {
-      const group = await acceptInvite(invite.token);
-      setPendingInvites((current) => current.filter((item) => item.id !== invite.id));
+      await markNotificationAsRead(notification.id);
+      setNotifications((current) =>
+        current.map((item) => item.id === notification.id ? { ...item, read: true } : item),
+      );
+    } catch (caughtError) {
+      setError(caughtError instanceof Error ? caughtError.message : 'Nao foi possivel marcar a notificacao como lida.');
+    } finally {
+      setNotificationActionId(null);
+    }
+  };
+
+  const handleClearReadNotifications = async () => {
+    setNotificationActionId('clear-read');
+    setError(null);
+    setStatus(null);
+
+    try {
+      await clearReadNotifications();
+      setNotifications((current) => current.filter((notification) => !notification.read));
+      setStatus('Notificacoes lidas removidas.');
+    } catch (caughtError) {
+      setError(caughtError instanceof Error ? caughtError.message : 'Nao foi possivel limpar notificacoes.');
+    } finally {
+      setNotificationActionId(null);
+    }
+  };
+
+  const handleAcceptNotificationInvite = async (notification: AppNotification) => {
+    const token = typeof notification.metadata.token === 'string'
+      ? normalizeInviteToken(notification.metadata.token)
+      : '';
+    if (!token) return;
+
+    setNotificationActionId(notification.id);
+    setError(null);
+    setStatus(null);
+
+    try {
+      const group = await acceptInvite(token);
+      await markNotificationAsRead(notification.id).catch(() => null);
+      setNotifications((current) =>
+        current.map((item) => item.id === notification.id ? { ...item, read: true } : item),
+      );
       setStatus(`Convite aceito. Voce entrou em ${group.name}.`);
       await refreshGroups({ silent: true });
       window.history.replaceState({}, '', '/dashboard');
@@ -787,23 +1025,31 @@ export function ProfilePage() {
     } catch (caughtError) {
       setError(caughtError instanceof Error ? caughtError.message : 'Nao foi possivel aceitar o convite.');
     } finally {
-      setInviteActionToken(null);
+      setNotificationActionId(null);
     }
   };
 
-  const handleRejectPendingInvite = async (invite: PendingInvite) => {
+  const handleRejectNotificationInvite = async (notification: AppNotification) => {
+    const token = typeof notification.metadata.token === 'string'
+      ? normalizeInviteToken(notification.metadata.token)
+      : '';
+    if (!token) return;
+
+    setNotificationActionId(notification.id);
     setError(null);
     setStatus(null);
-    setInviteActionToken(invite.token);
 
     try {
-      await rejectInvite(invite.token);
-      setPendingInvites((current) => current.filter((item) => item.id !== invite.id));
-      setStatus(`Convite para ${invite.group.name} recusado.`);
+      await rejectInvite(token);
+      await markNotificationAsRead(notification.id).catch(() => null);
+      setNotifications((current) =>
+        current.map((item) => item.id === notification.id ? { ...item, read: true } : item),
+      );
+      setStatus('Convite recusado.');
     } catch (caughtError) {
       setError(caughtError instanceof Error ? caughtError.message : 'Nao foi possivel recusar o convite.');
     } finally {
-      setInviteActionToken(null);
+      setNotificationActionId(null);
     }
   };
 
@@ -880,6 +1126,57 @@ export function ProfilePage() {
     }
   };
 
+  const handleUpdateTrip = async (group: UserTravelGroup, input: UpdateTravelGroupInput) => {
+    if (group.ownerId !== user?.id) return;
+
+    setTripActionId(group.id);
+    setError(null);
+    setStatus(null);
+
+    try {
+      const updatedGroup = await updateTrip(group.id, input);
+      const mergedGroup = { ...group, ...updatedGroup, role: group.role };
+      setSelectedTrip((current) => current?.id === group.id ? mergedGroup : current);
+      if (activeGroup?.id === group.id) setActiveGroup(mergedGroup);
+      await refreshGroups({ silent: true });
+      await loadProfile();
+      setStatus('Viagem atualizada.');
+    } catch (caughtError) {
+      setError(caughtError instanceof Error ? caughtError.message : 'Nao foi possivel atualizar a viagem.');
+    } finally {
+      setTripActionId(null);
+    }
+  };
+
+  const handleLeaveTrip = async (group: UserTravelGroup) => {
+    if (group.role === 'owner') {
+      setError('Owner nao pode sair sem transferir propriedade ou apagar/cancelar a viagem.');
+      return;
+    }
+
+    const confirmed = window.confirm(`Deseja sair da viagem ${group.name}?`);
+    if (!confirmed) return;
+
+    setTripActionId(group.id);
+    setError(null);
+    setStatus(null);
+
+    try {
+      await leaveTrip(group.id);
+      setSelectedTrip(null);
+      if (activeGroup?.id === group.id) setActiveGroup(null);
+      await refreshGroups({ silent: true });
+      await loadProfile();
+      setStatus(`Voce saiu da viagem ${group.name}.`);
+      window.history.replaceState({}, '', '/perfil');
+      window.dispatchEvent(new PopStateEvent('popstate'));
+    } catch (caughtError) {
+      setError(caughtError instanceof Error ? caughtError.message : 'Nao foi possivel sair desta viagem.');
+    } finally {
+      setTripActionId(null);
+    }
+  };
+
   const handleDeleteTrip = async (group: UserTravelGroup) => {
     if (group.ownerId !== user?.id) return;
     const confirmed = window.confirm('Essa ação apagará a viagem e todos os dados vinculados. Deseja continuar?');
@@ -944,7 +1241,7 @@ export function ProfilePage() {
             </button>
           </div>
         </div>
-        <div className="mt-6 grid gap-3 text-sm font-bold text-slate-300 md:grid-cols-3">
+        <div className="mt-6 grid gap-3 text-sm font-bold text-slate-300 md:grid-cols-3 xl:grid-cols-5">
           <span className="rounded-2xl bg-white/10 px-4 py-3">{t('profile.createdAt')}: {formatDate(profile?.createdAt)}</span>
           <span className="rounded-2xl bg-white/10 px-4 py-3">
             {t('profile.activeTrip')}: {activeGroup?.name ?? t('profile.noActiveTrip')}
@@ -955,6 +1252,9 @@ export function ProfilePage() {
           <span className="rounded-2xl bg-white/10 px-4 py-3">
             IA: {isAiTestUser ? 'geracoes ilimitadas' : `${aiGenerationsUsed} de ${aiGenerationsLimit} geracoes usadas`}
           </span>
+          <span className="rounded-2xl bg-white/10 px-4 py-3">
+            Notificacoes: {unreadNotifications} nao lida{unreadNotifications === 1 ? '' : 's'}
+          </span>
         </div>
       </section>
 
@@ -964,64 +1264,97 @@ export function ProfilePage() {
         </p>
       ) : null}
 
-      {pendingInvites.length ? (
-        <section className="rounded-[2rem] border border-teal-100 bg-white/90 p-6 shadow-xl shadow-slate-900/10 md:p-8">
-          <div className="mb-5 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-            <div>
-              <p className="text-sm font-black uppercase tracking-[0.18em] text-teal-700">{t('profile.receivedInvites')}</p>
-              <h2 className="text-2xl font-black text-slate-950">{t('profile.pendingInvites')}</h2>
-            </div>
-            <span className="rounded-2xl bg-teal-50 px-3 py-2 text-sm font-black text-teal-700">
-              {pendingInvites.length}
-            </span>
+      <section className="rounded-[2rem] border border-white/80 bg-white/90 p-6 shadow-xl shadow-slate-900/10 md:p-8">
+        <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <p className="text-sm font-black uppercase tracking-[0.18em] text-teal-700">Notificacoes</p>
+            <h2 className="text-2xl font-black text-slate-950">
+              {unreadNotifications ? `${unreadNotifications} nao lida${unreadNotifications === 1 ? '' : 's'}` : 'Tudo em dia'}
+            </h2>
           </div>
-          <div className="grid gap-3 lg:grid-cols-2">
-            {pendingInvites.map((invite) => (
-              <article key={invite.id} className="rounded-3xl border border-slate-100 bg-slate-50 p-4">
-                <div className="flex items-start gap-3">
-                  <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-slate-950 text-white">
-                    <Ticket className="h-5 w-5" />
-                  </span>
-                  <div className="min-w-0">
-                    <h3 className="truncate text-lg font-black text-slate-950">{invite.group.name}</h3>
-                    <p className="mt-1 text-sm font-bold text-slate-600">
-                      Enviado por {invite.inviterName}
-                    </p>
-                    <p className="mt-1 text-xs font-bold text-slate-400">
-                      Expira em {invite.expiresAt ? formatDate(invite.expiresAt) : '7 dias'} · {invite.code}
-                    </p>
+          <button
+            type="button"
+            onClick={() => void handleClearReadNotifications()}
+            disabled={notificationActionId === 'clear-read' || !notifications.some((notification) => notification.read)}
+            className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl bg-slate-100 px-4 text-sm font-black text-slate-700 transition hover:bg-slate-200 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {notificationActionId === 'clear-read' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+            Limpar lidas
+          </button>
+        </div>
+
+        {notifications.length ? (
+          <div className="space-y-3">
+            {notifications.map((notification) => {
+              const isInviteNotification = notification.type === 'invite_received' && typeof notification.metadata.token === 'string';
+              const isBusy = notificationActionId === notification.id;
+
+              return (
+                <article
+                  key={notification.id}
+                  className={`rounded-3xl border p-4 ${
+                    notification.read ? 'border-slate-100 bg-slate-50' : 'border-teal-100 bg-teal-50/70'
+                  }`}
+                >
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        <Bell className={`h-4 w-4 ${notification.read ? 'text-slate-400' : 'text-teal-700'}`} />
+                        <h3 className="truncate font-black text-slate-950">{notification.title}</h3>
+                        {!notification.read ? (
+                          <span className="rounded-full bg-teal-700 px-2 py-1 text-[0.65rem] font-black uppercase tracking-[0.12em] text-white">
+                            Nova
+                          </span>
+                        ) : null}
+                      </div>
+                      <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">{notification.message}</p>
+                      <p className="mt-2 text-xs font-bold text-slate-400">{formatDate(notification.createdAt)}</p>
+                    </div>
+                    <div className="flex flex-wrap gap-2 sm:justify-end">
+                      {isInviteNotification && !notification.read ? (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => void handleAcceptNotificationInvite(notification)}
+                            disabled={isBusy}
+                            className="inline-flex h-10 items-center justify-center gap-2 rounded-2xl bg-teal-700 px-3 text-sm font-black text-white transition hover:bg-teal-800 disabled:opacity-60"
+                          >
+                            {isBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
+                            Aceitar
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => void handleRejectNotificationInvite(notification)}
+                            disabled={isBusy}
+                            className="inline-flex h-10 items-center justify-center gap-2 rounded-2xl bg-white px-3 text-sm font-black text-rose-700 transition hover:bg-rose-50 disabled:opacity-60"
+                          >
+                            <X className="h-4 w-4" />
+                            Recusar
+                          </button>
+                        </>
+                      ) : null}
+                      {!notification.read ? (
+                        <button
+                          type="button"
+                          onClick={() => void handleMarkNotificationRead(notification)}
+                          disabled={isBusy}
+                          className="inline-flex h-10 items-center justify-center rounded-2xl bg-white px-3 text-sm font-black text-slate-700 transition hover:bg-slate-100 disabled:opacity-60"
+                        >
+                          Marcar lida
+                        </button>
+                      ) : null}
+                    </div>
                   </div>
-                </div>
-                {invite.group.description ? (
-                  <p className="mt-3 line-clamp-2 text-sm font-semibold leading-6 text-slate-600">
-                    {invite.group.description}
-                  </p>
-                ) : null}
-                <div className="mt-4 grid gap-2 sm:grid-cols-2">
-                  <button
-                    type="button"
-                    onClick={() => void handleAcceptPendingInvite(invite)}
-                    disabled={inviteActionToken === invite.token}
-                    className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl bg-teal-700 px-4 text-sm font-black text-white transition hover:bg-teal-800 disabled:opacity-60"
-                  >
-                    {inviteActionToken === invite.token ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
-                    {t('profile.acceptInvite')}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => void handleRejectPendingInvite(invite)}
-                    disabled={inviteActionToken === invite.token}
-                    className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl bg-white px-4 text-sm font-black text-rose-700 transition hover:bg-rose-50 disabled:opacity-60"
-                  >
-                    <X className="h-4 w-4" />
-                    {t('profile.rejectInvite')}
-                  </button>
-                </div>
-              </article>
-            ))}
+                </article>
+              );
+            })}
           </div>
-        </section>
-      ) : null}
+        ) : (
+          <p className="rounded-2xl bg-slate-50 px-4 py-5 text-sm font-bold text-slate-500">
+            Nenhuma notificacao por enquanto.
+          </p>
+        )}
+      </section>
 
       {aiFailedGroup && aiRetryInput ? (
         <section className="rounded-[2rem] border border-amber-200 bg-amber-50 p-5 shadow-xl shadow-amber-900/10 md:p-6">
@@ -1347,6 +1680,17 @@ export function ProfilePage() {
               <p className="mt-3 rounded-2xl bg-slate-50 px-4 py-3 text-sm font-bold text-slate-600">
                 {aiUsageLabel}
               </p>
+              {activeGroup.role === 'member' ? (
+                <button
+                  type="button"
+                  onClick={() => void handleLeaveTrip(activeGroup)}
+                  disabled={tripActionId === activeGroup.id}
+                  className="mt-3 inline-flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-rose-50 px-5 font-black text-rose-700 transition hover:bg-rose-100 disabled:opacity-60 sm:w-auto"
+                >
+                  {tripActionId === activeGroup.id ? <Loader2 className="h-5 w-5 animate-spin" /> : <LogOut className="h-5 w-5" />}
+                  Sair desta viagem
+                </button>
+              ) : null}
               <div className="mt-6 grid gap-3 text-sm font-bold text-slate-600 sm:grid-cols-2">
                 <span className="rounded-2xl bg-slate-50 px-4 py-3">
                   <CalendarDays className="mr-2 inline h-4 w-4" />
@@ -1536,7 +1880,9 @@ export function ProfilePage() {
             onClose={() => setSelectedTrip(null)}
             onComplete={handleCompleteTrip}
             onDelete={handleDeleteTrip}
+            onLeave={handleLeaveTrip}
             onOpen={handleOpenTrip}
+            onUpdate={handleUpdateTrip}
             summary={tripSummaries[selectedTrip.id]}
           />
         ) : null}

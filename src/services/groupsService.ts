@@ -96,6 +96,16 @@ export type PendingInvite = {
   inviterEmail?: string;
 };
 
+export type UpdateTravelGroupInput = {
+  name?: string;
+  description?: string;
+  countries?: string[];
+  startDate?: string;
+  endDate?: string;
+  travelStyle?: string;
+  status?: TripStatus;
+};
+
 const toGroup = (row: TravelGroupRow): TravelGroup => ({
   id: row.id,
   name: row.name,
@@ -376,16 +386,32 @@ const isTripStatus = (value: string): value is TripStatus =>
 
 export async function updateTripStatus(groupId: string, status: TripStatus): Promise<UserTravelGroup> {
   if (!isTripStatus(status)) throw new Error('Status da viagem invalido.');
+  return updateTrip(groupId, { status });
+}
+
+export async function updateTrip(groupId: string, input: UpdateTravelGroupInput): Promise<UserTravelGroup> {
+  if (input.status && !isTripStatus(input.status)) throw new Error('Status da viagem invalido.');
 
   const { data, error } = await supabase
-    .from('travel_groups')
-    .update({ status })
-    .eq('id', groupId)
-    .select(GROUP_SELECT)
-    .single();
+    .rpc('update_travel_group_details', {
+      target_group_id: groupId,
+      group_name: input.name?.trim() || null,
+      group_description: input.description ?? null,
+      group_countries: input.countries ?? null,
+      group_start_date: input.startDate || null,
+      group_end_date: input.endDate || null,
+      group_travel_style: input.travelStyle || null,
+      group_status: input.status ?? null,
+    })
+    .maybeSingle();
 
   if (error) throw error;
-  return { ...toGroup(data as TravelGroupRow), role: 'owner' };
+  if (!data) throw new Error('Viagem nao encontrada.');
+  const group = data as TravelGroupRpcRow;
+  return {
+    ...toGroup(group),
+    role: group.role === 'member' ? 'member' : 'owner',
+  };
 }
 
 export async function setActiveTrip(groupId: string): Promise<UserTravelGroup> {
@@ -461,6 +487,16 @@ export async function deleteTrip(groupId: string) {
   const { error } = await supabase.from('travel_groups').delete().eq('id', groupId);
   if (error) throw error;
 
+  storeActiveGroupId(userId, null);
+}
+
+export async function leaveTrip(groupId: string) {
+  const userId = await requireUserId();
+  const { error } = await supabase.rpc('leave_travel_group', {
+    target_group_id: groupId,
+  });
+
+  if (error) throw error;
   storeActiveGroupId(userId, null);
 }
 

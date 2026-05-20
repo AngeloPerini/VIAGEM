@@ -5,6 +5,7 @@ import { normalizeCountryId } from '../data/countries';
 import type { Attraction, AttractionStateMap, CountryId, LinkItem } from '../types';
 import { compressImageToBlob } from '../utils/imageCompression';
 import { normalizeLinks } from '../utils/links';
+import { notifyGroupMembers } from './notificationsService';
 import { supabase } from './supabaseClient';
 
 const PHOTO_BUCKET = 'attraction-photos';
@@ -70,6 +71,19 @@ const toPayload = (attraction: Attraction, orderIndex?: number) => ({
   links: normalizeLinks(attraction.links),
   ...(orderIndex === undefined ? {} : { order_index: orderIndex }),
 });
+
+const notifyAttractionsChanged = async (
+  groupId: string,
+  detail = 'Os pontos turisticos da viagem foram atualizados.',
+  type: 'attraction_updated' | 'attraction_photo_added' = 'attraction_updated',
+) => {
+  await notifyGroupMembers({
+    groupId,
+    type,
+    title: type === 'attraction_photo_added' ? 'Foto adicionada' : 'Ponto turistico atualizado',
+    message: detail,
+  }).catch(() => null);
+};
 
 const extractStoragePath = (value: string | null | undefined, groupId: string, attractionId: string) => {
   if (!value) return null;
@@ -191,6 +205,7 @@ export async function createAttraction(
     .single();
 
   if (error) throw error;
+  await notifyAttractionsChanged(groupId, `Novo ponto turistico adicionado: ${attraction.name}.`);
   return rowsToPayload([data as AttractionRow], groupId);
 }
 
@@ -204,6 +219,7 @@ export async function updateAttraction(groupId: string, id: string, attraction: 
     .single();
 
   if (error) throw error;
+  await notifyAttractionsChanged(groupId, `Ponto turistico atualizado: ${attraction.name}.`);
   return rowsToPayload([data as AttractionRow], groupId);
 }
 
@@ -215,6 +231,7 @@ export async function updateAttractionVisit(groupId: string, id: string, visited
     .eq('id', id);
 
   if (error) throw error;
+  await notifyAttractionsChanged(groupId, 'Um ponto turistico foi marcado ou desmarcado.');
 }
 
 export async function deleteAttractionPhoto(groupId: string, attractionId: string) {
@@ -241,6 +258,7 @@ export async function deleteAttractionPhoto(groupId: string, attractionId: strin
     .eq('id', attractionId);
 
   if (error) throw error;
+  await notifyAttractionsChanged(groupId, 'Uma foto de ponto turistico foi removida.');
 }
 
 export async function uploadAttractionPhoto(groupId: string, attractionId: string, file: File) {
@@ -261,6 +279,7 @@ export async function uploadAttractionPhoto(groupId: string, attractionId: strin
     .eq('id', attractionId);
 
   if (updateError) throw updateError;
+  await notifyAttractionsChanged(groupId, 'Uma foto foi adicionada a um ponto turistico.', 'attraction_photo_added');
   return buildSignedPhotoUrl(path, groupId, attractionId);
 }
 
@@ -279,6 +298,7 @@ export async function deleteAttraction(groupId: string, id: string, photoUrl?: s
 
   const { error } = await supabase.from('attractions').delete().eq('group_id', groupId).eq('id', id);
   if (error) throw error;
+  await notifyAttractionsChanged(groupId, 'Um ponto turistico foi removido.');
 }
 
 export async function resetAttractionsToDefault(groupId: string) {
@@ -319,6 +339,7 @@ export async function resetAttractionsToDefault(groupId: string) {
 
   const payload = await rowsToPayload((data ?? []) as AttractionRow[], groupId);
   cacheAttractions(groupId, payload);
+  await notifyAttractionsChanged(groupId, 'Os pontos turisticos da viagem foram redefinidos.');
   return payload;
 }
 

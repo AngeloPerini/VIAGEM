@@ -4,6 +4,7 @@ import { ITINERARY_STORAGE_KEY } from '../data/itinerary';
 import { normalizeCountryId } from '../data/countries';
 import type { CountryId, ItineraryItem, ItineraryType, LinkItem } from '../types';
 import { normalizeLinks } from '../utils/links';
+import { notifyGroupMembers } from './notificationsService';
 import { supabase } from './supabaseClient';
 
 type ItineraryRow = {
@@ -64,6 +65,15 @@ const toPayload = (item: ItineraryItem, orderIndex?: number) => ({
   links: normalizeLinks(item.links),
   ...(orderIndex === undefined ? {} : { order_index: orderIndex }),
 });
+
+const notifyItineraryChanged = async (groupId: string, detail = 'O roteiro da viagem foi atualizado.') => {
+  await notifyGroupMembers({
+    groupId,
+    type: 'itinerary_updated',
+    title: 'Roteiro atualizado',
+    message: detail,
+  }).catch(() => null);
+};
 
 export function getCachedItineraryItems(groupId?: string) {
   if (!groupId) return [];
@@ -126,6 +136,7 @@ export async function createItineraryItem(groupId: string, item: ItineraryItem, 
     .single();
 
   if (error) throw error;
+  await notifyItineraryChanged(groupId, `Novo item no roteiro: ${item.title}.`);
   return toItem(data as ItineraryRow);
 }
 
@@ -139,6 +150,7 @@ export async function updateItineraryItem(groupId: string, id: string, item: Iti
     .single();
 
   if (error) throw error;
+  await notifyItineraryChanged(groupId, `Item do roteiro atualizado: ${item.title}.`);
   return toItem(data as ItineraryRow);
 }
 
@@ -150,6 +162,7 @@ export async function updateItineraryItemCompleted(groupId: string, id: string, 
     .eq('id', id);
 
   if (error) throw error;
+  await notifyItineraryChanged(groupId, 'Um item do roteiro foi marcado ou desmarcado.');
 }
 
 export async function deleteItineraryItem(groupId: string, id: string) {
@@ -160,6 +173,7 @@ export async function deleteItineraryItem(groupId: string, id: string) {
     .eq('id', id);
 
   if (error) throw error;
+  await notifyItineraryChanged(groupId, 'Um item do roteiro foi removido.');
 }
 
 export async function resetItineraryToDefault(groupId: string) {
@@ -186,6 +200,7 @@ export async function resetItineraryToDefault(groupId: string) {
 
   const items = (data ?? []).map((row) => toItem(row as ItineraryRow));
   cacheItems(groupId, items);
+  await notifyItineraryChanged(groupId, 'O roteiro da viagem foi redefinido.');
   return items;
 }
 

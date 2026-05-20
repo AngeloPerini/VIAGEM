@@ -4,6 +4,7 @@ import { STORAGE_KEY } from '../data/initialExpenses';
 import { normalizeCountryId } from '../data/countries';
 import type { CountryId, Expense, LinkItem, TravelCurrencyCode } from '../types';
 import { normalizeLinks } from '../utils/links';
+import { notifyGroupMembers } from './notificationsService';
 import { supabase } from './supabaseClient';
 
 type ExpenseRow = {
@@ -87,6 +88,15 @@ const toExpensePayload = (expense: Expense) => ({
   links: normalizeLinks(expense.links),
 });
 
+const notifyExpensesChanged = async (groupId: string, detail = 'Os gastos da viagem foram atualizados.') => {
+  await notifyGroupMembers({
+    groupId,
+    type: 'expense_updated',
+    title: 'Gastos atualizados',
+    message: detail,
+  }).catch(() => null);
+};
+
 export async function getExpenses(groupId: string) {
   const { data, error } = await supabase
     .from('expenses')
@@ -135,6 +145,7 @@ export async function createExpense(groupId: string, expense: Expense) {
     .single();
 
   if (error) throw error;
+  await notifyExpensesChanged(groupId, `Novo gasto adicionado: ${expense.title}.`);
   return toExpense(data as ExpenseRow);
 }
 
@@ -148,12 +159,14 @@ export async function updateExpense(groupId: string, id: string, expense: Expens
     .single();
 
   if (error) throw error;
+  await notifyExpensesChanged(groupId, `Gasto atualizado: ${expense.title}.`);
   return toExpense(data as ExpenseRow);
 }
 
 export async function deleteExpense(groupId: string, id: string) {
   const { error } = await supabase.from('expenses').delete().eq('group_id', groupId).eq('id', id);
   if (error) throw error;
+  await notifyExpensesChanged(groupId, 'Um gasto foi removido da viagem.');
 }
 
 export async function resetExpensesToDefault(groupId: string) {
@@ -177,6 +190,7 @@ export async function resetExpensesToDefault(groupId: string) {
 
   const expenses = (data ?? []).map((row) => toExpense(row as ExpenseRow));
   cacheExpenses(groupId, expenses);
+  await notifyExpensesChanged(groupId, 'Os gastos da viagem foram redefinidos.');
   return expenses;
 }
 

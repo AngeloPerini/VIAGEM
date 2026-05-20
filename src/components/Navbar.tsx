@@ -1,16 +1,18 @@
 import { motion } from 'framer-motion';
 import {
   BarChart3,
+  Bell,
   Camera,
   Coins,
   LayoutDashboard,
   Map,
   UserRound,
 } from 'lucide-react';
-import { useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useGroup } from '../contexts/GroupContext';
 import { useLanguage } from '../contexts/LanguageContext';
+import { getUnreadNotificationCount, subscribeNotifications } from '../services/notificationsService';
 
 export type AppView = 'dashboard' | 'expenses' | 'itinerary' | 'attractions' | 'quote' | 'profile';
 
@@ -32,12 +34,37 @@ export function Navbar({ activeView, onNavigate }: NavbarProps) {
   const { user } = useAuth();
   const { activeGroup, setActiveGroup, userGroups } = useGroup();
   const { t } = useLanguage();
+  const [unreadNotifications, setUnreadNotifications] = useState(0);
 
   const avatarUrl = user?.user_metadata?.avatar_url as string | undefined;
   const displayName = useMemo(
     () => user?.user_metadata?.full_name ?? user?.user_metadata?.name ?? user?.email ?? 'Perfil',
     [user],
   );
+
+  const loadUnreadNotifications = useCallback(async () => {
+    if (!user?.id) {
+      setUnreadNotifications(0);
+      return;
+    }
+
+    const count = await getUnreadNotificationCount().catch(() => 0);
+    setUnreadNotifications(count);
+  }, [user?.id]);
+
+  useEffect(() => {
+    if (!user?.id) {
+      setUnreadNotifications(0);
+      return undefined;
+    }
+
+    void loadUnreadNotifications();
+    const channel = subscribeNotifications(user.id, () => void loadUnreadNotifications());
+
+    return () => {
+      void channel.unsubscribe();
+    };
+  }, [loadUnreadNotifications, user?.id]);
 
   return (
     <motion.nav
@@ -108,6 +135,11 @@ export function Navbar({ activeView, onNavigate }: NavbarProps) {
               ) : null}
               <Icon className="relative h-4 w-4" />
               <span className="relative hidden sm:inline">{t(item.labelKey)}</span>
+              {item.id === 'profile' && unreadNotifications > 0 ? (
+                <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-rose-600 px-1 text-[0.65rem] font-black text-white">
+                  {unreadNotifications > 9 ? '9+' : unreadNotifications}
+                </span>
+              ) : null}
             </a>
           );
         })}
@@ -126,6 +158,12 @@ export function Navbar({ activeView, onNavigate }: NavbarProps) {
           </span>
         )}
         <span className="max-w-40 truncate text-sm font-black text-slate-700">{displayName}</span>
+        {unreadNotifications > 0 ? (
+          <span className="inline-flex items-center gap-1 rounded-full bg-rose-600 px-2 py-1 text-xs font-black text-white">
+            <Bell className="h-3 w-3" />
+            {unreadNotifications > 9 ? '9+' : unreadNotifications}
+          </span>
+        ) : null}
       </button>
     </motion.nav>
   );
