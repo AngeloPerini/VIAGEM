@@ -24,11 +24,10 @@ import { ProfilePage } from './pages/ProfilePage';
 import { TripAIReviewPage } from './pages/TripAIReviewPage';
 import { getPendingInviteToken } from './services/groupsService';
 import {
-  appendQuoteHistory,
-  fetchEuroToBrlQuote,
-  loadQuoteHistory,
-  loadStoredQuote,
-  saveStoredQuote,
+  appendExchangeRateHistory,
+  getCachedExchangeRates,
+  loadExchangeRateHistory,
+  refreshExchangeRates,
 } from './services/currencyService';
 import {
   cacheExpensesFallback,
@@ -42,14 +41,16 @@ import {
 } from './services/expensesService';
 import type {
   CountryFilterId,
-  CurrencyQuote,
+  ExchangeRateHistory,
+  ExchangeRateMap,
   Expense,
-  QuoteHistoryPoint,
   RealValueMode,
+  TravelCurrencyCode,
 } from './types';
 import {
   calculateCategoryTotal,
   calculateExpensesTotal,
+  formatOriginalCurrencyBreakdown,
   formatRange,
   type Totals,
 } from './utils/money';
@@ -164,14 +165,16 @@ function TravelWorkspace({ groupId }: { groupId: string }) {
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [activeView, setActiveView] = useState<AppView>(loadInitialView);
-  const [realValueMode, setRealValueMode] = useState<RealValueMode>('original');
+  const [realValueMode, setRealValueMode] = useState<RealValueMode>('converted');
   const [expenseCountryFilter, setExpenseCountryFilter] = useState<CountryFilterId>('all');
   const [itineraryCountryFilter, setItineraryCountryFilter] = useState<CountryFilterId>('all');
   const [attractionCountryFilter, setAttractionCountryFilter] = useState<CountryFilterId>('all');
-  const [quote, setQuote] = useState<CurrencyQuote | null>(loadStoredQuote);
-  const [quoteHistory, setQuoteHistory] = useState<QuoteHistoryPoint[]>(loadQuoteHistory);
+  const [exchangeRates, setExchangeRates] = useState<ExchangeRateMap>(getCachedExchangeRates);
+  const [quoteHistory, setQuoteHistory] = useState<ExchangeRateHistory>(loadExchangeRateHistory);
+  const [selectedQuoteCurrency, setSelectedQuoteCurrency] = useState<TravelCurrencyCode>('EUR');
   const [isQuoteLoading, setIsQuoteLoading] = useState(false);
   const [quoteWarning, setQuoteWarning] = useState<string | null>(null);
+  const [failedQuoteCurrencies, setFailedQuoteCurrencies] = useState<TravelCurrencyCode[]>([]);
   const [expenseSyncWarning, setExpenseSyncWarning] = useState<string | null>(null);
   const [isExpenseLoading, setIsExpenseLoading] = useState(false);
   const [isExpenseSaving, setIsExpenseSaving] = useState(false);
@@ -239,18 +242,16 @@ function TravelWorkspace({ groupId }: { groupId: string }) {
     setQuoteWarning(null);
 
     try {
-      const nextQuote = await fetchEuroToBrlQuote();
-      saveStoredQuote(nextQuote);
-      setQuote(nextQuote);
-      setQuoteHistory(appendQuoteHistory(nextQuote));
+      const result = await refreshExchangeRates();
+      setExchangeRates(result.rates);
+      setQuoteHistory(appendExchangeRateHistory(result.rates));
+      setQuoteWarning(result.warning);
+      setFailedQuoteCurrencies(result.failedCurrencies);
     } catch {
-      const storedQuote = loadStoredQuote();
-      if (storedQuote) {
-        setQuote(storedQuote);
-        setQuoteWarning('Nao foi possivel atualizar agora. Usando a ultima cotacao salva.');
-      } else {
-        setQuoteWarning('Nao foi possivel buscar a cotacao. Tente atualizar novamente.');
-      }
+      const cachedRates = getCachedExchangeRates();
+      setExchangeRates(cachedRates);
+      setQuoteWarning('Usando última cotação salva.');
+      setFailedQuoteCurrencies(['EUR', 'USD', 'JPY', 'CHF', 'GBP']);
     } finally {
       setIsQuoteLoading(false);
     }
@@ -278,13 +279,11 @@ function TravelWorkspace({ groupId }: { groupId: string }) {
   );
 
   const totalsByCategory = useMemo(() => {
-    const conversionRate = realValueMode === 'converted' && quote ? quote.bid : undefined;
-
     return categories.reduce<Record<string, Totals>>((totals, category) => {
-      totals[category.id] = calculateCategoryTotal(scopedExpenses, category.id, conversionRate);
+      totals[category.id] = calculateCategoryTotal(scopedExpenses, category.id, exchangeRates);
       return totals;
     }, {});
-  }, [categories, quote, realValueMode, scopedExpenses]);
+  }, [categories, exchangeRates, scopedExpenses]);
 
   const expenseCountryOptions = useMemo(
     () => buildCountryOptions(scopedExpenses.map((expense) => expense.country), activeGroup?.countries ?? []),
@@ -310,25 +309,23 @@ function TravelWorkspace({ groupId }: { groupId: string }) {
   );
 
   const filteredTotalsByCategory = useMemo(() => {
-    const conversionRate = realValueMode === 'converted' && quote ? quote.bid : undefined;
     const applySourceSheetAdjustment = expenseCountryFilter === 'all';
 
     return categories.reduce<Record<string, Totals>>((totals, category) => {
       totals[category.id] = calculateCategoryTotal(
         filteredExpenses,
         category.id,
-        conversionRate,
+        exchangeRates,
         applySourceSheetAdjustment,
       );
       return totals;
     }, {});
-  }, [categories, expenseCountryFilter, filteredExpenses, quote, realValueMode]);
+  }, [categories, exchangeRates, expenseCountryFilter, filteredExpenses]);
 
-  const activeConversionRate = realValueMode === 'converted' && quote ? quote.bid : undefined;
-  const grandTotal = calculateExpensesTotal(scopedExpenses, activeConversionRate);
+  const grandTotal = calculateExpensesTotal(scopedExpenses, exchangeRates);
   const filteredGrandTotal = calculateExpensesTotal(
     filteredExpenses,
-    activeConversionRate,
+    exchangeRates,
     expenseCountryFilter === 'all',
   );
 
@@ -422,7 +419,7 @@ function TravelWorkspace({ groupId }: { groupId: string }) {
             expenses={filteredExpenses.filter((expense) => expense.category === category.id)}
             total={filteredTotalsByCategory[category.id]}
             realValueMode={realValueMode}
-            quote={quote}
+            exchangeRates={exchangeRates}
             onEdit={openEditExpenseModal}
             onDelete={(id) => void handleDeleteExpense(id)}
           />
@@ -448,10 +445,13 @@ function TravelWorkspace({ groupId }: { groupId: string }) {
           ) : activeView === 'quote' ? (
             <QuotePage
               key="quote"
-              quote={quote}
+              rates={exchangeRates}
               history={quoteHistory}
               isLoading={isQuoteLoading}
               warning={quoteWarning}
+              failedCurrencies={failedQuoteCurrencies}
+              selectedCurrency={selectedQuoteCurrency}
+              onSelectedCurrencyChange={setSelectedQuoteCurrency}
               onRefresh={() => void refreshQuote()}
             />
           ) : activeView === 'itinerary' ? (
@@ -513,7 +513,7 @@ function TravelWorkspace({ groupId }: { groupId: string }) {
                       : expenseSyncWarning}
                 </p>
               ) : null}
-              <ConversionToggle mode={realValueMode} quote={quote} onChange={setRealValueMode} />
+              <ConversionToggle mode={realValueMode} quote={exchangeRates.EUR ?? null} onChange={setRealValueMode} />
               <SummaryCards
                 categories={categories}
                 totalsByCategory={filteredTotalsByCategory}
@@ -536,7 +536,7 @@ function TravelWorkspace({ groupId }: { groupId: string }) {
             >
               <Header onAdd={openNewExpenseModal} />
 
-              <ConversionToggle mode={realValueMode} quote={quote} onChange={setRealValueMode} />
+              <ConversionToggle mode={realValueMode} quote={exchangeRates.EUR ?? null} onChange={setRealValueMode} />
               {expenseSyncWarning || isExpenseLoading || isExpenseSaving ? (
                 <p className="rounded-2xl border border-white/70 bg-white/75 px-4 py-3 text-sm font-semibold text-slate-600 shadow-lg shadow-slate-900/5 backdrop-blur-xl">
                   {isExpenseSaving
@@ -558,7 +558,7 @@ function TravelWorkspace({ groupId }: { groupId: string }) {
                 <div className="space-y-6">
                   <ExpenseChart categories={categories} totalsByCategory={totalsByCategory} />
                   <QuoteStatusCard
-                    quote={quote}
+                    rate={exchangeRates.EUR ?? null}
                     isLoading={isQuoteLoading}
                     warning={quoteWarning}
                     onRefresh={() => void refreshQuote()}
@@ -588,22 +588,18 @@ function TravelWorkspace({ groupId }: { groupId: string }) {
                       >
                         <div>
                           <p className="text-sm font-semibold text-slate-400">
-                            {realValueMode === 'converted' ? t('dashboard.convertedReal') : t('dashboard.euro')}
+                            {t('dashboard.convertedReal')}
                           </p>
                           <p className="text-3xl font-black">
-                            {realValueMode === 'converted'
-                              ? formatRange(grandTotal.real, 'BRL', true)
-                              : formatRange(grandTotal.euro, 'EUR', true)}
+                            {formatRange(grandTotal.real, 'BRL', true)}
                           </p>
                         </div>
                         <div>
                           <p className="text-sm font-semibold text-slate-400">
-                            {realValueMode === 'converted' ? t('dashboard.euroOriginal') : t('dashboard.real')}
+                            Valores originais
                           </p>
                           <p className="text-3xl font-black">
-                            {realValueMode === 'converted'
-                              ? formatRange(grandTotal.euro, 'EUR', true)
-                              : formatRange(grandTotal.real, 'BRL', true)}
+                            {formatOriginalCurrencyBreakdown(grandTotal.originalByCurrency)}
                           </p>
                         </div>
                       </motion.div>
@@ -631,6 +627,7 @@ function TravelWorkspace({ groupId }: { groupId: string }) {
         expense={editingExpense}
         isOpen={isModalOpen}
         countryOptions={expenseCountryOptions}
+        exchangeRates={exchangeRates}
         onClose={() => {
           setIsModalOpen(false);
           setEditingExpense(null);

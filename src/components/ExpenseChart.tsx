@@ -14,7 +14,7 @@ export function ExpenseChart({ categories, totalsByCategory }: ExpenseChartProps
     return {
       name: category.name,
       color: category.accent,
-      euro: (total.euro.min + total.euro.max) / 2,
+      totalReal: (total.real.min + total.real.max) / 2,
       real: total.real,
     };
   });
@@ -29,8 +29,8 @@ export function ExpenseChart({ categories, totalsByCategory }: ExpenseChartProps
           Peso por categoria
         </h2>
         <p className="mt-3 leading-7 text-slate-600">
-          O grafico usa a media dos intervalos em euro para mostrar a
-          proporcao dos gastos planejados.
+          O grafico usa a media dos valores convertidos para real para mostrar
+          a proporcao dos gastos planejados.
         </p>
         <div className="mt-6 space-y-3">
           {data.map((item) => (
@@ -57,7 +57,7 @@ export function ExpenseChart({ categories, totalsByCategory }: ExpenseChartProps
               data={data}
               cx="50%"
               cy="50%"
-              dataKey="euro"
+              dataKey="totalReal"
               innerRadius="58%"
               outerRadius="82%"
               paddingAngle={4}
@@ -68,7 +68,7 @@ export function ExpenseChart({ categories, totalsByCategory }: ExpenseChartProps
               ))}
             </Pie>
             <Tooltip
-              formatter={(value) => [formatRange({ min: Number(value), max: Number(value) }, 'EUR', true), 'Media']}
+              formatter={(value) => [formatRange({ min: Number(value), max: Number(value) }, 'BRL', true), 'Media']}
               contentStyle={{
                 border: '0',
                 borderRadius: '18px',

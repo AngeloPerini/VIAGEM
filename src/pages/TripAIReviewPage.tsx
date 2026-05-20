@@ -34,8 +34,10 @@ import type {
   TripAIPlan,
   TripAIRoute,
   TripAIReviewState,
+  TravelCurrencyCode,
 } from '../types';
-import { formatRange } from '../utils/money';
+import { TRAVEL_CURRENCIES } from '../services/currencyService';
+import { formatRange, getExpenseCurrency, getExpenseOriginalRange } from '../utils/money';
 
 const typeLabels: Record<string, string> = {
   arrival: 'Chegada',
@@ -89,6 +91,8 @@ const createExpense = (): Expense => ({
   country: 'international',
   title: 'Gasto planejado',
   detail: 'Valor aproximado planejado.',
+  currency: 'EUR',
+  amount: 0,
   euro: { min: 0, max: 0 },
   real: { min: 0, max: 0 },
   links: [],
@@ -468,56 +472,65 @@ function PlanEditor({ plan, onChange }: { plan: TripAIPlan; onChange: (plan: Tri
                   className={textareaClass}
                 />
               </EditorField>
-              <EditorField label="Euro minimo">
+              <EditorField label="Moeda">
+                <select
+                  value={getExpenseCurrency(expense)}
+                  onChange={(event) =>
+                    updatePlan({
+                      expenses: updateListItem(plan.expenses, index, {
+                        currency: event.target.value as TravelCurrencyCode,
+                      }),
+                    })
+                  }
+                  className={inputClass}
+                >
+                  {TRAVEL_CURRENCIES.map((currency) => (
+                    <option key={currency} value={currency}>{currency}</option>
+                  ))}
+                </select>
+              </EditorField>
+              <EditorField label="Valor">
+                <input
+                  inputMode="decimal"
+                  value={numberValue(expense.amount ?? expense.euro.min)}
+                  onChange={(event) =>
+                    updatePlan({
+                      expenses: updateListItem(plan.expenses, index, {
+                        amount: parseMoney(event.target.value),
+                      }),
+                    })
+                  }
+                  className={inputClass}
+                />
+              </EditorField>
+              <EditorField label="Euro compatível">
                 <input
                   inputMode="decimal"
                   value={numberValue(expense.euro.min)}
                   onChange={(event) =>
                     updatePlan({
                       expenses: updateListItem(plan.expenses, index, {
-                        euro: { ...expense.euro, min: parseMoney(event.target.value) },
+                        euro: {
+                          min: parseMoney(event.target.value),
+                          max: parseMoney(event.target.value),
+                        },
                       }),
                     })
                   }
                   className={inputClass}
                 />
               </EditorField>
-              <EditorField label="Euro maximo">
-                <input
-                  inputMode="decimal"
-                  value={numberValue(expense.euro.max)}
-                  onChange={(event) =>
-                    updatePlan({
-                      expenses: updateListItem(plan.expenses, index, {
-                        euro: { ...expense.euro, max: parseMoney(event.target.value) },
-                      }),
-                    })
-                  }
-                  className={inputClass}
-                />
-              </EditorField>
-              <EditorField label="Real minimo">
+              <EditorField label="Real estimado">
                 <input
                   inputMode="decimal"
                   value={numberValue(expense.real.min)}
                   onChange={(event) =>
                     updatePlan({
                       expenses: updateListItem(plan.expenses, index, {
-                        real: { ...expense.real, min: parseMoney(event.target.value) },
-                      }),
-                    })
-                  }
-                  className={inputClass}
-                />
-              </EditorField>
-              <EditorField label="Real maximo">
-                <input
-                  inputMode="decimal"
-                  value={numberValue(expense.real.max)}
-                  onChange={(event) =>
-                    updatePlan({
-                      expenses: updateListItem(plan.expenses, index, {
-                        real: { ...expense.real, max: parseMoney(event.target.value) },
+                        real: {
+                          min: parseMoney(event.target.value),
+                          max: parseMoney(event.target.value),
+                        },
                       }),
                     })
                   }
@@ -969,7 +982,9 @@ export function TripAIReviewPage() {
                     <p className="mt-3 text-sm font-bold text-slate-500">{expense.detail}</p>
                     <div className="mt-3 grid gap-2 text-sm font-black sm:grid-cols-2">
                       <span className="rounded-2xl bg-white px-3 py-2">{formatRange(expense.real, 'BRL', true)}</span>
-                      <span className="rounded-2xl bg-white px-3 py-2">{formatRange(expense.euro, 'EUR', true)}</span>
+                      <span className="rounded-2xl bg-white px-3 py-2">
+                        {formatRange(getExpenseOriginalRange(expense), getExpenseCurrency(expense), true)}
+                      </span>
                     </div>
                   </article>
                 ))}

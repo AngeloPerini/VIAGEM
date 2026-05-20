@@ -2,7 +2,7 @@ import type { RealtimeChannel } from '@supabase/supabase-js';
 import { defaultExpenses } from '../data/defaultExpenses';
 import { STORAGE_KEY } from '../data/initialExpenses';
 import { normalizeCountryId } from '../data/countries';
-import type { CountryId, Expense, LinkItem } from '../types';
+import type { CountryId, Expense, LinkItem, TravelCurrencyCode } from '../types';
 import { normalizeLinks } from '../utils/links';
 import { supabase } from './supabaseClient';
 
@@ -18,8 +18,17 @@ type ExpenseRow = {
   euro_max: number | null;
   brl_min: number | null;
   brl_max: number | null;
+  currency: string | null;
+  amount: number | null;
   links: LinkItem[] | null;
   created_at?: string;
+};
+
+const normalizeCurrency = (value: unknown): TravelCurrencyCode => {
+  const currency = String(value ?? 'EUR').toUpperCase();
+  return ['BRL', 'EUR', 'USD', 'JPY', 'CHF', 'GBP'].includes(currency)
+    ? currency as TravelCurrencyCode
+    : 'EUR';
 };
 
 const cacheKey = (groupId: string) => `${STORAGE_KEY}-${groupId}`;
@@ -57,6 +66,8 @@ const toExpense = (row: ExpenseRow): Expense => ({
   country: row.country as CountryId,
   title: row.description,
   detail: row.details ?? '',
+  currency: normalizeCurrency(row.currency),
+  amount: Number(row.amount ?? row.euro_min ?? row.brl_min ?? 0),
   euro: { min: Number(row.euro_min ?? 0), max: Number(row.euro_max ?? row.euro_min ?? 0) },
   real: { min: Number(row.brl_min ?? 0), max: Number(row.brl_max ?? row.brl_min ?? 0) },
   links: Array.isArray(row.links) ? row.links : [],
@@ -67,6 +78,8 @@ const toExpensePayload = (expense: Expense) => ({
   country: normalizeCountryId(expense.country ?? 'international'),
   description: expense.title,
   details: expense.detail || null,
+  currency: normalizeCurrency(expense.currency),
+  amount: Number(expense.amount ?? expense.euro.min ?? 0),
   euro_min: expense.euro.min,
   euro_max: expense.euro.max,
   brl_min: expense.real.min,

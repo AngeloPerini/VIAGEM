@@ -11,6 +11,7 @@ import type {
   TripAIPlan,
   TripAIRoute,
   TripAIReviewState,
+  TravelCurrencyCode,
 } from '../types';
 import { normalizeCountryId } from '../data/countries';
 import { normalizeLinks } from '../utils/links';
@@ -136,6 +137,23 @@ const normalizeRange = (value: unknown): CurrencyRange => {
   };
 };
 
+const normalizeCurrencyCode = (value: unknown): TravelCurrencyCode => {
+  const code = asString(value, 'EUR').toUpperCase();
+  return ['BRL', 'EUR', 'USD', 'JPY', 'CHF', 'GBP'].includes(code)
+    ? code as TravelCurrencyCode
+    : 'EUR';
+};
+
+const getDefaultCurrencyForCountry = (country: CountryId): TravelCurrencyCode => {
+  const normalized = normalizeCountry(country);
+  if (['england', 'scotland', 'united_kingdom', 'great_britain'].includes(normalized)) return 'GBP';
+  if (normalized === 'switzerland') return 'CHF';
+  if (normalized === 'japan') return 'JPY';
+  if (normalized === 'united_states') return 'USD';
+  if (normalized === 'brazil') return 'BRL';
+  return 'EUR';
+};
+
 const normalizeLinkArray = (value: unknown): LinkItem[] => normalizeLinks(asArray<LinkItem>(value));
 
 const normalizeDocument = (value: unknown): TripAIDocument => {
@@ -178,15 +196,29 @@ const normalizeItineraryItem = (value: unknown): ItineraryItem => {
 const normalizeExpense = (value: unknown): Expense => {
   const record = asRecord(value);
   const detail = asString(record.detail || record.details, 'Valor aproximado planejado.');
+  const country = normalizeCountry(record.country);
+  const currency = normalizeCurrencyCode(record.currency || getDefaultCurrencyForCountry(country));
+  const rawEuro = normalizeRange(record.euro);
+  const rawReal = normalizeRange(record.real || record.brl);
+  const amount = Number(record.amount ?? record.value ?? (currency === 'BRL' ? rawReal.min : rawEuro.min));
+  const parsedAmount = Number.isFinite(amount) ? amount : 0;
+  const euro = rawEuro.min || rawEuro.max || currency !== 'EUR'
+    ? rawEuro
+    : { min: parsedAmount, max: parsedAmount };
+  const real = rawReal.min || rawReal.max || currency !== 'BRL'
+    ? rawReal
+    : { min: parsedAmount, max: parsedAmount };
 
   return {
     id: crypto.randomUUID(),
     category: normalizeCategory(record.category),
-    country: normalizeCountry(record.country),
+    country,
     title: asString(record.title || record.description, 'Gasto planejado'),
     detail: detail.toLowerCase().includes('aproxim') ? detail : `${detail} Aproximado / planejado.`,
-    euro: normalizeRange(record.euro),
-    real: normalizeRange(record.real || record.brl),
+    currency,
+    amount: parsedAmount,
+    euro,
+    real,
     links: normalizeLinkArray(record.links),
   };
 };
@@ -430,6 +462,8 @@ const expensePayload = (expense: Expense, groupId: string, userId: string) => ({
   country: normalizeCountry(expense.country),
   description: expense.title,
   details: expense.detail || 'Valor aproximado planejado.',
+  currency: expense.currency ?? 'EUR',
+  amount: Number(expense.amount ?? expense.euro.min ?? 0),
   euro_min: expense.euro.min,
   euro_max: expense.euro.max,
   brl_min: expense.real.min,

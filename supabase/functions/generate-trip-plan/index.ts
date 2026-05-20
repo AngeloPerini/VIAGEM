@@ -224,6 +224,21 @@ const countryKey = (value: unknown) => {
   return countryAliases[key] ?? key;
 };
 
+const normalizeCurrencyCode = (value: unknown) => {
+  const code = asText(value, 'EUR').toUpperCase();
+  return ['BRL', 'EUR', 'USD', 'JPY', 'CHF', 'GBP'].includes(code) ? code : 'EUR';
+};
+
+const currencyForCountry = (country: string) => {
+  const key = countryKey(country);
+  if (['england', 'scotland', 'united_kingdom', 'great_britain'].includes(key)) return 'GBP';
+  if (key === 'switzerland') return 'CHF';
+  if (key === 'japan') return 'JPY';
+  if (key === 'united_states') return 'USD';
+  if (key === 'brazil') return 'BRL';
+  return 'EUR';
+};
+
 const buildCountryMap = (input: TripPlanInput) => {
   const map = new Map<string, string>();
   input.countries.forEach((country) => {
@@ -593,6 +608,7 @@ const ensurePlanShape = (value: unknown, input: TripPlanInput) => {
           category: asText(expense.category, 'Outros'),
           title: asText(expense.title ?? expense.description, 'Gasto planejado'),
           detail: asText(expense.detail ?? expense.details, 'Aproximado / planejado'),
+          amount: Number(expense.amount ?? expense.value ?? 0),
           links: safeArray(expense.links),
         };
         const country = resolvePlanCountry(expense.country, countryMap, fallbackCountry, normalizedExpense, {
@@ -600,7 +616,11 @@ const ensurePlanShape = (value: unknown, input: TripPlanInput) => {
           allowTransportFallback: true,
         });
         if (!country) return null;
-        return { ...normalizedExpense, country };
+        return {
+          ...normalizedExpense,
+          country,
+          currency: normalizeCurrencyCode(expense.currency ?? currencyForCountry(country)),
+        };
       })
       .filter((expense): expense is Record<string, unknown> => Boolean(expense))
       .filter((expense) => asText(expense.title)),
@@ -993,7 +1013,7 @@ Ritmo:
 Tipos permitidos: chegada, hospedagem, passeio, transporte, alimentacao, voo, trem, motorhome, descanso, compras, documento, outro.
 Categorias de despesas: Hospedagem, Transporte, Passeios, Alimentacao, Comprinhas, Documentos, Seguro, Outros.
 
-Despesas: gere 6 a 10 gastos aproximados compativeis com roteiro, em euro e real.
+Despesas: gere 6 a 10 gastos aproximados compativeis com roteiro. Use currency e amount na moeda local correta: Inglaterra/Reino Unido GBP, Suica CHF, Japao JPY, Estados Unidos USD, Zona Euro EUR, Brasil BRL. Se houver duvida, use EUR para zona do euro e BRL apenas para Brasil.
 Attractions: inclua apenas atracoes reais do roteiro: museus, pracas, mirantes, parques, bairros turisticos e experiencias. Nao inclua hotel, aeroporto, metro, refeicoes ou deslocamentos.
 Routes: inclua rotas uteis entre cidades-base/aeroportos/estacoes ou trechos de estrada.
 Validacao final: remova duplicados, remova Brasil/paises fora dos allowedCountries, converta voo de origem Brasil para "international" e complete dias fracos.
@@ -1026,6 +1046,8 @@ Retorne exatamente este objeto:
     {
       "category": "uma das categorias permitidas",
       "country": "um dos allowedCountries ou international apenas em transporte internacional",
+      "currency": "BRL, EUR, USD, JPY, CHF ou GBP",
+      "amount": 0,
       "title": "string",
       "detail": "Aproximado / planejado",
       "euro": { "min": 0, "max": 0 },

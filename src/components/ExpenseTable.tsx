@@ -1,9 +1,15 @@
 import { AnimatePresence, motion } from 'framer-motion';
 import { Edit3, Trash2 } from 'lucide-react';
 import { countryNames } from '../data/countries';
-import type { CategoryMeta, CurrencyQuote, Expense, RealValueMode } from '../types';
+import type { CategoryMeta, ExchangeRateMap, Expense, RealValueMode } from '../types';
 import type { Totals } from '../utils/money';
-import { convertEuroRangeToReal, formatRange } from '../utils/money';
+import {
+  formatOriginalCurrencyBreakdown,
+  formatRange,
+  getExpenseCurrency,
+  getExpenseOriginalRange,
+  getExpenseRealRange,
+} from '../utils/money';
 import { LinksMenu } from './LinksMenu';
 
 type ExpenseTableProps = {
@@ -11,7 +17,7 @@ type ExpenseTableProps = {
   expenses: Expense[];
   total: Totals;
   realValueMode: RealValueMode;
-  quote: CurrencyQuote | null;
+  exchangeRates: ExchangeRateMap;
   onEdit: (expense: Expense) => void;
   onDelete: (id: string) => void;
 };
@@ -21,24 +27,16 @@ export function ExpenseTable({
   expenses,
   total,
   realValueMode,
-  quote,
+  exchangeRates,
   onEdit,
   onDelete,
 }: ExpenseTableProps) {
-  const getRealRange = (expense: Expense) =>
-    realValueMode === 'converted' && quote
-      ? convertEuroRangeToReal(expense.euro, quote.bid)
-      : expense.real;
   const getCountryName = (expense: Expense) =>
     expense.country ? countryNames[expense.country] : 'Nao definido';
-  const primaryTotal =
-    realValueMode === 'converted'
-      ? formatRange(total.real, 'BRL', true)
-      : formatRange(total.euro, 'EUR', true);
-  const secondaryTotal =
-    realValueMode === 'converted'
-      ? formatRange(total.euro, 'EUR', true)
-      : formatRange(total.real, 'BRL', true);
+  const primaryTotal = formatRange(total.real, 'BRL', true);
+  const secondaryTotal = realValueMode === 'converted'
+    ? formatOriginalCurrencyBreakdown(total.originalByCurrency)
+    : 'Valores cadastrados em moeda original';
 
   return (
     <motion.section
@@ -90,7 +88,7 @@ export function ExpenseTable({
               <th className="px-7 py-4 font-black">{category.id === 'lodging' ? 'Cidade' : category.label}</th>
               <th className="px-4 py-4 font-black">Detalhe</th>
               <th className="px-4 py-4 font-black">Pais</th>
-              <th className="px-4 py-4 font-black">Euro</th>
+              <th className="px-4 py-4 font-black">Moeda</th>
               <th className="px-4 py-4 font-black">Real</th>
               <th className="px-7 py-4 text-right font-black">Acoes</th>
             </tr>
@@ -114,8 +112,10 @@ export function ExpenseTable({
                       {getCountryName(expense)}
                     </span>
                   </td>
-                  <td className="px-4 py-4 font-semibold">{formatRange(expense.euro, 'EUR')}</td>
-                  <td className="px-4 py-4 font-semibold">{formatRange(getRealRange(expense), 'BRL')}</td>
+                  <td className="px-4 py-4 font-semibold">
+                    {formatRange(getExpenseOriginalRange(expense), getExpenseCurrency(expense))}
+                  </td>
+                  <td className="px-4 py-4 font-semibold">{formatRange(getExpenseRealRange(expense, exchangeRates), 'BRL')}</td>
                   <td className="px-7 py-4">
                     <div className="flex justify-end gap-2">
                       <LinksMenu links={expense.links} align="right" />
@@ -187,12 +187,14 @@ export function ExpenseTable({
               </div>
               <div className="mt-4 grid grid-cols-2 gap-3">
                 <div className="rounded-2xl bg-slate-50 p-3">
-                  <p className="text-xs font-bold uppercase text-slate-400">Euro</p>
-                  <p className="mt-1 font-black text-slate-950">{formatRange(expense.euro, 'EUR')}</p>
+                  <p className="text-xs font-bold uppercase text-slate-400">Moeda</p>
+                  <p className="mt-1 font-black text-slate-950">
+                    {formatRange(getExpenseOriginalRange(expense), getExpenseCurrency(expense))}
+                  </p>
                 </div>
                 <div className="rounded-2xl bg-slate-50 p-3">
                   <p className="text-xs font-bold uppercase text-slate-400">Real</p>
-                  <p className="mt-1 font-black text-slate-950">{formatRange(getRealRange(expense), 'BRL')}</p>
+                  <p className="mt-1 font-black text-slate-950">{formatRange(getExpenseRealRange(expense, exchangeRates), 'BRL')}</p>
                 </div>
               </div>
             </motion.article>

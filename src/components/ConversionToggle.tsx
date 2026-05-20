@@ -1,10 +1,10 @@
 import { motion } from 'framer-motion';
 import { Calculator, ReceiptText } from 'lucide-react';
-import type { CurrencyQuote, RealValueMode } from '../types';
+import type { ExchangeRate, RealValueMode } from '../types';
 
 type ConversionToggleProps = {
   mode: RealValueMode;
-  quote: CurrencyQuote | null;
+  quote: ExchangeRate | null;
   onChange: (mode: RealValueMode) => void;
 };
 
@@ -19,8 +19,8 @@ export function ConversionToggle({ mode, quote, onChange }: ConversionToggleProp
         </p>
         <p className="mt-1 font-semibold text-slate-600">
           {mode === 'original'
-            ? 'Usando os valores cadastrados na planilha.'
-            : `Convertendo euros pela cotacao atual de R$ ${quote?.bid.toFixed(2).replace('.', ',')}.`}
+            ? 'Mostrando os valores originais cadastrados.'
+            : `Convertendo moedas pela cotacao atual. EUR em R$ ${quote?.rate.toFixed(2).replace('.', ',') ?? '--'}.`}
         </p>
       </div>
 

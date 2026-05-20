@@ -1,27 +1,36 @@
-import type { CurrencyRange, Expense } from '../types';
+import type { CurrencyRange, ExchangeRateMap, Expense, TravelCurrencyCode } from '../types';
+import { getRateForCurrency } from '../services/currencyService';
 
 export type Totals = {
   euro: CurrencyRange;
   real: CurrencyRange;
+  originalByCurrency: Partial<Record<TravelCurrencyCode, CurrencyRange>>;
 };
 
-const brlFormatter = new Intl.NumberFormat('pt-BR', {
+const buildFormatter = (currency: TravelCurrencyCode) => new Intl.NumberFormat('pt-BR', {
   style: 'currency',
-  currency: 'BRL',
+  currency,
   minimumFractionDigits: 0,
-  maximumFractionDigits: 2,
+  maximumFractionDigits: currency === 'JPY' ? 0 : 2,
 });
 
-const euroFormatter = new Intl.NumberFormat('pt-BR', {
-  style: 'currency',
-  currency: 'EUR',
-  minimumFractionDigits: 0,
-  maximumFractionDigits: 2,
-});
+const formatters = new Map<TravelCurrencyCode, Intl.NumberFormat>();
+
+const getFormatter = (currency: TravelCurrencyCode) => {
+  const formatter = formatters.get(currency) ?? buildFormatter(currency);
+  formatters.set(currency, formatter);
+  return formatter;
+};
 
 const roundForSummary = (value: number) => Math.ceil(value);
 
 export const emptyRange = (): CurrencyRange => ({ min: 0, max: 0 });
+
+export const emptyTotals = (): Totals => ({
+  euro: emptyRange(),
+  real: emptyRange(),
+  originalByCurrency: {},
+});
 
 export const normalizeRange = (range: CurrencyRange): CurrencyRange => ({
   min: Math.min(range.min, range.max),
@@ -42,8 +51,30 @@ export const convertEuroRangeToReal = (range: CurrencyRange, rate: number): Curr
   max: range.max * rate,
 });
 
-export const formatRange = (range: CurrencyRange, currency: 'EUR' | 'BRL', compact = false) => {
-  const formatter = currency === 'EUR' ? euroFormatter : brlFormatter;
+export const convertCurrencyRangeToReal = (
+  range: CurrencyRange,
+  currency: TravelCurrencyCode,
+  rates?: ExchangeRateMap,
+  fallback?: CurrencyRange,
+): CurrencyRange => {
+  if (currency === 'BRL') return range;
+
+  const rate = rates ? getRateForCurrency(currency, rates) : null;
+  if (!rate) return fallback ?? emptyRange();
+
+  return {
+    min: range.min * rate,
+    max: range.max * rate,
+  };
+};
+
+export const formatMoney = (value: number, currency: TravelCurrencyCode, compact = false) => {
+  const rounded = compact ? roundForSummary(value) : value;
+  return getFormatter(currency).format(rounded);
+};
+
+export const formatRange = (range: CurrencyRange, currency: TravelCurrencyCode, compact = false) => {
+  const formatter = getFormatter(currency);
   const normalized = normalizeRange(range);
   const rounded = compact
     ? { min: roundForSummary(normalized.min), max: roundForSummary(normalized.max) }
@@ -60,6 +91,9 @@ export const parseCurrencyInput = (input: string): CurrencyRange => {
   const parts = input
     .replace(/€/g, '')
     .replace(/R\$/gi, '')
+    .replace(/US\$/gi, '')
+    .replace(/CHF/gi, '')
+    .replace(/£|¥/g, '')
     .split(/\s+a\s+|-/i)
     .map((part) => part.trim())
     .filter(Boolean);
@@ -75,6 +109,8 @@ export const parseCurrencyInput = (input: string): CurrencyRange => {
   return normalizeRange({ min, max });
 };
 
+export const parseAmountInput = (input: string) => parseCurrencyInput(input).min;
+
 export const stringifyRangeForInput = (range: CurrencyRange) => {
   const normalized = normalizeRange(range);
   const format = (value: number) =>
@@ -88,23 +124,73 @@ export const stringifyRangeForInput = (range: CurrencyRange) => {
     : `${format(normalized.min)} a ${format(normalized.max)}`;
 };
 
+export const stringifyAmountForInput = (value: number | undefined) =>
+  new Intl.NumberFormat('pt-BR', {
+    minimumFractionDigits: value && value % 1 !== 0 ? 2 : 0,
+    maximumFractionDigits: 2,
+  }).format(Number(value ?? 0));
+
+export const getExpenseCurrency = (expense: Expense): TravelCurrencyCode => expense.currency ?? 'EUR';
+
+export const getExpenseOriginalRange = (expense: Expense): CurrencyRange => {
+  if (Number.isFinite(expense.amount)) {
+    return { min: Number(expense.amount), max: Number(expense.amount) };
+  }
+
+  return getExpenseCurrency(expense) === 'BRL' ? expense.real : expense.euro;
+};
+
+export const getExpenseRealRange = (expense: Expense, rates?: ExchangeRateMap): CurrencyRange => {
+  const currency = getExpenseCurrency(expense);
+  const original = getExpenseOriginalRange(expense);
+
+  if (currency === 'BRL') return original;
+
+  return convertCurrencyRangeToReal(original, currency, rates, expense.real);
+};
+
+const addOriginalCurrency = (
+  totals: Partial<Record<TravelCurrencyCode, CurrencyRange>>,
+  currency: TravelCurrencyCode,
+  range: CurrencyRange,
+) => {
+  const current = totals[currency] ?? emptyRange();
+  totals[currency] = {
+    min: current.min + range.min,
+    max: current.max + range.max,
+  };
+};
+
+export const buildOriginalCurrencyTotals = (expenses: Expense[]) => {
+  const totals: Partial<Record<TravelCurrencyCode, CurrencyRange>> = {};
+
+  expenses.forEach((expense) => {
+    addOriginalCurrency(totals, getExpenseCurrency(expense), getExpenseOriginalRange(expense));
+  });
+
+  return totals;
+};
+
+export const formatOriginalCurrencyBreakdown = (
+  totals: Partial<Record<TravelCurrencyCode, CurrencyRange>>,
+  compact = true,
+) => {
+  const parts = Object.entries(totals)
+    .filter(([, range]) => range && (range.min > 0 || range.max > 0))
+    .map(([currency, range]) => formatRange(range as CurrencyRange, currency as TravelCurrencyCode, compact));
+
+  return parts.length ? parts.join(' + ') : 'Sem valores originais';
+};
+
 export const calculateCategoryTotal = (
   expenses: Expense[],
   category: string,
-  conversionRate?: number,
+  exchangeRates?: ExchangeRateMap,
   applySourceSheetAdjustment = true,
 ): Totals => {
   const categoryExpenses = expenses.filter((expense) => expense.category === category);
   const euroTotal = addRanges(categoryExpenses.map((expense) => expense.euro));
-
-  if (conversionRate) {
-    return {
-      euro: euroTotal,
-      real: convertEuroRangeToReal(euroTotal, conversionRate),
-    };
-  }
-
-  const realTotal = addRanges(categoryExpenses.map((expense) => expense.real));
+  const realTotal = addRanges(categoryExpenses.map((expense) => getExpenseRealRange(expense, exchangeRates)));
 
   // The source sheet rounds the transport subtotal above the literal item sum.
   const sourceSheetAdjustment =
@@ -116,29 +202,28 @@ export const calculateCategoryTotal = (
       min: realTotal.min + sourceSheetAdjustment.min,
       max: realTotal.max + sourceSheetAdjustment.max,
     },
+    originalByCurrency: buildOriginalCurrencyTotals(categoryExpenses),
   };
 };
 
 export const calculateGrandTotal = (categoryTotals: Totals[]): Totals => ({
   euro: addRanges(categoryTotals.map((total) => total.euro)),
   real: addRanges(categoryTotals.map((total) => total.real)),
+  originalByCurrency: categoryTotals.reduce<Partial<Record<TravelCurrencyCode, CurrencyRange>>>((totals, total) => {
+    Object.entries(total.originalByCurrency).forEach(([currency, range]) => {
+      if (range) addOriginalCurrency(totals, currency as TravelCurrencyCode, range);
+    });
+    return totals;
+  }, {}),
 });
 
 export const calculateExpensesTotal = (
   expenses: Expense[],
-  conversionRate?: number,
+  exchangeRates?: ExchangeRateMap,
   applySourceSheetAdjustment = true,
 ): Totals => {
   const euroTotal = addRanges(expenses.map((expense) => expense.euro));
-
-  if (conversionRate) {
-    return {
-      euro: euroTotal,
-      real: convertEuroRangeToReal(euroTotal, conversionRate),
-    };
-  }
-
-  const realTotal = addRanges(expenses.map((expense) => expense.real));
+  const realTotal = addRanges(expenses.map((expense) => getExpenseRealRange(expense, exchangeRates)));
   const hasTransport = expenses.some((expense) => expense.category === 'transport');
   const sourceSheetAdjustment =
     hasTransport && applySourceSheetAdjustment ? { min: 5, max: 6 } : emptyRange();
@@ -149,5 +234,6 @@ export const calculateExpensesTotal = (
       min: realTotal.min + sourceSheetAdjustment.min,
       max: realTotal.max + sourceSheetAdjustment.max,
     },
+    originalByCurrency: buildOriginalCurrencyTotals(expenses),
   };
 };

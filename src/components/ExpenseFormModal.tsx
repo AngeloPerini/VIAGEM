@@ -3,9 +3,20 @@ import { X } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import type { FormEvent } from 'react';
 import { buildCountryOptions, normalizeCountryId } from '../data/countries';
-import type { CategoryMeta, CountryId, CountryMeta, Expense, LinkItem } from '../types';
+import {
+  currencyNames,
+  currencySymbols,
+  getRateForCurrency,
+  TRAVEL_CURRENCIES,
+} from '../services/currencyService';
+import type { CategoryMeta, CountryId, CountryMeta, ExchangeRateMap, Expense, LinkItem, TravelCurrencyCode } from '../types';
 import { hasInvalidLinks, normalizeLinks } from '../utils/links';
-import { parseCurrencyInput, stringifyRangeForInput } from '../utils/money';
+import {
+  convertCurrencyRangeToReal,
+  formatMoney,
+  parseAmountInput,
+  stringifyAmountForInput,
+} from '../utils/money';
 import { LinksEditor } from './LinksEditor';
 
 type ExpenseFormModalProps = {
@@ -13,6 +24,7 @@ type ExpenseFormModalProps = {
   expense?: Expense | null;
   isOpen: boolean;
   countryOptions: CountryMeta[];
+  exchangeRates: ExchangeRateMap;
   onClose: () => void;
   onSave: (expense: Expense) => void;
 };
@@ -20,12 +32,25 @@ type ExpenseFormModalProps = {
 const getDefaultCountry = (countryOptions: CountryMeta[]) =>
   countryOptions.find((country) => country.id !== 'all')?.id ?? 'international';
 
+const getDefaultCurrencyForCountry = (country: CountryId): TravelCurrencyCode => {
+  const normalized = normalizeCountryId(country);
+
+  if (['england', 'scotland', 'united_kingdom', 'great_britain'].includes(normalized)) return 'GBP';
+  if (normalized === 'switzerland') return 'CHF';
+  if (normalized === 'japan') return 'JPY';
+  if (normalized === 'united_states') return 'USD';
+  if (normalized === 'brazil') return 'BRL';
+  return 'EUR';
+};
+
 const createBlankExpense = (category: string, country: CountryId): Expense => ({
   id: crypto.randomUUID(),
   category,
   country,
   title: '',
   detail: '',
+  currency: getDefaultCurrencyForCountry(country),
+  amount: 0,
   euro: { min: 0, max: 0 },
   real: { min: 0, max: 0 },
   links: [],
@@ -36,6 +61,7 @@ export function ExpenseFormModal({
   expense,
   isOpen,
   countryOptions,
+  exchangeRates,
   onClose,
   onSave,
 }: ExpenseFormModalProps) {
@@ -50,8 +76,8 @@ export function ExpenseFormModal({
   const [country, setCountry] = useState<CountryId>(() => getDefaultCountry(selectableCountryOptions));
   const [title, setTitle] = useState('');
   const [detail, setDetail] = useState('');
-  const [euro, setEuro] = useState('');
-  const [real, setReal] = useState('');
+  const [currency, setCurrency] = useState<TravelCurrencyCode>('EUR');
+  const [amount, setAmount] = useState('');
   const [links, setLinks] = useState<LinkItem[]>([]);
 
   useEffect(() => {
@@ -61,10 +87,29 @@ export function ExpenseFormModal({
     setCountry(normalizeCountryId(source.country ?? defaultCountry));
     setTitle(source.title);
     setDetail(source.detail ?? '');
-    setEuro(stringifyRangeForInput(source.euro));
-    setReal(stringifyRangeForInput(source.real));
+    setCurrency(source.currency ?? getDefaultCurrencyForCountry(source.country ?? defaultCountry));
+    setAmount(stringifyAmountForInput(source.amount ?? source.euro.min ?? source.real.min));
     setLinks(source.links ?? []);
   }, [selectableCountryOptions, expense, isOpen]);
+
+  const numericAmount = parseAmountInput(amount);
+  const amountRange = { min: numericAmount, max: numericAmount };
+  const convertedReal = convertCurrencyRangeToReal(amountRange, currency, exchangeRates, expense?.real);
+  const eurRate = getRateForCurrency('EUR', exchangeRates);
+  const currentRate = getRateForCurrency(currency, exchangeRates);
+  const euroRange = currency === 'EUR'
+    ? amountRange
+    : eurRate && currentRate
+      ? {
+          min: convertedReal.min / eurRate,
+          max: convertedReal.max / eurRate,
+        }
+      : expense?.euro ?? { min: 0, max: 0 };
+
+  const handleCountryChange = (nextCountry: CountryId) => {
+    setCountry(nextCountry);
+    if (!expense) setCurrency(getDefaultCurrencyForCountry(nextCountry));
+  };
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -76,8 +121,10 @@ export function ExpenseFormModal({
       country,
       title: title.trim(),
       detail: detail.trim(),
-      euro: parseCurrencyInput(euro),
-      real: parseCurrencyInput(real),
+      currency,
+      amount: numericAmount,
+      euro: euroRange,
+      real: convertedReal,
       links: normalizeLinks(links),
     });
   };
@@ -141,7 +188,7 @@ export function ExpenseFormModal({
                 <span className="mb-2 block text-sm font-bold text-slate-600">Pais</span>
                 <select
                   value={country}
-                  onChange={(event) => setCountry(event.target.value as CountryId)}
+                  onChange={(event) => handleCountryChange(event.target.value as CountryId)}
                   className="h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 font-semibold text-slate-900 outline-none transition focus:border-teal-400 focus:ring-4 focus:ring-teal-100"
                 >
                   {selectableCountryOptions
@@ -176,26 +223,42 @@ export function ExpenseFormModal({
               </label>
 
               <label>
-                <span className="mb-2 block text-sm font-bold text-slate-600">Euro</span>
+                <span className="mb-2 block text-sm font-bold text-slate-600">Moeda</span>
+                <select
+                  value={currency}
+                  onChange={(event) => setCurrency(event.target.value as TravelCurrencyCode)}
+                  className="h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 font-semibold text-slate-900 outline-none transition focus:border-teal-400 focus:ring-4 focus:ring-teal-100"
+                >
+                  {TRAVEL_CURRENCIES.map((item) => (
+                    <option key={item} value={item}>
+                      {item} - {currencyNames[item]}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label>
+                <span className="mb-2 block text-sm font-bold text-slate-600">Valor</span>
                 <input
-                  value={euro}
-                  onChange={(event) => setEuro(event.target.value)}
+                  value={amount}
+                  onChange={(event) => setAmount(event.target.value)}
                   required
-                  placeholder="26 a 32"
+                  placeholder="100"
                   className="h-12 w-full rounded-2xl border border-slate-200 px-4 font-semibold text-slate-900 outline-none transition focus:border-teal-400 focus:ring-4 focus:ring-teal-100"
                 />
               </label>
 
-              <label>
-                <span className="mb-2 block text-sm font-bold text-slate-600">Real</span>
-                <input
-                  value={real}
-                  onChange={(event) => setReal(event.target.value)}
-                  required
-                  placeholder="166 a 205"
-                  className="h-12 w-full rounded-2xl border border-slate-200 px-4 font-semibold text-slate-900 outline-none transition focus:border-teal-400 focus:ring-4 focus:ring-teal-100"
-                />
-              </label>
+              <div className="rounded-2xl bg-slate-50 px-4 py-3 md:col-span-2">
+                <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-400">Conversão estimada</p>
+                <p className="mt-2 text-lg font-black text-slate-950">
+                  {currencySymbols[currency]} {amount || '0'} ≈ {formatMoney(convertedReal.min, 'BRL')}
+                </p>
+                {currency !== 'BRL' && !currentRate ? (
+                  <p className="mt-1 text-sm font-bold text-amber-700">
+                    Cotação indisponível. O valor em BRL será mantido pelo último dado salvo, se houver.
+                  </p>
+                ) : null}
+              </div>
               <LinksEditor links={links} onChange={setLinks} />
             </div>
 

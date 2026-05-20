@@ -2,7 +2,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { BedDouble, FileText, Landmark, Route, ShieldCheck, WalletCards } from 'lucide-react';
 import type { CategoryMeta, RealValueMode } from '../types';
 import type { Totals } from '../utils/money';
-import { formatRange } from '../utils/money';
+import { formatOriginalCurrencyBreakdown, formatRange } from '../utils/money';
 
 const icons: Record<string, typeof WalletCards> = {
   lodging: BedDouble,
@@ -20,12 +20,10 @@ type SummaryCardsProps = {
 };
 
 function MoneyPriority({ total, mode, inverted = false }: { total: Totals; mode: RealValueMode; inverted?: boolean }) {
-  const primary = mode === 'converted'
-    ? formatRange(total.real, 'BRL', true)
-    : formatRange(total.euro, 'EUR', true);
+  const primary = formatRange(total.real, 'BRL', true);
   const secondary = mode === 'converted'
-    ? formatRange(total.euro, 'EUR', true)
-    : formatRange(total.real, 'BRL', true);
+    ? formatOriginalCurrencyBreakdown(total.originalByCurrency)
+    : 'Valores cadastrados convertidos para BRL';
 
   return (
     <AnimatePresence mode="wait">

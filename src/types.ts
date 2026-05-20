@@ -3,6 +3,24 @@ export type CurrencyRange = {
   max: number;
 };
 
+export type TravelCurrencyCode = 'BRL' | 'EUR' | 'USD' | 'JPY' | 'CHF' | 'GBP';
+
+export type ExchangeRateStatus = 'live' | 'cached' | 'unavailable';
+
+export type ExchangeRate = {
+  code: TravelCurrencyCode;
+  name: string;
+  rate: number;
+  variation: number;
+  updatedAt: string;
+  status?: ExchangeRateStatus;
+  error?: string;
+};
+
+export type ExchangeRateMap = Partial<Record<TravelCurrencyCode, ExchangeRate>>;
+
+export type ExchangeRateHistory = Partial<Record<TravelCurrencyCode, QuoteHistoryPoint[]>>;
+
 export type LinkItem = {
   label: string;
   url: string;
@@ -14,6 +32,8 @@ export type Expense = {
   country?: CountryId;
   title: string;
   detail?: string;
+  currency?: TravelCurrencyCode;
+  amount?: number;
   euro: CurrencyRange;
   real: CurrencyRange;
   links?: LinkItem[];
@@ -35,6 +55,7 @@ export type CurrencyQuote = {
 export type QuoteHistoryPoint = {
   rate: number;
   timestamp: number;
+  code?: TravelCurrencyCode;
 };
 
 export type RealValueMode = 'original' | 'converted';

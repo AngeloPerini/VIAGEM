@@ -1,66 +1,77 @@
 import { motion } from 'framer-motion';
-import { ArrowDownRight, ArrowUpRight, RefreshCw } from 'lucide-react';
-import type { CurrencyQuote } from '../types';
+import { ArrowDownRight, ArrowRight, ArrowUpRight, RefreshCw } from 'lucide-react';
+import type { ExchangeRate } from '../types';
+import { currencyBadges, currencySymbols } from '../services/currencyService';
 
 type QuoteStatusCardProps = {
-  quote: CurrencyQuote | null;
+  rate: ExchangeRate | null;
   isLoading: boolean;
   warning: string | null;
   onRefresh: () => void;
   compact?: boolean;
 };
 
-const formatUpdatedAt = (timestamp?: number) =>
-  timestamp
+const formatUpdatedAt = (updatedAt?: string) =>
+  updatedAt
     ? new Intl.DateTimeFormat('pt-BR', {
         dateStyle: 'short',
         timeStyle: 'short',
-      }).format(new Date(timestamp))
+      }).format(new Date(updatedAt))
     : 'Sem atualizacao';
 
 export function QuoteStatusCard({
-  quote,
+  rate,
   isLoading,
   warning,
   onRefresh,
   compact = false,
 }: QuoteStatusCardProps) {
-  const isUp = (quote?.pctChange ?? 0) >= 0;
-  const TrendIcon = isUp ? ArrowUpRight : ArrowDownRight;
+  const variation = rate?.variation ?? 0;
+  const isStable = Math.abs(variation) < 0.01;
+  const isUp = variation > 0;
+  const TrendIcon = isStable ? ArrowRight : isUp ? ArrowUpRight : ArrowDownRight;
+  const trendLabel = isStable ? 'estavel' : isUp ? 'em alta' : 'em baixa';
 
   return (
     <motion.section
       className={`overflow-hidden rounded-[2rem] border border-white/70 bg-white/85 shadow-xl shadow-slate-900/10 backdrop-blur-xl ${
         compact ? 'p-5' : 'p-6 md:p-8'
       }`}
-      animate={quote ? { scale: [1, 1.015, 1] } : undefined}
+      animate={rate ? { scale: [1, 1.015, 1] } : undefined}
       transition={{ duration: 0.45 }}
     >
       <div className="flex flex-col gap-5 md:flex-row md:items-start md:justify-between">
         <div>
           <p className="text-sm font-bold uppercase tracking-[0.2em] text-slate-400">
-            Cotacao EUR/BRL
+            Cotacao {rate?.code ?? 'EUR'}/BRL
           </p>
           <div className="mt-3 flex flex-wrap items-end gap-3">
-            <h2 className="text-4xl font-black text-slate-950 md:text-5xl">
-              €1 = R$ {quote ? quote.bid.toFixed(2).replace('.', ',') : '--'}
+            <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-950 text-sm font-black text-white">
+              {rate ? currencyBadges[rate.code] : 'FX'}
+            </span>
+            <h2 className="text-3xl font-black text-slate-950 md:text-5xl">
+              {rate ? `${currencySymbols[rate.code]}1 = R$ ${rate.rate.toFixed(2).replace('.', ',')}` : '--'}
             </h2>
           </div>
           <div className="mt-4 flex flex-wrap items-center gap-3">
             <span
               className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-sm font-black ${
-                isUp ? 'bg-teal-50 text-teal-700' : 'bg-rose-50 text-rose-700'
+                isStable
+                  ? 'bg-slate-100 text-slate-600'
+                  : isUp
+                    ? 'bg-teal-50 text-teal-700'
+                    : 'bg-rose-50 text-rose-700'
               }`}
             >
               <TrendIcon className="h-4 w-4" />
-              {isUp ? 'Euro em alta' : 'Euro em baixa'}
+              {rate ? `${rate.name} ${trendLabel}` : 'Aguardando cotacao'}
             </span>
             <span className="font-bold text-slate-500">
-              {quote ? `${quote.pctChange.toFixed(2).replace('.', ',')}%` : 'Aguardando cotacao'}
+              {rate ? `${rate.variation.toFixed(2).replace('.', ',')}%` : 'Sem dados'}
             </span>
           </div>
           <p className="mt-4 text-sm font-semibold text-slate-500">
-            Ultima atualizacao: {formatUpdatedAt(quote?.timestamp)}
+            Ultima atualizacao: {formatUpdatedAt(rate?.updatedAt)}
           </p>
           {warning ? (
             <p className="mt-3 rounded-2xl bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-800">
@@ -78,7 +89,7 @@ export function QuoteStatusCard({
           whileTap={{ scale: 0.98 }}
         >
           <RefreshCw className={`h-5 w-5 ${isLoading ? 'animate-spin' : ''}`} />
-          Atualizar Cotacao
+          Atualizar cotações
         </motion.button>
       </div>
     </motion.section>
