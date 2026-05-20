@@ -22,7 +22,6 @@ export function GroupsPage() {
   const [description, setDescription] = useState('');
   const [inviteInput, setInviteInput] = useState('');
   const [inviteEmail, setInviteEmail] = useState('');
-  const [singleUseInvite, setSingleUseInvite] = useState(false);
   const [generatedInvite, setGeneratedInvite] = useState<InviteDetails | null>(null);
   const [status, setStatus] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
@@ -72,9 +71,9 @@ export function GroupsPage() {
     setIsSubmitting(true);
 
     try {
-      const invite = await inviteMember(inviteEmail, singleUseInvite);
+      const invite = await inviteMember(inviteEmail, true);
       setGeneratedInvite(invite);
-      setStatus('Convite criado.');
+      setStatus(invite.emailSent ? 'Convite enviado por e-mail.' : `Convite criado, mas e-mail pendente. ${invite.emailError ?? ''}`);
     } catch (caughtError) {
       setFormError(caughtError instanceof Error ? caughtError.message : 'Nao foi possivel criar o convite.');
     } finally {
@@ -189,22 +188,14 @@ export function GroupsPage() {
             {activeGroup?.role === 'owner' ? (
               <form onSubmit={handleCreateInvite} className="mt-8 border-t border-slate-100 pt-6">
                 <label>
-                  <span className="mb-2 block text-sm font-bold text-slate-600">Convidar e-mail opcional</span>
+                  <span className="mb-2 block text-sm font-bold text-slate-600">E-mail do convidado</span>
                   <input
                     type="email"
+                    required
                     value={inviteEmail}
                     onChange={(event) => setInviteEmail(event.target.value)}
                     className="h-12 w-full rounded-2xl border border-slate-200 px-4 font-semibold outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-100"
                   />
-                </label>
-                <label className="mt-4 flex items-center gap-3 rounded-2xl bg-slate-50 p-4 text-sm font-bold text-slate-700">
-                  <input
-                    type="checkbox"
-                    checked={singleUseInvite}
-                    onChange={(event) => setSingleUseInvite(event.target.checked)}
-                    className="h-5 w-5 accent-teal-600"
-                  />
-                  Convite de uso unico
                 </label>
                 <button
                   type="submit"
@@ -212,7 +203,7 @@ export function GroupsPage() {
                   className="mt-4 inline-flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-slate-950 px-5 font-black text-white transition hover:bg-teal-700 disabled:cursor-not-allowed disabled:opacity-70"
                 >
                   <Send className="h-5 w-5" />
-                  Gerar convite
+                  Enviar convite
                 </button>
                 {generatedInvite ? (
                   <div className="mt-4 space-y-3 rounded-3xl bg-teal-50 p-4 text-sm font-bold text-teal-900">

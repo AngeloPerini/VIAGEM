@@ -27,9 +27,28 @@ type GroupMemberRow = {
 };
 
 type GroupInviteRow = {
+  id?: string;
+  group_id?: string;
+  email?: string | null;
   token: string;
   expires_at: string | null;
   single_use: boolean | null;
+  created_at?: string | null;
+};
+
+type PendingInviteRow = {
+  id: string;
+  group_id: string;
+  group_name: string;
+  group_description: string | null;
+  token: string;
+  email: string;
+  role: string;
+  expires_at: string | null;
+  created_at: string | null;
+  created_by: string | null;
+  inviter_name: string | null;
+  inviter_email: string | null;
 };
 
 type MembershipWithGroupRow = {
@@ -52,8 +71,29 @@ const tripStatuses: TripStatus[] = ['planned', 'active', 'completed', 'canceled'
 export type InviteDetails = {
   code: string;
   link: string;
+  email?: string;
   expiresAt: string;
   singleUse: boolean;
+  emailSent?: boolean;
+  emailError?: string;
+};
+
+export type PendingInvite = {
+  id: string;
+  token: string;
+  code: string;
+  link: string;
+  email: string;
+  role: GroupRole;
+  expiresAt?: string;
+  createdAt?: string;
+  group: {
+    id: string;
+    name: string;
+    description?: string;
+  };
+  inviterName: string;
+  inviterEmail?: string;
 };
 
 const toGroup = (row: TravelGroupRow): TravelGroup => ({
@@ -136,6 +176,20 @@ function generateInviteCode() {
   const suffix = Array.from(bytes, (byte) => alphabet[byte % alphabet.length]).join('');
   return `${prefix}-${suffix.slice(1)}`;
 }
+
+const normalizeInviteEmail = (value?: string) => value?.trim().toLowerCase() ?? '';
+
+const isValidInviteEmail = (value: string) =>
+  /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+
+const getFunctionErrorMessage = (data: unknown, fallback: string) => {
+  if (data && typeof data === 'object') {
+    const record = data as Record<string, unknown>;
+    if (typeof record.message === 'string' && record.message.trim()) return record.message;
+    if (typeof record.error === 'string' && record.error.trim()) return record.error;
+  }
+  return fallback;
+};
 
 export async function claimLegacyTripGroup() {
   const { error } = await supabase.rpc('claim_legacy_trip_group', {
@@ -410,30 +464,53 @@ export async function deleteTrip(groupId: string) {
   storeActiveGroupId(userId, null);
 }
 
-export async function inviteMember(groupId: string, email?: string, singleUse = false): Promise<InviteDetails> {
-  const userId = await requireUserId();
+export async function inviteMember(groupId: string, email?: string, _singleUse = true): Promise<InviteDetails> {
   const expiresAt = new Date(Date.now() + 1000 * 60 * 60 * 24 * 7).toISOString();
+  const normalizedEmail = normalizeInviteEmail(email);
+
+  if (!normalizedEmail) throw new Error('Informe o e-mail do convidado.');
+  if (!isValidInviteEmail(normalizedEmail)) throw new Error('Informe um e-mail valido.');
 
   for (let attempt = 0; attempt < 5; attempt += 1) {
     const code = generateInviteCode();
-    const { error } = await supabase.from('group_invites').insert({
-      group_id: groupId,
-      email: email?.trim() || null,
-      token: code,
-      role: 'member',
-      single_use: singleUse,
-      used: false,
-      used_count: 0,
-      created_by: userId,
-      expires_at: expiresAt,
-    });
+    const { data, error } = await supabase
+      .rpc('create_group_invite', {
+        target_group_id: groupId,
+        invite_email: normalizedEmail,
+        invite_token: code,
+        invite_role: 'member',
+        invite_expires_at: expiresAt,
+      })
+      .maybeSingle();
 
     if (!error) {
+      const createdInvite = data as GroupInviteRow | null;
+      let emailSent = false;
+      let emailError: string | undefined;
+
+      const { data: emailData, error: functionError } = await supabase.functions.invoke('send-trip-invite', {
+        body: {
+          groupId,
+          token: createdInvite?.token ?? code,
+        },
+      });
+
+      if (functionError) {
+        emailError = functionError.message || 'Convite salvo, mas o e-mail nao foi enviado.';
+      } else if (emailData && typeof emailData === 'object' && 'error' in emailData) {
+        emailError = getFunctionErrorMessage(emailData, 'Convite salvo, mas o e-mail nao foi enviado.');
+      } else {
+        emailSent = true;
+      }
+
       return {
-        code,
-        link: buildPublicAppUrl(`/invite/${code}`),
-        expiresAt,
-        singleUse,
+        code: createdInvite?.token ?? code,
+        link: buildPublicAppUrl(`/invite/${createdInvite?.token ?? code}`),
+        email: createdInvite?.email ?? normalizedEmail,
+        expiresAt: createdInvite?.expires_at ?? expiresAt,
+        singleUse: true,
+        emailSent,
+        emailError,
       };
     }
 
@@ -448,7 +525,7 @@ export const createInvite = inviteMember;
 export async function getInvites(groupId: string): Promise<InviteDetails[]> {
   const { data, error } = await supabase
     .from('group_invites')
-    .select('token, expires_at, single_use')
+    .select('id, email, token, expires_at, single_use, created_at')
     .eq('group_id', groupId)
     .order('created_at', { ascending: false })
     .limit(8);
@@ -458,8 +535,32 @@ export async function getInvites(groupId: string): Promise<InviteDetails[]> {
   return ((data ?? []) as GroupInviteRow[]).map((invite) => ({
     code: invite.token,
     link: buildPublicAppUrl(`/invite/${invite.token}`),
+    email: invite.email ?? undefined,
     expiresAt: invite.expires_at ?? '',
     singleUse: invite.single_use ?? false,
+  }));
+}
+
+export async function getPendingInvites(): Promise<PendingInvite[]> {
+  const { data, error } = await supabase.rpc('get_pending_group_invites');
+  if (error) throw error;
+
+  return ((data ?? []) as PendingInviteRow[]).map((invite) => ({
+    id: invite.id,
+    token: invite.token,
+    code: invite.token,
+    link: buildPublicAppUrl(`/invite/${invite.token}`),
+    email: invite.email,
+    role: invite.role === 'owner' ? 'owner' : 'member',
+    expiresAt: invite.expires_at ?? undefined,
+    createdAt: invite.created_at ?? undefined,
+    group: {
+      id: invite.group_id,
+      name: invite.group_name,
+      description: invite.group_description ?? undefined,
+    },
+    inviterName: invite.inviter_name ?? invite.inviter_email ?? 'TripFlow',
+    inviterEmail: invite.inviter_email ?? undefined,
   }));
 }
 
@@ -477,10 +578,26 @@ export async function acceptInvite(token: string): Promise<UserTravelGroup> {
     name: acceptedGroup.name,
     description: acceptedGroup.description ?? '',
     ownerId: acceptedGroup.owner_id,
+    status: tripStatuses.includes(acceptedGroup.status as TripStatus) ? acceptedGroup.status as TripStatus : 'planned',
+    countries: Array.isArray(acceptedGroup.countries)
+      ? acceptedGroup.countries.flatMap((country: string) => parseCountryInput(country))
+      : [],
+    startDate: acceptedGroup.start_date ?? undefined,
+    endDate: acceptedGroup.end_date ?? undefined,
+    travelStyle: acceptedGroup.travel_style ?? undefined,
+    notes: acceptedGroup.notes ?? undefined,
     createdAt: acceptedGroup.created_at,
     updatedAt: acceptedGroup.updated_at,
     role: acceptedGroup.role as GroupRole,
   };
+}
+
+export async function rejectInvite(token: string) {
+  const { error } = await supabase.rpc('reject_group_invite', {
+    invite_token: normalizeInviteToken(token),
+  });
+
+  if (error) throw error;
 }
 
 export async function getGroupMembers(groupId: string) {

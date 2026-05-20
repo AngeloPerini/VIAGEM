@@ -37,9 +37,12 @@ import {
 import {
   deleteTrip,
   getInvites,
+  getPendingInvites,
   normalizeInviteToken,
+  rejectInvite,
   updateTripStatus,
   type InviteDetails,
+  type PendingInvite,
 } from '../services/groupsService';
 import { supabase } from '../services/supabaseClient';
 import { generateTripPlan, storeTripAIReview, TripAIFunctionError } from '../services/tripAIService';
@@ -361,9 +364,9 @@ export function ProfilePage() {
   const [selectedTrip, setSelectedTrip] = useState<UserTravelGroup | null>(null);
   const [showCreateTripForm, setShowCreateTripForm] = useState(false);
   const [knownInvites, setKnownInvites] = useState<InviteDetails[]>([]);
+  const [pendingInvites, setPendingInvites] = useState<PendingInvite[]>([]);
   const [generatedInvite, setGeneratedInvite] = useState<InviteDetails | null>(null);
   const [inviteEmail, setInviteEmail] = useState('');
-  const [singleUseInvite, setSingleUseInvite] = useState(false);
   const [copied, setCopied] = useState<string | null>(null);
   const [tripName, setTripName] = useState('Minha viagem');
   const [tripDescription, setTripDescription] = useState('');
@@ -381,6 +384,7 @@ export function ProfilePage() {
   const [aiFailedGroup, setAiFailedGroup] = useState<UserTravelGroup | null>(null);
   const [aiRetryInput, setAiRetryInput] = useState<TripAIInput | null>(null);
   const [isJoiningTrip, setIsJoiningTrip] = useState(false);
+  const [inviteActionToken, setInviteActionToken] = useState<string | null>(null);
   const [tripActionId, setTripActionId] = useState<string | null>(null);
   const [removingUserId, setRemovingUserId] = useState<string | null>(null);
 
@@ -517,11 +521,12 @@ export function ProfilePage() {
         await upsertCurrentProfile(user).catch(() => null);
       }
 
-      const [nextProfile, nextStats, nextMembers, nextInvites, nextTripSummaries] = await Promise.all([
+      const [nextProfile, nextStats, nextMembers, nextInvites, nextPendingInvites, nextTripSummaries] = await Promise.all([
         getCurrentProfile().catch(() => buildFallbackProfile(user)),
         getUserStats(user?.id, activeGroup?.id),
         activeGroup ? getGroupMembers(activeGroup.id) : Promise.resolve([]),
         activeGroup && isOwner ? getInvites(activeGroup.id).catch(() => []) : Promise.resolve([]),
+        getPendingInvites().catch(() => []),
         getProfileTripStats().catch(() => []),
       ]);
 
@@ -529,6 +534,7 @@ export function ProfilePage() {
       setStats(nextStats);
       setMembers(nextMembers);
       setKnownInvites(nextInvites);
+      setPendingInvites(nextPendingInvites);
       setTripSummaries(Object.fromEntries(nextTripSummaries.map((summary) => [summary.groupId, summary])));
     } catch (caughtError) {
       setError(caughtError instanceof Error ? caughtError.message : 'Nao foi possivel carregar o perfil.');
@@ -576,11 +582,15 @@ export function ProfilePage() {
     setIsInviting(true);
 
     try {
-      const invite = await inviteMember(inviteEmail, singleUseInvite);
+      const invite = await inviteMember(inviteEmail, true);
       setGeneratedInvite(invite);
       setKnownInvites((current) => [invite, ...current]);
       setInviteEmail('');
-      setStatus('Convite gerado.');
+      setStatus(
+        invite.emailSent
+          ? `Convite enviado para ${invite.email}.`
+          : `Convite criado para ${invite.email}, mas o e-mail nao foi enviado. ${invite.emailError ?? 'Verifique EMAIL_API_KEY.'}`,
+      );
     } catch (caughtError) {
       setError(caughtError instanceof Error ? caughtError.message : 'Nao foi possivel gerar o convite.');
     } finally {
@@ -751,6 +761,7 @@ export function ProfilePage() {
       const group = await acceptInvite(token);
       setStatus(`Voce entrou em ${group.name}.`);
       setInviteCodeInput('');
+      setPendingInvites((current) => current.filter((invite) => invite.token !== token));
       await refreshGroups({ silent: true });
       window.history.replaceState({}, '', '/dashboard');
       window.dispatchEvent(new PopStateEvent('popstate'));
@@ -758,6 +769,41 @@ export function ProfilePage() {
       setError(caughtError instanceof Error ? caughtError.message : 'Nao foi possivel aceitar este convite.');
     } finally {
       setIsJoiningTrip(false);
+    }
+  };
+
+  const handleAcceptPendingInvite = async (invite: PendingInvite) => {
+    setError(null);
+    setStatus(null);
+    setInviteActionToken(invite.token);
+
+    try {
+      const group = await acceptInvite(invite.token);
+      setPendingInvites((current) => current.filter((item) => item.id !== invite.id));
+      setStatus(`Convite aceito. Voce entrou em ${group.name}.`);
+      await refreshGroups({ silent: true });
+      window.history.replaceState({}, '', '/dashboard');
+      window.dispatchEvent(new PopStateEvent('popstate'));
+    } catch (caughtError) {
+      setError(caughtError instanceof Error ? caughtError.message : 'Nao foi possivel aceitar o convite.');
+    } finally {
+      setInviteActionToken(null);
+    }
+  };
+
+  const handleRejectPendingInvite = async (invite: PendingInvite) => {
+    setError(null);
+    setStatus(null);
+    setInviteActionToken(invite.token);
+
+    try {
+      await rejectInvite(invite.token);
+      setPendingInvites((current) => current.filter((item) => item.id !== invite.id));
+      setStatus(`Convite para ${invite.group.name} recusado.`);
+    } catch (caughtError) {
+      setError(caughtError instanceof Error ? caughtError.message : 'Nao foi possivel recusar o convite.');
+    } finally {
+      setInviteActionToken(null);
     }
   };
 
@@ -916,6 +962,65 @@ export function ProfilePage() {
         <p className="rounded-2xl border border-white/80 bg-white/85 px-4 py-3 text-sm font-bold text-slate-600 shadow-lg shadow-slate-900/5">
           {isLoading ? t('profile.loading') : error ?? status}
         </p>
+      ) : null}
+
+      {pendingInvites.length ? (
+        <section className="rounded-[2rem] border border-teal-100 bg-white/90 p-6 shadow-xl shadow-slate-900/10 md:p-8">
+          <div className="mb-5 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <p className="text-sm font-black uppercase tracking-[0.18em] text-teal-700">{t('profile.receivedInvites')}</p>
+              <h2 className="text-2xl font-black text-slate-950">{t('profile.pendingInvites')}</h2>
+            </div>
+            <span className="rounded-2xl bg-teal-50 px-3 py-2 text-sm font-black text-teal-700">
+              {pendingInvites.length}
+            </span>
+          </div>
+          <div className="grid gap-3 lg:grid-cols-2">
+            {pendingInvites.map((invite) => (
+              <article key={invite.id} className="rounded-3xl border border-slate-100 bg-slate-50 p-4">
+                <div className="flex items-start gap-3">
+                  <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-slate-950 text-white">
+                    <Ticket className="h-5 w-5" />
+                  </span>
+                  <div className="min-w-0">
+                    <h3 className="truncate text-lg font-black text-slate-950">{invite.group.name}</h3>
+                    <p className="mt-1 text-sm font-bold text-slate-600">
+                      Enviado por {invite.inviterName}
+                    </p>
+                    <p className="mt-1 text-xs font-bold text-slate-400">
+                      Expira em {invite.expiresAt ? formatDate(invite.expiresAt) : '7 dias'} · {invite.code}
+                    </p>
+                  </div>
+                </div>
+                {invite.group.description ? (
+                  <p className="mt-3 line-clamp-2 text-sm font-semibold leading-6 text-slate-600">
+                    {invite.group.description}
+                  </p>
+                ) : null}
+                <div className="mt-4 grid gap-2 sm:grid-cols-2">
+                  <button
+                    type="button"
+                    onClick={() => void handleAcceptPendingInvite(invite)}
+                    disabled={inviteActionToken === invite.token}
+                    className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl bg-teal-700 px-4 text-sm font-black text-white transition hover:bg-teal-800 disabled:opacity-60"
+                  >
+                    {inviteActionToken === invite.token ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
+                    {t('profile.acceptInvite')}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void handleRejectPendingInvite(invite)}
+                    disabled={inviteActionToken === invite.token}
+                    className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl bg-white px-4 text-sm font-black text-rose-700 transition hover:bg-rose-50 disabled:opacity-60"
+                  >
+                    <X className="h-4 w-4" />
+                    {t('profile.rejectInvite')}
+                  </button>
+                </div>
+              </article>
+            ))}
+          </div>
+        </section>
       ) : null}
 
       {aiFailedGroup && aiRetryInput ? (
@@ -1319,22 +1424,15 @@ export function ProfilePage() {
               <>
                 <form onSubmit={handleInvite} className="space-y-4">
                   <label className="block">
-                    <span className="mb-2 block text-sm font-bold text-slate-600">{t('profile.optionalEmail')}</span>
+                    <span className="mb-2 block text-sm font-bold text-slate-600">{t('profile.inviteEmail')}</span>
                     <input
                       type="email"
+                      required
                       value={inviteEmail}
                       onChange={(event) => setInviteEmail(event.target.value)}
+                      placeholder="amigo@email.com"
                       className="h-12 w-full rounded-2xl border border-slate-200 px-4 font-semibold outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-100"
                     />
-                  </label>
-                  <label className="flex items-center gap-3 rounded-2xl bg-slate-50 p-4 text-sm font-bold text-slate-700">
-                    <input
-                      type="checkbox"
-                      checked={singleUseInvite}
-                      onChange={(event) => setSingleUseInvite(event.target.checked)}
-                      className="h-5 w-5 accent-teal-600"
-                    />
-                    {t('profile.singleUseInvite')}
                   </label>
                   <button
                     type="submit"
@@ -1342,7 +1440,7 @@ export function ProfilePage() {
                     className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-slate-950 px-5 font-black text-white transition hover:bg-teal-700 disabled:cursor-not-allowed disabled:opacity-70"
                   >
                     <Send className="h-5 w-5" />
-                    {isInviting ? t('profile.generating') : t('profile.generateInvite')}
+                    {isInviting ? t('profile.sendingInvite') : t('profile.sendInvite')}
                   </button>
                 </form>
 
@@ -1357,11 +1455,16 @@ export function ProfilePage() {
                       <span className="break-all">{latestInvite.link}</span>
                     </div>
                     <div className="grid gap-2 text-teal-700 sm:grid-cols-2">
+                      {latestInvite.email ? (
+                        <span className="rounded-2xl bg-white/70 px-3 py-2">
+                          E-mail: {latestInvite.email}
+                        </span>
+                      ) : null}
                       <span className="rounded-2xl bg-white/70 px-3 py-2">
                         {t('profile.inviteValidity')}: {latestInvite.expiresAt ? formatDate(latestInvite.expiresAt) : '7 dias'}
                       </span>
                       <span className="rounded-2xl bg-white/70 px-3 py-2">
-                        {t('profile.inviteUsage')}: {latestInvite.singleUse ? t('profile.inviteSingle') : t('profile.inviteMultiple')}
+                        Envio: {latestInvite.emailSent ? 'e-mail enviado' : latestInvite.emailError ? 'e-mail pendente' : 'salvo'}
                       </span>
                     </div>
                     <div className="grid gap-2 sm:grid-cols-2">
