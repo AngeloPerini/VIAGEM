@@ -18,6 +18,7 @@ type ExpenseTableProps = {
   total: Totals;
   realValueMode: RealValueMode;
   exchangeRates: ExchangeRateMap;
+  canManage?: boolean;
   onEdit: (expense: Expense) => void;
   onDelete: (id: string) => void;
 };
@@ -28,6 +29,7 @@ export function ExpenseTable({
   total,
   realValueMode,
   exchangeRates,
+  canManage = true,
   onEdit,
   onDelete,
 }: ExpenseTableProps) {
@@ -90,55 +92,75 @@ export function ExpenseTable({
               <th className="px-4 py-4 font-black">Pais</th>
               <th className="px-4 py-4 font-black">Moeda</th>
               <th className="px-4 py-4 font-black">Real</th>
-              <th className="px-7 py-4 text-right font-black">Acoes</th>
+              {canManage ? <th className="px-7 py-4 text-right font-black">Acoes</th> : null}
             </tr>
           </thead>
           <tbody>
             <AnimatePresence initial={false}>
-              {expenses.map((expense) => (
+              {expenses.length ? (
+                expenses.map((expense) => (
+                  <motion.tr
+                    layout
+                    key={expense.id}
+                    className="border-t border-slate-100 text-slate-700"
+                    initial={{ opacity: 0, x: -12 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: 18 }}
+                    transition={{ duration: 0.24 }}
+                  >
+                    <td className="px-7 py-4 font-bold text-slate-950">{expense.title}</td>
+                    <td className="px-4 py-4 text-slate-500">{expense.detail || '-'}</td>
+                    <td className="px-4 py-4">
+                      <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-black text-slate-600">
+                        {getCountryName(expense)}
+                      </span>
+                    </td>
+                    <td className="px-4 py-4 font-semibold">
+                      {formatRange(getExpenseOriginalRange(expense), getExpenseCurrency(expense))}
+                    </td>
+                    <td className="px-4 py-4 font-semibold">{formatRange(getExpenseRealRange(expense, exchangeRates), 'BRL')}</td>
+                    {canManage ? (
+                      <td className="px-7 py-4">
+                        <div className="flex justify-end gap-2">
+                          <LinksMenu links={expense.links} align="right" />
+                          <button
+                            type="button"
+                            aria-label={`Editar ${expense.title}`}
+                            onClick={() => onEdit(expense)}
+                            className="inline-flex h-10 items-center gap-2 rounded-xl border border-slate-200 px-3 text-sm font-black text-slate-600 transition hover:border-teal-200 hover:bg-teal-50 hover:text-teal-700"
+                          >
+                            <Edit3 className="h-4 w-4" />
+                            Editar
+                          </button>
+                          <button
+                            type="button"
+                            aria-label={`Excluir ${expense.title}`}
+                            onClick={() => onDelete(expense.id)}
+                            className="inline-flex h-10 items-center gap-2 rounded-xl border border-slate-200 px-3 text-sm font-black text-slate-600 transition hover:border-rose-200 hover:bg-rose-50 hover:text-rose-700"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                            Excluir
+                          </button>
+                        </div>
+                      </td>
+                    ) : null}
+                  </motion.tr>
+                ))
+              ) : (
                 <motion.tr
-                  layout
-                  key={expense.id}
-                  className="border-t border-slate-100 text-slate-700"
-                  initial={{ opacity: 0, x: -12 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: 18 }}
-                  transition={{ duration: 0.24 }}
+                  key="empty-expenses"
+                  className="border-t border-slate-100"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
                 >
-                  <td className="px-7 py-4 font-bold text-slate-950">{expense.title}</td>
-                  <td className="px-4 py-4 text-slate-500">{expense.detail || '-'}</td>
-                  <td className="px-4 py-4">
-                    <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-black text-slate-600">
-                      {getCountryName(expense)}
-                    </span>
-                  </td>
-                  <td className="px-4 py-4 font-semibold">
-                    {formatRange(getExpenseOriginalRange(expense), getExpenseCurrency(expense))}
-                  </td>
-                  <td className="px-4 py-4 font-semibold">{formatRange(getExpenseRealRange(expense, exchangeRates), 'BRL')}</td>
-                  <td className="px-7 py-4">
-                    <div className="flex justify-end gap-2">
-                      <LinksMenu links={expense.links} align="right" />
-                      <button
-                        type="button"
-                        aria-label={`Editar ${expense.title}`}
-                        onClick={() => onEdit(expense)}
-                        className="rounded-xl border border-slate-200 p-2 text-slate-500 transition hover:border-teal-200 hover:bg-teal-50 hover:text-teal-700"
-                      >
-                        <Edit3 className="h-4 w-4" />
-                      </button>
-                      <button
-                        type="button"
-                        aria-label={`Excluir ${expense.title}`}
-                        onClick={() => onDelete(expense.id)}
-                        className="rounded-xl border border-slate-200 p-2 text-slate-500 transition hover:border-rose-200 hover:bg-rose-50 hover:text-rose-700"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    </div>
+                  <td colSpan={canManage ? 6 : 5} className="px-7 py-8">
+                    <p className="rounded-2xl bg-slate-50 px-4 py-4 text-sm font-bold text-slate-500">
+                      Nenhum gasto cadastrado nesta categoria.
+                    </p>
                   </td>
                 </motion.tr>
-              ))}
+              )}
             </AnimatePresence>
           </tbody>
         </table>
@@ -146,7 +168,7 @@ export function ExpenseTable({
 
       <div className="space-y-3 p-4 md:hidden">
         <AnimatePresence initial={false}>
-          {expenses.map((expense) => (
+          {expenses.length ? expenses.map((expense) => (
             <motion.article
               layout
               key={expense.id}
@@ -166,24 +188,28 @@ export function ExpenseTable({
                     <LinksMenu links={expense.links} />
                   </div>
                 </div>
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    aria-label={`Editar ${expense.title}`}
-                    onClick={() => onEdit(expense)}
-                    className="rounded-xl border border-slate-200 p-2 text-slate-500"
-                  >
-                    <Edit3 className="h-4 w-4" />
-                  </button>
-                  <button
-                    type="button"
-                    aria-label={`Excluir ${expense.title}`}
-                    onClick={() => onDelete(expense.id)}
-                    className="rounded-xl border border-slate-200 p-2 text-slate-500"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
-                </div>
+                {canManage ? (
+                  <div className="flex flex-col gap-2">
+                    <button
+                      type="button"
+                      aria-label={`Editar ${expense.title}`}
+                      onClick={() => onEdit(expense)}
+                      className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-slate-200 px-3 text-sm font-black text-slate-600"
+                    >
+                      <Edit3 className="h-4 w-4" />
+                      Editar
+                    </button>
+                    <button
+                      type="button"
+                      aria-label={`Excluir ${expense.title}`}
+                      onClick={() => onDelete(expense.id)}
+                      className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-slate-200 px-3 text-sm font-black text-rose-700"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                      Excluir
+                    </button>
+                  </div>
+                ) : null}
               </div>
               <div className="mt-4 grid grid-cols-2 gap-3">
                 <div className="rounded-2xl bg-slate-50 p-3">
@@ -198,7 +224,17 @@ export function ExpenseTable({
                 </div>
               </div>
             </motion.article>
-          ))}
+          )) : (
+            <motion.p
+              key="empty-expenses"
+              className="rounded-2xl bg-slate-50 px-4 py-5 text-sm font-bold text-slate-500"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+            >
+              Nenhum gasto cadastrado nesta categoria.
+            </motion.p>
+          )}
         </AnimatePresence>
       </div>
     </motion.section>

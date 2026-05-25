@@ -1,5 +1,5 @@
 import { AnimatePresence, motion } from 'framer-motion';
-import { ArrowRight, KeyRound, Lock, Mail, Ticket, UserPlus } from 'lucide-react';
+import { ArrowRight, Eye, EyeOff, KeyRound, Lock, Mail, Ticket, UserPlus } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import type { FormEvent } from 'react';
 import { useAuth } from '../contexts/AuthContext';
@@ -47,6 +47,8 @@ export function AuthPage({ initialInviteCode }: AuthPageProps) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [passwordConfirmation, setPasswordConfirmation] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [showPasswordConfirmation, setShowPasswordConfirmation] = useState(false);
   const [inviteCode, setInviteCode] = useState(initialInviteCode ?? '');
   const [message, setMessage] = useState<string | null>(
     initialInviteCode ? t('auth.inviteDetected') : null,
@@ -151,6 +153,7 @@ export function AuthPage({ initialInviteCode }: AuthPageProps) {
 
   const sharedInputClass =
     'h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 font-semibold text-slate-900 outline-none transition focus:border-teal-400 focus:ring-4 focus:ring-teal-100';
+  const passwordInputClass = `${sharedInputClass} pr-12`;
 
   return (
     <main className="min-h-screen overflow-hidden bg-[#edf4f2] text-slate-950">
@@ -263,13 +266,23 @@ export function AuthPage({ initialInviteCode }: AuthPageProps) {
                   <span className="mb-2 flex items-center gap-2 text-sm font-bold text-slate-600">
                     <Lock className="h-4 w-4" /> {t('auth.password')}
                   </span>
-                  <input
-                    required
-                    type="password"
-                    value={password}
-                    onChange={(event) => setPassword(event.target.value)}
-                    className={sharedInputClass}
-                  />
+                  <div className="relative">
+                    <input
+                      required
+                      type={showPassword ? 'text' : 'password'}
+                      value={password}
+                      onChange={(event) => setPassword(event.target.value)}
+                      className={passwordInputClass}
+                    />
+                    <button
+                      type="button"
+                      aria-label={showPassword ? 'Ocultar senha' : 'Mostrar senha'}
+                      onClick={() => setShowPassword((current) => !current)}
+                      className="absolute right-2 top-1/2 inline-flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-xl text-slate-500 transition hover:bg-slate-100 hover:text-slate-900"
+                    >
+                      {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                  </div>
                 </label>
                 <button
                   type="submit"
@@ -306,27 +319,47 @@ export function AuthPage({ initialInviteCode }: AuthPageProps) {
                     <span className="mb-2 flex items-center gap-2 text-sm font-bold text-slate-600">
                       <Lock className="h-4 w-4" /> {t('auth.password')}
                     </span>
-                    <input
-                      required
-                      minLength={6}
-                      type="password"
-                      value={password}
-                      onChange={(event) => setPassword(event.target.value)}
-                      className={sharedInputClass}
-                    />
+                    <div className="relative">
+                      <input
+                        required
+                        minLength={6}
+                        type={showPassword ? 'text' : 'password'}
+                        value={password}
+                        onChange={(event) => setPassword(event.target.value)}
+                        className={passwordInputClass}
+                      />
+                      <button
+                        type="button"
+                        aria-label={showPassword ? 'Ocultar senha' : 'Mostrar senha'}
+                        onClick={() => setShowPassword((current) => !current)}
+                        className="absolute right-2 top-1/2 inline-flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-xl text-slate-500 transition hover:bg-slate-100 hover:text-slate-900"
+                      >
+                        {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </button>
+                    </div>
                   </label>
                   <label className="block">
                     <span className="mb-2 flex items-center gap-2 text-sm font-bold text-slate-600">
                       <KeyRound className="h-4 w-4" /> {t('auth.confirmPassword')}
                     </span>
-                    <input
-                      required
-                      minLength={6}
-                      type="password"
-                      value={passwordConfirmation}
-                      onChange={(event) => setPasswordConfirmation(event.target.value)}
-                      className={sharedInputClass}
-                    />
+                    <div className="relative">
+                      <input
+                        required
+                        minLength={6}
+                        type={showPasswordConfirmation ? 'text' : 'password'}
+                        value={passwordConfirmation}
+                        onChange={(event) => setPasswordConfirmation(event.target.value)}
+                        className={passwordInputClass}
+                      />
+                      <button
+                        type="button"
+                        aria-label={showPasswordConfirmation ? 'Ocultar senha' : 'Mostrar senha'}
+                        onClick={() => setShowPasswordConfirmation((current) => !current)}
+                        className="absolute right-2 top-1/2 inline-flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-xl text-slate-500 transition hover:bg-slate-100 hover:text-slate-900"
+                      >
+                        {showPasswordConfirmation ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </button>
+                    </div>
                   </label>
                 </div>
                 <button

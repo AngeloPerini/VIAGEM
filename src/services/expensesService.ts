@@ -159,14 +159,26 @@ export async function updateExpense(groupId: string, id: string, expense: Expens
     .single();
 
   if (error) throw error;
+  if (!data) throw new Error('Gasto nao encontrado nesta viagem.');
   await notifyExpensesChanged(groupId, `Gasto atualizado: ${expense.title}.`);
   return toExpense(data as ExpenseRow);
 }
 
 export async function deleteExpense(groupId: string, id: string) {
-  const { error } = await supabase.from('expenses').delete().eq('group_id', groupId).eq('id', id);
+  const { data, error } = await supabase
+    .from('expenses')
+    .delete()
+    .eq('group_id', groupId)
+    .eq('id', id)
+    .select('id, description')
+    .single();
+
   if (error) throw error;
-  await notifyExpensesChanged(groupId, 'Um gasto foi removido da viagem.');
+  if (!data) throw new Error('Gasto nao encontrado nesta viagem.');
+  const deletedTitle = typeof data.description === 'string' && data.description.trim()
+    ? data.description.trim()
+    : 'Um gasto';
+  await notifyExpensesChanged(groupId, `Gasto removido: ${deletedTitle}.`);
 }
 
 export async function resetExpensesToDefault(groupId: string) {

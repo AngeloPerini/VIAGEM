@@ -1,5 +1,5 @@
 import { AnimatePresence, motion } from 'framer-motion';
-import { Plus, RotateCcw } from 'lucide-react';
+import { AlertTriangle, Plus, RotateCcw, Trash2 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { ConversionToggle } from './components/ConversionToggle';
 import { CountryFilter } from './components/CountryFilter';
@@ -163,6 +163,7 @@ function TravelWorkspace({ groupId }: { groupId: string }) {
   const { t } = useLanguage();
   const [expenses, setExpenses] = useState<Expense[]>(() => getCachedExpenses(groupId));
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
+  const [expensePendingDelete, setExpensePendingDelete] = useState<Expense | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [activeView, setActiveView] = useState<AppView>(loadInitialView);
   const [realValueMode, setRealValueMode] = useState<RealValueMode>('converted');
@@ -328,6 +329,7 @@ function TravelWorkspace({ groupId }: { groupId: string }) {
     exchangeRates,
     expenseCountryFilter === 'all',
   );
+  const canManageExpenses = activeGroup?.role === 'owner' || activeGroup?.role === 'member';
 
   const handleSaveExpense = async (expense: Expense) => {
     const isEditing = expenses.some((item) => item.id === expense.id);
@@ -375,16 +377,20 @@ function TravelWorkspace({ groupId }: { groupId: string }) {
     }
   };
 
-  const handleDeleteExpense = async (id: string) => {
+  const handleDeleteExpense = async (expense: Expense) => {
     const previousExpenses = expenses;
-    setExpenses((current) => current.filter((item) => item.id !== id));
+    setIsExpenseSaving(true);
+    setExpenses((current) => current.filter((item) => item.id !== expense.id));
+    setExpensePendingDelete(null);
 
     try {
-      await deleteExpense(groupId, id);
+      await deleteExpense(groupId, expense.id);
       setExpenseSyncWarning(null);
     } catch {
       setExpenses(previousExpenses);
       setExpenseSyncWarning('Nao foi possivel excluir no Supabase. Tente novamente.');
+    } finally {
+      setIsExpenseSaving(false);
     }
   };
 
@@ -420,8 +426,12 @@ function TravelWorkspace({ groupId }: { groupId: string }) {
             total={filteredTotalsByCategory[category.id]}
             realValueMode={realValueMode}
             exchangeRates={exchangeRates}
+            canManage={canManageExpenses}
             onEdit={openEditExpenseModal}
-            onDelete={(id) => void handleDeleteExpense(id)}
+            onDelete={(id) => {
+              const expense = expenses.find((item) => item.id === id && item.category === category.id);
+              if (expense) setExpensePendingDelete(expense);
+            }}
           />
         ))}
       </AnimatePresence>
@@ -634,6 +644,59 @@ function TravelWorkspace({ groupId }: { groupId: string }) {
         }}
         onSave={(expense) => void handleSaveExpense(expense)}
       />
+      <AnimatePresence>
+        {expensePendingDelete ? (
+          <motion.div
+            className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/45 p-3 backdrop-blur-sm md:items-center"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onMouseDown={() => setExpensePendingDelete(null)}
+          >
+            <motion.div
+              className="w-full max-w-md rounded-[2rem] bg-white p-6 shadow-2xl shadow-slate-950/30"
+              initial={{ opacity: 0, y: 28, scale: 0.98 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 20, scale: 0.98 }}
+              transition={{ type: 'spring', stiffness: 260, damping: 24 }}
+              onMouseDown={(event) => event.stopPropagation()}
+            >
+              <div className="flex items-start gap-4">
+                <span className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-rose-50 text-rose-700">
+                  <AlertTriangle className="h-6 w-6" />
+                </span>
+                <div>
+                  <p className="text-sm font-black uppercase tracking-[0.18em] text-rose-700">Excluir gasto</p>
+                  <h2 className="mt-1 text-2xl font-black text-slate-950">
+                    Tem certeza que deseja excluir este gasto?
+                  </h2>
+                  <p className="mt-3 text-sm font-semibold leading-6 text-slate-500">
+                    {expensePendingDelete.title}
+                  </p>
+                </div>
+              </div>
+              <div className="mt-7 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+                <button
+                  type="button"
+                  onClick={() => setExpensePendingDelete(null)}
+                  className="h-12 rounded-2xl border border-slate-200 px-5 font-bold text-slate-600 transition hover:bg-slate-50"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void handleDeleteExpense(expensePendingDelete)}
+                  disabled={isExpenseSaving}
+                  className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl bg-rose-600 px-5 font-bold text-white shadow-xl shadow-rose-900/20 transition hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-70"
+                >
+                  <Trash2 className="h-5 w-5" />
+                  Excluir
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
     </main>
   );
 }
