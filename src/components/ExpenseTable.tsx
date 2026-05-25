@@ -1,5 +1,6 @@
 import { AnimatePresence, motion } from 'framer-motion';
-import { Edit3, Trash2 } from 'lucide-react';
+import { Edit3, MoreVertical, Trash2 } from 'lucide-react';
+import { useState } from 'react';
 import { countryNames } from '../data/countries';
 import type { CategoryMeta, ExchangeRateMap, Expense, RealValueMode } from '../types';
 import type { Totals } from '../utils/money';
@@ -19,8 +20,11 @@ type ExpenseTableProps = {
   realValueMode: RealValueMode;
   exchangeRates: ExchangeRateMap;
   canManage?: boolean;
+  canManageCategory?: boolean;
   onEdit: (expense: Expense) => void;
   onDelete: (id: string) => void;
+  onEditCategory?: (category: CategoryMeta) => void;
+  onDeleteCategory?: (category: CategoryMeta) => void;
 };
 
 export function ExpenseTable({
@@ -30,9 +34,13 @@ export function ExpenseTable({
   realValueMode,
   exchangeRates,
   canManage = true,
+  canManageCategory = false,
   onEdit,
   onDelete,
+  onEditCategory,
+  onDeleteCategory,
 }: ExpenseTableProps) {
+  const [isCategoryMenuOpen, setIsCategoryMenuOpen] = useState(false);
   const getCountryName = (expense: Expense) =>
     expense.country ? countryNames[expense.country] : 'Nao definido';
   const primaryTotal = formatRange(total.real, 'BRL', true);
@@ -58,27 +66,68 @@ export function ExpenseTable({
             {category.name}
           </h2>
         </div>
-        <div className="text-left md:text-right">
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={`${realValueMode}-${primaryTotal}-${secondaryTotal}`}
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -8 }}
-              transition={{ duration: 0.22 }}
-            >
-              <strong className="block text-xl font-black text-slate-950">
-                {primaryTotal}
-              </strong>
-              <span className="font-semibold text-slate-500">
-                {secondaryTotal}
+        <div className="flex items-start gap-3 md:items-end">
+          <div className="text-left md:text-right">
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={`${realValueMode}-${primaryTotal}-${secondaryTotal}`}
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -8 }}
+                transition={{ duration: 0.22 }}
+              >
+                <strong className="block text-xl font-black text-slate-950">
+                  {primaryTotal}
+                </strong>
+                <span className="font-semibold text-slate-500">
+                  {secondaryTotal}
+                </span>
+              </motion.div>
+            </AnimatePresence>
+            {realValueMode === 'converted' ? (
+              <span className="mt-1 block text-xs font-black uppercase tracking-[0.12em] text-teal-700">
+                Convertido pela cotacao
               </span>
-            </motion.div>
-          </AnimatePresence>
-          {realValueMode === 'converted' ? (
-            <span className="mt-1 block text-xs font-black uppercase tracking-[0.12em] text-teal-700">
-              Convertido pela cotacao
-            </span>
+            ) : null}
+          </div>
+          {canManageCategory ? (
+            <div className="relative">
+              <button
+                type="button"
+                aria-label={`Gerenciar categoria ${category.name}`}
+                onClick={() => setIsCategoryMenuOpen((current) => !current)}
+                className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 text-slate-500 transition hover:bg-slate-50 hover:text-slate-950"
+              >
+                <MoreVertical className="h-5 w-5" />
+              </button>
+              {isCategoryMenuOpen ? (
+                <div className="absolute right-0 top-12 z-20 w-52 overflow-hidden rounded-2xl border border-slate-200 bg-white py-2 text-left shadow-2xl shadow-slate-900/15">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsCategoryMenuOpen(false);
+                      onEditCategory?.(category);
+                    }}
+                    className="flex w-full items-center gap-2 px-4 py-3 text-sm font-black text-slate-600 transition hover:bg-slate-50 hover:text-teal-700"
+                  >
+                    <Edit3 className="h-4 w-4" />
+                    Editar categoria
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsCategoryMenuOpen(false);
+                      onDeleteCategory?.(category);
+                    }}
+                    disabled={category.isProtected}
+                    className="flex w-full items-center gap-2 px-4 py-3 text-sm font-black text-slate-600 transition hover:bg-rose-50 hover:text-rose-700 disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:bg-white disabled:hover:text-slate-600"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                    Excluir categoria
+                  </button>
+                </div>
+              ) : null}
+            </div>
           ) : null}
         </div>
       </div>

@@ -32,6 +32,9 @@ type ExpenseFormModalProps = {
 const getDefaultCountry = (countryOptions: CountryMeta[]) =>
   countryOptions.find((country) => country.id !== 'all')?.id ?? 'international';
 
+const getDefaultCategory = (categories: CategoryMeta[]) =>
+  categories[0]?.id ?? 'Outros';
+
 const getDefaultCurrencyForCountry = (country: CountryId): TravelCurrencyCode => {
   const normalized = normalizeCountryId(country);
 
@@ -82,7 +85,8 @@ export function ExpenseFormModal({
 
   useEffect(() => {
     const defaultCountry = getDefaultCountry(selectableCountryOptions);
-    const source = expense ?? createBlankExpense('lodging', defaultCountry);
+    const defaultCategory = getDefaultCategory(categories);
+    const source = expense ?? createBlankExpense(defaultCategory, defaultCountry);
     setCategory(source.category);
     setCountry(normalizeCountryId(source.country ?? defaultCountry));
     setTitle(source.title);
@@ -90,7 +94,7 @@ export function ExpenseFormModal({
     setCurrency(source.currency ?? getDefaultCurrencyForCountry(source.country ?? defaultCountry));
     setAmount(stringifyAmountForInput(source.amount ?? source.euro.min ?? source.real.min));
     setLinks(source.links ?? []);
-  }, [selectableCountryOptions, expense, isOpen]);
+  }, [categories, selectableCountryOptions, expense, isOpen]);
 
   const numericAmount = parseAmountInput(amount);
   const amountRange = { min: numericAmount, max: numericAmount };

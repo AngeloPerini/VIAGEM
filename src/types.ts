@@ -44,6 +44,10 @@ export type CategoryMeta = {
   name: string;
   label: string;
   accent: string;
+  rowId?: string;
+  icon?: string;
+  sortOrder?: number;
+  isProtected?: boolean;
 };
 
 export type CurrencyQuote = {

@@ -3,6 +3,7 @@ import { AlertTriangle, Plus, RotateCcw, Trash2 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { ConversionToggle } from './components/ConversionToggle';
 import { CountryFilter } from './components/CountryFilter';
+import { ExpenseCategoryModal } from './components/ExpenseCategoryModal';
 import { ExpenseChart } from './components/ExpenseChart';
 import { ExpenseFormModal } from './components/ExpenseFormModal';
 import { ExpenseTable } from './components/ExpenseTable';
@@ -15,7 +16,7 @@ import { SummaryCards } from './components/SummaryCards';
 import { useAuth } from './contexts/AuthContext';
 import { useGroup } from './contexts/GroupContext';
 import { useLanguage } from './contexts/LanguageContext';
-import { categories, initialExpenses } from './data/initialExpenses';
+import { initialExpenses } from './data/initialExpenses';
 import { buildCountryOptions, normalizeCountryId } from './data/countries';
 import { AuthPage } from './pages/AuthPage';
 import { InvitePage } from './pages/InvitePage';
@@ -39,7 +40,18 @@ import {
   subscribeExpenses,
   updateExpense,
 } from './services/expensesService';
+import {
+  cacheExpenseCategoriesFallback,
+  createExpenseCategory,
+  deleteExpenseCategory,
+  getCachedExpenseCategories,
+  getExpenseCategories,
+  subscribeExpenseCategories,
+  updateExpenseCategory,
+  type ExpenseCategoryInput,
+} from './services/expenseCategoriesService';
 import type {
+  CategoryMeta,
   CountryFilterId,
   ExchangeRateHistory,
   ExchangeRateMap,
@@ -80,6 +92,13 @@ function LoadingScreen({ message }: { message: string }) {
     </main>
   );
 }
+
+const sortExpenseCategories = (items: CategoryMeta[]) =>
+  [...items].sort((a, b) => {
+    const order = (a.sortOrder ?? 9999) - (b.sortOrder ?? 9999);
+    if (order !== 0) return order;
+    return a.name.localeCompare(b.name, 'pt-BR');
+  });
 
 function StandaloneProfileShell() {
   const { t } = useLanguage();
@@ -162,9 +181,17 @@ function TravelWorkspace({ groupId }: { groupId: string }) {
   const { activeGroup } = useGroup();
   const { t } = useLanguage();
   const [expenses, setExpenses] = useState<Expense[]>(() => getCachedExpenses(groupId));
+  const [expenseCategories, setExpenseCategories] = useState<CategoryMeta[]>(() => getCachedExpenseCategories(groupId));
+  const [editingExpenseCategory, setEditingExpenseCategory] = useState<CategoryMeta | null>(null);
+  const [categoryPendingDelete, setCategoryPendingDelete] = useState<{
+    category: CategoryMeta;
+    linkedExpenses: number;
+  } | null>(null);
+  const [categoryMoveTarget, setCategoryMoveTarget] = useState('Outros');
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
   const [expensePendingDelete, setExpensePendingDelete] = useState<Expense | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
   const [activeView, setActiveView] = useState<AppView>(loadInitialView);
   const [realValueMode, setRealValueMode] = useState<RealValueMode>('converted');
   const [expenseCountryFilter, setExpenseCountryFilter] = useState<CountryFilterId>('all');
@@ -177,8 +204,10 @@ function TravelWorkspace({ groupId }: { groupId: string }) {
   const [quoteWarning, setQuoteWarning] = useState<string | null>(null);
   const [failedQuoteCurrencies, setFailedQuoteCurrencies] = useState<TravelCurrencyCode[]>([]);
   const [expenseSyncWarning, setExpenseSyncWarning] = useState<string | null>(null);
+  const [categorySyncWarning, setCategorySyncWarning] = useState<string | null>(null);
   const [isExpenseLoading, setIsExpenseLoading] = useState(false);
   const [isExpenseSaving, setIsExpenseSaving] = useState(false);
+  const [isCategorySaving, setIsCategorySaving] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -224,6 +253,48 @@ function TravelWorkspace({ groupId }: { groupId: string }) {
   useEffect(() => {
     cacheExpensesFallback(groupId, expenses);
   }, [expenses, groupId]);
+
+  useEffect(() => {
+    let active = true;
+    setExpenseCategories(getCachedExpenseCategories(groupId));
+
+    const syncCategories = async () => {
+      try {
+        const nextCategories = await getExpenseCategories(groupId);
+        if (active) {
+          setExpenseCategories(nextCategories);
+          setCategorySyncWarning(null);
+        }
+      } catch {
+        if (active) {
+          setCategorySyncWarning('Supabase indisponivel. Mostrando categorias salvas localmente.');
+        }
+      }
+    };
+
+    void syncCategories();
+    const channel = subscribeExpenseCategories(groupId, () => {
+      void getExpenseCategories(groupId)
+        .then((nextCategories) => {
+          if (active) {
+            setExpenseCategories(nextCategories);
+            setCategorySyncWarning(null);
+          }
+        })
+        .catch(() => {
+          if (active) setCategorySyncWarning('Nao foi possivel sincronizar categorias em tempo real.');
+        });
+    });
+
+    return () => {
+      active = false;
+      void channel.unsubscribe();
+    };
+  }, [groupId]);
+
+  useEffect(() => {
+    cacheExpenseCategoriesFallback(groupId, expenseCategories);
+  }, [expenseCategories, groupId]);
 
   useEffect(() => {
     const syncViewWithLocation = () => {
@@ -279,12 +350,28 @@ function TravelWorkspace({ groupId }: { groupId: string }) {
     [expenses, tripCountryIds],
   );
 
+  const categoriesForDisplay = useMemo(() => {
+    const knownCategories = new Map(expenseCategories.map((category) => [category.id, category]));
+    const missingCategories = Array.from(new Set(scopedExpenses.map((expense) => expense.category)))
+      .filter((categoryId) => categoryId && !knownCategories.has(categoryId))
+      .map((categoryId, index) => ({
+        id: categoryId,
+        name: categoryId,
+        label: 'Gasto',
+        accent: '#475569',
+        sortOrder: 1000 + index,
+        isProtected: false,
+      }));
+
+    return sortExpenseCategories([...expenseCategories, ...missingCategories]);
+  }, [expenseCategories, scopedExpenses]);
+
   const totalsByCategory = useMemo(() => {
-    return categories.reduce<Record<string, Totals>>((totals, category) => {
+    return categoriesForDisplay.reduce<Record<string, Totals>>((totals, category) => {
       totals[category.id] = calculateCategoryTotal(scopedExpenses, category.id, exchangeRates);
       return totals;
     }, {});
-  }, [categories, exchangeRates, scopedExpenses]);
+  }, [categoriesForDisplay, exchangeRates, scopedExpenses]);
 
   const expenseCountryOptions = useMemo(
     () => buildCountryOptions(scopedExpenses.map((expense) => expense.country), activeGroup?.countries ?? []),
@@ -312,7 +399,7 @@ function TravelWorkspace({ groupId }: { groupId: string }) {
   const filteredTotalsByCategory = useMemo(() => {
     const applySourceSheetAdjustment = expenseCountryFilter === 'all';
 
-    return categories.reduce<Record<string, Totals>>((totals, category) => {
+    return categoriesForDisplay.reduce<Record<string, Totals>>((totals, category) => {
       totals[category.id] = calculateCategoryTotal(
         filteredExpenses,
         category.id,
@@ -321,7 +408,7 @@ function TravelWorkspace({ groupId }: { groupId: string }) {
       );
       return totals;
     }, {});
-  }, [categories, exchangeRates, expenseCountryFilter, filteredExpenses]);
+  }, [categoriesForDisplay, exchangeRates, expenseCountryFilter, filteredExpenses]);
 
   const grandTotal = calculateExpensesTotal(scopedExpenses, exchangeRates);
   const filteredGrandTotal = calculateExpensesTotal(
@@ -330,6 +417,13 @@ function TravelWorkspace({ groupId }: { groupId: string }) {
     expenseCountryFilter === 'all',
   );
   const canManageExpenses = activeGroup?.role === 'owner' || activeGroup?.role === 'member';
+  const categoryDeleteTargets = useMemo(
+    () =>
+      categoryPendingDelete
+        ? categoriesForDisplay.filter((category) => category.id !== categoryPendingDelete.category.id)
+        : [],
+    [categoriesForDisplay, categoryPendingDelete],
+  );
 
   const handleSaveExpense = async (expense: Expense) => {
     const isEditing = expenses.some((item) => item.id === expense.id);
@@ -404,6 +498,89 @@ function TravelWorkspace({ groupId }: { groupId: string }) {
     setIsModalOpen(true);
   };
 
+  const openNewExpenseCategoryModal = () => {
+    setEditingExpenseCategory(null);
+    setIsCategoryModalOpen(true);
+  };
+
+  const openEditExpenseCategoryModal = (category: CategoryMeta) => {
+    setEditingExpenseCategory(category);
+    setIsCategoryModalOpen(true);
+  };
+
+  const handleSaveExpenseCategory = async (input: ExpenseCategoryInput) => {
+    setIsCategorySaving(true);
+
+    try {
+      const savedCategory = editingExpenseCategory
+        ? await updateExpenseCategory(groupId, editingExpenseCategory, input)
+        : await createExpenseCategory(groupId, input);
+      setExpenseCategories((current) =>
+        sortExpenseCategories(
+          editingExpenseCategory
+            ? current.map((category) => (category.id === savedCategory.id ? savedCategory : category))
+            : [...current, savedCategory],
+        ),
+      );
+      setCategorySyncWarning(null);
+      setIsCategoryModalOpen(false);
+      setEditingExpenseCategory(null);
+    } catch (error) {
+      setCategorySyncWarning(
+        error instanceof Error
+          ? error.message
+          : 'Nao foi possivel salvar a categoria no Supabase.',
+      );
+    } finally {
+      setIsCategorySaving(false);
+    }
+  };
+
+  const openDeleteExpenseCategoryDialog = (category: CategoryMeta) => {
+    if (category.isProtected) {
+      setCategorySyncWarning('A categoria Outros precisa existir para receber gastos movidos.');
+      return;
+    }
+
+    const linkedExpenses = expenses.filter((expense) => expense.category === category.id).length;
+    const fallbackTarget =
+      categoriesForDisplay.find((item) => item.id === 'Outros' && item.id !== category.id)?.id ??
+      categoriesForDisplay.find((item) => item.id !== category.id)?.id ??
+      '';
+    setCategoryMoveTarget(fallbackTarget);
+    setCategoryPendingDelete({ category, linkedExpenses });
+  };
+
+  const handleDeleteExpenseCategory = async (moveToCategoryId?: string) => {
+    if (!categoryPendingDelete) return;
+
+    setIsCategorySaving(true);
+
+    try {
+      await deleteExpenseCategory(
+        groupId,
+        categoryPendingDelete.category,
+        categoryPendingDelete.linkedExpenses > 0 ? moveToCategoryId : undefined,
+      );
+      const [nextCategories, nextExpenses] = await Promise.all([
+        getExpenseCategories(groupId),
+        getExpenses(groupId),
+      ]);
+      setExpenseCategories(nextCategories);
+      setExpenses(nextExpenses);
+      setCategorySyncWarning(null);
+      setCategoryPendingDelete(null);
+    } catch (error) {
+      setCategorySyncWarning(
+        error instanceof Error
+          ? error.message
+          : 'Nao foi possivel excluir a categoria no Supabase.',
+      );
+    } finally {
+      setIsCategorySaving(false);
+    }
+  };
+
   const handleNavigate = (view: AppView) => {
     setActiveView(view);
     const nextUrl =
@@ -418,7 +595,7 @@ function TravelWorkspace({ groupId }: { groupId: string }) {
   const tables = (
     <div className="space-y-6">
       <AnimatePresence initial={false}>
-        {categories.map((category) => (
+        {categoriesForDisplay.map((category) => (
           <ExpenseTable
             key={category.id}
             category={category}
@@ -427,11 +604,14 @@ function TravelWorkspace({ groupId }: { groupId: string }) {
             realValueMode={realValueMode}
             exchangeRates={exchangeRates}
             canManage={canManageExpenses}
+            canManageCategory={canManageExpenses}
             onEdit={openEditExpenseModal}
             onDelete={(id) => {
               const expense = expenses.find((item) => item.id === id && item.category === category.id);
               if (expense) setExpensePendingDelete(expense);
             }}
+            onEditCategory={openEditExpenseCategoryModal}
+            onDeleteCategory={openDeleteExpenseCategoryDialog}
           />
         ))}
       </AnimatePresence>
@@ -499,14 +679,25 @@ function TravelWorkspace({ groupId }: { groupId: string }) {
                     {t('dashboard.tripItems')}
                   </h1>
                 </div>
-                <button
-                  type="button"
-                  onClick={openNewExpenseModal}
-                  className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl bg-slate-950 px-5 font-bold text-white shadow-xl shadow-slate-900/20 transition hover:bg-teal-700"
-                >
-                  <Plus className="h-5 w-5" />
-                  {t('dashboard.newExpense')}
-                </button>
+                <div className="flex flex-col gap-3 sm:flex-row">
+                  <button
+                    type="button"
+                    onClick={openNewExpenseCategoryModal}
+                    disabled={!canManageExpenses}
+                    className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-5 font-bold text-slate-700 shadow-lg shadow-slate-900/5 transition hover:border-teal-200 hover:bg-teal-50 hover:text-teal-700 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    <Plus className="h-5 w-5" />
+                    Adicionar categoria
+                  </button>
+                  <button
+                    type="button"
+                    onClick={openNewExpenseModal}
+                    className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl bg-slate-950 px-5 font-bold text-white shadow-xl shadow-slate-900/20 transition hover:bg-teal-700"
+                  >
+                    <Plus className="h-5 w-5" />
+                    {t('dashboard.newExpense')}
+                  </button>
+                </div>
               </div>
               <CountryFilter
                 value={expenseCountryFilter}
@@ -514,24 +705,24 @@ function TravelWorkspace({ groupId }: { groupId: string }) {
                 label={t('dashboard.filterExpenses')}
                 options={expenseCountryOptions}
               />
-              {expenseSyncWarning || isExpenseLoading || isExpenseSaving ? (
+              {expenseSyncWarning || categorySyncWarning || isExpenseLoading || isExpenseSaving || isCategorySaving ? (
                 <p className="rounded-2xl border border-white/70 bg-white/75 px-4 py-3 text-sm font-semibold text-slate-600 shadow-lg shadow-slate-900/5 backdrop-blur-xl">
-                  {isExpenseSaving
+                  {isExpenseSaving || isCategorySaving
                     ? t('dashboard.savingExpenses')
                     : isExpenseLoading
                       ? t('dashboard.syncingExpenses')
-                      : expenseSyncWarning}
+                      : expenseSyncWarning ?? categorySyncWarning}
                 </p>
               ) : null}
               <ConversionToggle mode={realValueMode} quote={exchangeRates.EUR ?? null} onChange={setRealValueMode} />
               <SummaryCards
-                categories={categories}
+                categories={categoriesForDisplay}
                 totalsByCategory={filteredTotalsByCategory}
                 grandTotal={filteredGrandTotal}
                 realValueMode={realValueMode}
               />
               <ExpenseChart
-                categories={categories}
+                categories={categoriesForDisplay}
                 totalsByCategory={filteredTotalsByCategory}
               />
               {tables}
@@ -547,18 +738,18 @@ function TravelWorkspace({ groupId }: { groupId: string }) {
               <Header onAdd={openNewExpenseModal} />
 
               <ConversionToggle mode={realValueMode} quote={exchangeRates.EUR ?? null} onChange={setRealValueMode} />
-              {expenseSyncWarning || isExpenseLoading || isExpenseSaving ? (
+              {expenseSyncWarning || categorySyncWarning || isExpenseLoading || isExpenseSaving || isCategorySaving ? (
                 <p className="rounded-2xl border border-white/70 bg-white/75 px-4 py-3 text-sm font-semibold text-slate-600 shadow-lg shadow-slate-900/5 backdrop-blur-xl">
-                  {isExpenseSaving
+                  {isExpenseSaving || isCategorySaving
                     ? t('dashboard.savingExpenses')
                     : isExpenseLoading
                       ? t('dashboard.syncingExpenses')
-                      : expenseSyncWarning}
+                      : expenseSyncWarning ?? categorySyncWarning}
                 </p>
               ) : null}
 
               <SummaryCards
-                categories={categories}
+                categories={categoriesForDisplay}
                 totalsByCategory={totalsByCategory}
                 grandTotal={grandTotal}
                 realValueMode={realValueMode}
@@ -566,7 +757,7 @@ function TravelWorkspace({ groupId }: { groupId: string }) {
 
               <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_380px]">
                 <div className="space-y-6">
-                  <ExpenseChart categories={categories} totalsByCategory={totalsByCategory} />
+                  <ExpenseChart categories={categoriesForDisplay} totalsByCategory={totalsByCategory} />
                   <QuoteStatusCard
                     rate={exchangeRates.EUR ?? null}
                     isLoading={isQuoteLoading}
@@ -633,7 +824,7 @@ function TravelWorkspace({ groupId }: { groupId: string }) {
       </div>
 
       <ExpenseFormModal
-        categories={categories}
+        categories={categoriesForDisplay}
         expense={editingExpense}
         isOpen={isModalOpen}
         countryOptions={expenseCountryOptions}
@@ -644,6 +835,121 @@ function TravelWorkspace({ groupId }: { groupId: string }) {
         }}
         onSave={(expense) => void handleSaveExpense(expense)}
       />
+      <ExpenseCategoryModal
+        category={editingExpenseCategory}
+        isOpen={isCategoryModalOpen}
+        onClose={() => {
+          setIsCategoryModalOpen(false);
+          setEditingExpenseCategory(null);
+        }}
+        onSave={(input) => void handleSaveExpenseCategory(input)}
+      />
+      <AnimatePresence>
+        {categoryPendingDelete ? (
+          <motion.div
+            className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/45 p-3 backdrop-blur-sm md:items-center"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onMouseDown={() => setCategoryPendingDelete(null)}
+          >
+            <motion.div
+              className="w-full max-w-lg rounded-[2rem] bg-white p-6 shadow-2xl shadow-slate-950/30"
+              initial={{ opacity: 0, y: 28, scale: 0.98 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 20, scale: 0.98 }}
+              transition={{ type: 'spring', stiffness: 260, damping: 24 }}
+              onMouseDown={(event) => event.stopPropagation()}
+            >
+              <div className="flex items-start gap-4">
+                <span className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-rose-50 text-rose-700">
+                  <AlertTriangle className="h-6 w-6" />
+                </span>
+                <div>
+                  <p className="text-sm font-black uppercase tracking-[0.18em] text-rose-700">
+                    Excluir categoria
+                  </p>
+                  <h2 className="mt-1 text-2xl font-black text-slate-950">
+                    {categoryPendingDelete.linkedExpenses > 0
+                      ? 'Esta categoria possui gastos vinculados. O que deseja fazer?'
+                      : 'Tem certeza que deseja excluir esta categoria de gastos?'}
+                  </h2>
+                  <p className="mt-3 text-sm font-semibold leading-6 text-slate-500">
+                    {categoryPendingDelete.category.name}
+                    {categoryPendingDelete.linkedExpenses > 0
+                      ? ` tem ${categoryPendingDelete.linkedExpenses} gasto(s). Os gastos serao movidos antes da exclusao.`
+                      : ' sera removida dos modelos desta viagem.'}
+                  </p>
+                </div>
+              </div>
+
+              {categoryPendingDelete.linkedExpenses > 0 ? (
+                <div className="mt-6 space-y-3 rounded-2xl bg-slate-50 p-4">
+                  <label>
+                    <span className="mb-2 block text-sm font-bold text-slate-600">
+                      Categoria de destino
+                    </span>
+                    <select
+                      value={categoryMoveTarget}
+                      onChange={(event) => setCategoryMoveTarget(event.target.value)}
+                      className="h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 font-semibold text-slate-900 outline-none transition focus:border-teal-400 focus:ring-4 focus:ring-teal-100"
+                    >
+                      {categoryDeleteTargets.map((category) => (
+                        <option key={category.id} value={category.id}>
+                          {category.name}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                </div>
+              ) : null}
+
+              <div className="mt-7 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+                <button
+                  type="button"
+                  onClick={() => setCategoryPendingDelete(null)}
+                  className="h-12 rounded-2xl border border-slate-200 px-5 font-bold text-slate-600 transition hover:bg-slate-50"
+                >
+                  Cancelar
+                </button>
+                {categoryPendingDelete.linkedExpenses > 0 ? (
+                  <>
+                    {categoryDeleteTargets.some((category) => category.id === 'Outros') ? (
+                      <button
+                        type="button"
+                        onClick={() => void handleDeleteExpenseCategory('Outros')}
+                        disabled={isCategorySaving}
+                        className="h-12 rounded-2xl border border-slate-200 px-5 font-bold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-70"
+                      >
+                        Mover para Outros
+                      </button>
+                    ) : null}
+                    <button
+                      type="button"
+                      onClick={() => void handleDeleteExpenseCategory(categoryMoveTarget)}
+                      disabled={isCategorySaving || !categoryMoveTarget}
+                      className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl bg-rose-600 px-5 font-bold text-white shadow-xl shadow-rose-900/20 transition hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-70"
+                    >
+                      <Trash2 className="h-5 w-5" />
+                      Mover e excluir
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => void handleDeleteExpenseCategory()}
+                    disabled={isCategorySaving}
+                    className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl bg-rose-600 px-5 font-bold text-white shadow-xl shadow-rose-900/20 transition hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-70"
+                  >
+                    <Trash2 className="h-5 w-5" />
+                    Excluir categoria
+                  </button>
+                )}
+              </div>
+            </motion.div>
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
       <AnimatePresence>
         {expensePendingDelete ? (
           <motion.div
