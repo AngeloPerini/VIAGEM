@@ -649,6 +649,8 @@ function TravelWorkspace({ groupId }: { groupId: string }) {
               key="itinerary"
               groupId={groupId}
               tripCountries={activeGroup?.countries ?? []}
+              tripStartDate={activeGroup?.startDate}
+              tripEndDate={activeGroup?.endDate}
               selectedCountry={itineraryCountryFilter}
               onCountryChange={setItineraryCountryFilter}
               canUseDefaultData={canUseEuropeDefaults}
