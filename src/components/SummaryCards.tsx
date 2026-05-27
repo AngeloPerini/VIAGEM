@@ -1,16 +1,9 @@
 import { AnimatePresence, motion } from 'framer-motion';
-import { BedDouble, FileText, Landmark, Route, ShieldCheck, WalletCards } from 'lucide-react';
+import { WalletCards } from 'lucide-react';
 import type { CategoryMeta, RealValueMode } from '../types';
 import type { Totals } from '../utils/money';
+import { getExpenseCategoryIcon } from '../utils/expenseCategoryIcons';
 import { formatOriginalCurrencyBreakdown, formatRange } from '../utils/money';
-
-const icons: Record<string, typeof WalletCards> = {
-  lodging: BedDouble,
-  transport: Route,
-  tours: Landmark,
-  Documentos: FileText,
-  Seguro: ShieldCheck,
-};
 
 type SummaryCardsProps = {
   categories: CategoryMeta[];
@@ -64,7 +57,7 @@ export function SummaryCards({ categories, totalsByCategory, grandTotal, realVal
       </motion.article>
 
       {categories.map((category, index) => {
-        const Icon = icons[category.id] ?? WalletCards;
+        const Icon = getExpenseCategoryIcon(category);
         const total = totalsByCategory[category.id];
 
         return (

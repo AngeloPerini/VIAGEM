@@ -11,6 +11,7 @@ import {
   getExpenseOriginalRange,
   getExpenseRealRange,
 } from '../utils/money';
+import { getExpenseCategoryIcon } from '../utils/expenseCategoryIcons';
 import { LinksMenu } from './LinksMenu';
 
 type ExpenseTableProps = {
@@ -41,6 +42,8 @@ export function ExpenseTable({
   onDeleteCategory,
 }: ExpenseTableProps) {
   const [isCategoryMenuOpen, setIsCategoryMenuOpen] = useState(false);
+  const CategoryIcon = getExpenseCategoryIcon(category);
+  const isOutrosCategory = category.id === 'Outros';
   const getCountryName = (expense: Expense) =>
     expense.country ? countryNames[expense.country] : 'Nao definido';
   const primaryTotal = formatRange(total.real, 'BRL', true);
@@ -58,13 +61,22 @@ export function ExpenseTable({
       transition={{ duration: 0.45 }}
     >
       <div className="flex flex-col gap-2 border-b border-slate-200/80 p-5 md:flex-row md:items-end md:justify-between md:p-7">
-        <div>
-          <p className="text-sm font-bold uppercase tracking-[0.2em] text-slate-400">
-            {category.label}
-          </p>
-          <h2 className="mt-1 text-2xl font-black text-slate-950">
-            {category.name}
-          </h2>
+        <div className="flex items-start gap-3">
+          <span
+            className="mt-1 inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl text-white shadow-lg shadow-slate-900/10"
+            style={{ backgroundColor: category.accent }}
+            aria-hidden="true"
+          >
+            <CategoryIcon className="h-6 w-6" />
+          </span>
+          <div>
+            <p className="text-sm font-bold uppercase tracking-[0.2em] text-slate-400">
+              {category.label}
+            </p>
+            <h2 className="mt-1 text-2xl font-black text-slate-950">
+              {category.name}
+            </h2>
+          </div>
         </div>
         <div className="flex items-start gap-3 md:items-end">
           <div className="text-left md:text-right">
@@ -119,7 +131,7 @@ export function ExpenseTable({
                       setIsCategoryMenuOpen(false);
                       onDeleteCategory?.(category);
                     }}
-                    disabled={category.isProtected}
+                    disabled={isOutrosCategory}
                     className="flex w-full items-center gap-2 px-4 py-3 text-sm font-black text-slate-600 transition hover:bg-rose-50 hover:text-rose-700 disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:bg-white disabled:hover:text-slate-600"
                   >
                     <Trash2 className="h-4 w-4" />

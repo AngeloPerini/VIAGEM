@@ -66,6 +66,7 @@ import {
   formatRange,
   type Totals,
 } from './utils/money';
+import { inferExpenseCategoryIconId } from './utils/expenseCategoryIcons';
 
 function loadInitialView(): AppView {
   const path = window.location.pathname;
@@ -359,6 +360,7 @@ function TravelWorkspace({ groupId }: { groupId: string }) {
         name: categoryId,
         label: 'Gasto',
         accent: '#475569',
+        icon: inferExpenseCategoryIconId({ id: categoryId, name: categoryId, icon: undefined }),
         sortOrder: 1000 + index,
         isProtected: false,
       }));
@@ -537,7 +539,7 @@ function TravelWorkspace({ groupId }: { groupId: string }) {
   };
 
   const openDeleteExpenseCategoryDialog = (category: CategoryMeta) => {
-    if (category.isProtected) {
+    if (category.id === 'Outros') {
       setCategorySyncWarning('A categoria Outros precisa existir para receber gastos movidos.');
       return;
     }

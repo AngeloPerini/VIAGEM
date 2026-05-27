@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import type { FormEvent } from 'react';
 import type { CategoryMeta } from '../types';
 import type { ExpenseCategoryInput } from '../services/expenseCategoriesService';
+import { expenseCategoryIconOptions, inferExpenseCategoryIconId } from '../utils/expenseCategoryIcons';
 
 type ExpenseCategoryModalProps = {
   category?: CategoryMeta | null;
@@ -24,12 +25,14 @@ export function ExpenseCategoryModal({
   const [label, setLabel] = useState('Gasto');
   const [accent, setAccent] = useState('#475569');
   const [sortOrder, setSortOrder] = useState('999');
+  const [icon, setIcon] = useState('wallet');
 
   useEffect(() => {
     setName(category?.name ?? '');
     setLabel(category?.label ?? 'Gasto');
     setAccent(category?.accent ?? '#475569');
     setSortOrder(String(category?.sortOrder ?? 999));
+    setIcon(category ? inferExpenseCategoryIconId(category) : 'wallet');
   }, [category, isOpen]);
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
@@ -38,9 +41,14 @@ export function ExpenseCategoryModal({
       name,
       label,
       accent,
+      icon,
       sortOrder: Number(sortOrder),
     });
   };
+
+  const SelectedIcon =
+    expenseCategoryIconOptions.find((option) => option.id === icon)?.Icon ??
+    expenseCategoryIconOptions[expenseCategoryIconOptions.length - 1].Icon;
 
   return (
     <AnimatePresence>
@@ -54,7 +62,7 @@ export function ExpenseCategoryModal({
         >
           <motion.form
             onSubmit={handleSubmit}
-            className="w-full max-w-xl rounded-[2rem] bg-white p-5 shadow-2xl shadow-slate-950/30 md:p-7"
+            className="max-h-[92vh] w-full max-w-xl overflow-y-auto rounded-[2rem] bg-white p-5 shadow-2xl shadow-slate-950/30 md:p-7"
             initial={{ opacity: 0, y: 40, scale: 0.98 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 30, scale: 0.98 }}
@@ -138,6 +146,42 @@ export function ExpenseCategoryModal({
                     aria-label="Escolher cor"
                     className="h-9 w-12 rounded-xl border border-slate-200 bg-white p-1"
                   />
+                </div>
+              </div>
+
+              <div className="md:col-span-2">
+                <div className="mb-2 flex items-center justify-between gap-3">
+                  <span className="block text-sm font-bold text-slate-600">Icone da categoria</span>
+                  <span
+                    className="inline-flex h-10 w-10 items-center justify-center rounded-xl text-white shadow-lg shadow-slate-900/10"
+                    style={{ backgroundColor: accent }}
+                    aria-hidden="true"
+                  >
+                    <SelectedIcon className="h-5 w-5" />
+                  </span>
+                </div>
+                <div className="grid grid-cols-4 gap-2 rounded-2xl border border-slate-200 p-3 sm:grid-cols-6">
+                  {expenseCategoryIconOptions.map(({ id, label: optionLabel, Icon }) => {
+                    const selected = icon === id;
+
+                    return (
+                      <button
+                        key={id}
+                        type="button"
+                        aria-label={`Usar icone ${optionLabel}`}
+                        aria-pressed={selected}
+                        onClick={() => setIcon(id)}
+                        className={`flex h-14 flex-col items-center justify-center gap-1 rounded-2xl border text-xs font-black transition ${
+                          selected
+                            ? 'border-slate-950 bg-slate-950 text-white shadow-lg shadow-slate-900/15'
+                            : 'border-slate-200 bg-white text-slate-500 hover:border-teal-200 hover:bg-teal-50 hover:text-teal-700'
+                        }`}
+                      >
+                        <Icon className="h-5 w-5" />
+                        <span className="max-w-full truncate px-1">{optionLabel}</span>
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
             </div>

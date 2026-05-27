@@ -1,6 +1,7 @@
 import type { RealtimeChannel } from '@supabase/supabase-js';
 import { categories as defaultExpenseCategories, STORAGE_KEY } from '../data/initialExpenses';
 import type { CategoryMeta } from '../types';
+import { inferExpenseCategoryIconId } from '../utils/expenseCategoryIcons';
 import { notifyGroupMembers } from './notificationsService';
 import { supabase } from './supabaseClient';
 
@@ -42,9 +43,16 @@ const cacheKey = (groupId: string) => `${STORAGE_KEY}-categories-${groupId}`;
 const defaultCategories = () =>
   defaultExpenseCategories.map((category, index) => ({
     ...category,
+    icon: category.icon ?? inferExpenseCategoryIconId(category),
     sortOrder: (index + 1) * 10,
     isProtected: category.id === OUTROS_CATEGORY_ID,
   }));
+
+const normalizeCategoryMeta = (category: CategoryMeta): CategoryMeta => ({
+  ...category,
+  icon: category.icon ?? inferExpenseCategoryIconId(category),
+  isProtected: category.id === OUTROS_CATEGORY_ID,
+});
 
 const toCategory = (row: ExpenseCategoryRow): CategoryMeta => ({
   id: row.category_key,
@@ -52,9 +60,9 @@ const toCategory = (row: ExpenseCategoryRow): CategoryMeta => ({
   name: row.name,
   label: row.label ?? 'Gasto',
   accent: row.color ?? DEFAULT_ACCENT,
-  icon: row.icon ?? undefined,
+  icon: row.icon ?? inferExpenseCategoryIconId({ id: row.category_key, name: row.name, icon: undefined }),
   sortOrder: row.sort_order ?? 0,
-  isProtected: Boolean(row.is_protected),
+  isProtected: row.category_key === OUTROS_CATEGORY_ID,
 });
 
 const sortCategories = (categories: CategoryMeta[]) =>
@@ -65,7 +73,7 @@ const sortCategories = (categories: CategoryMeta[]) =>
   });
 
 const cacheCategories = (groupId: string, categories: CategoryMeta[]) => {
-  localStorage.setItem(cacheKey(groupId), JSON.stringify(sortCategories(categories)));
+  localStorage.setItem(cacheKey(groupId), JSON.stringify(sortCategories(categories.map(normalizeCategoryMeta))));
 };
 
 async function getCurrentUserId() {
@@ -152,6 +160,7 @@ async function seedMissingExpenseCategories(groupId: string, knownCategoryKeys: 
       name: categoryKey,
       label: 'Gasto',
       color: DEFAULT_ACCENT,
+      icon: inferExpenseCategoryIconId({ id: categoryKey, name: categoryKey, icon: undefined }),
       sort_order: 1000 + index,
       is_protected: false,
       created_by: userId,
@@ -171,7 +180,7 @@ export function getCachedExpenseCategories(groupId?: string) {
 
   try {
     const parsed = JSON.parse(stored) as CategoryMeta[];
-    return sortCategories(parsed.length ? parsed : defaultCategories());
+    return sortCategories(parsed.length ? parsed.map(normalizeCategoryMeta) : defaultCategories());
   } catch {
     return defaultCategories();
   }
@@ -190,6 +199,7 @@ export async function seedExpenseCategories(groupId: string) {
       name: category.name,
       label: category.label,
       color: category.accent,
+      icon: category.icon ?? inferExpenseCategoryIconId(category),
       sort_order: category.sortOrder ?? 999,
       is_protected: category.isProtected ?? false,
       created_by: userId,
@@ -298,7 +308,7 @@ export async function deleteExpenseCategory(
   category: CategoryMeta,
   moveToCategoryId?: string,
 ) {
-  if (category.isProtected || category.id === OUTROS_CATEGORY_ID) {
+  if (category.id === OUTROS_CATEGORY_ID) {
     throw new Error('A categoria Outros precisa existir para receber gastos movidos.');
   }
 
