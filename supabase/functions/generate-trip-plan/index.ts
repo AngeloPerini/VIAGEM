@@ -175,6 +175,13 @@ const getFunctionBudgetMs = () => {
   return Math.min(145_000, Math.max(60_000, rawValue));
 };
 
+const getMaxCompletionTokens = (input: TripPlanInput) => {
+  const tripDays = getTripDayCount(input);
+  if (tripDays > 15) return 8500;
+  if (tripDays >= 10) return 7500;
+  return 5500;
+};
+
 const safeArray = (value: unknown) => (Array.isArray(value) ? value : []);
 
 const asRecord = (value: unknown): Record<string, unknown> =>
@@ -217,6 +224,74 @@ const countryAliases: Record<string, string> = {
   usa: 'united_states',
   united_states: 'united_states',
 };
+
+const defaultCitiesByCountry: Record<string, string[]> = {
+  england: ['Londres', 'Oxford', 'Bath'],
+  scotland: ['Edimburgo', 'Stirling', 'Glasgow'],
+  united_kingdom: ['Londres', 'Edimburgo', 'York'],
+  great_britain: ['Londres', 'Edimburgo', 'York'],
+  france: ['Paris', 'Versalhes', 'Lyon'],
+  italy: ['Roma', 'Florença', 'Milão'],
+  switzerland: ['Zurique', 'Lucerna', 'Interlaken'],
+  japan: ['Tóquio', 'Kyoto', 'Osaka'],
+  united_states: ['Nova York', 'Washington', 'Boston'],
+  brazil: ['São Paulo', 'Rio de Janeiro', 'Brasília'],
+};
+
+const defaultAttractionsByCountry: Record<string, Array<{ name: string; city: string; description: string }>> = {
+  england: [
+    { name: 'British Museum', city: 'Londres', description: 'Museu clássico para história e cultura.' },
+    { name: 'Westminster', city: 'Londres', description: 'Região histórica para caminhar e fotografar.' },
+    { name: 'Tower Bridge', city: 'Londres', description: 'Ponte icônica próxima à Torre de Londres.' },
+  ],
+  scotland: [
+    { name: 'Castelo de Edimburgo', city: 'Edimburgo', description: 'Castelo histórico com vista da cidade.' },
+    { name: 'Royal Mile', city: 'Edimburgo', description: 'Eixo turístico do centro antigo.' },
+    { name: 'Calton Hill', city: 'Edimburgo', description: 'Mirante urbano para pôr do sol.' },
+  ],
+  france: [
+    { name: 'Torre Eiffel', city: 'Paris', description: 'Marco clássico da cidade.' },
+    { name: 'Museu do Louvre', city: 'Paris', description: 'Museu essencial para arte e história.' },
+    { name: 'Montmartre', city: 'Paris', description: 'Bairro turístico para caminhada.' },
+  ],
+  italy: [
+    { name: 'Coliseu', city: 'Roma', description: 'Anfiteatro histórico da Roma Antiga.' },
+    { name: 'Fontana di Trevi', city: 'Roma', description: 'Praça e fonte clássica para visita rápida.' },
+    { name: 'Duomo', city: 'Milão', description: 'Catedral central e mirante urbano.' },
+  ],
+  switzerland: [
+    { name: 'Lago de Lucerna', city: 'Lucerna', description: 'Passeio cênico junto ao lago.' },
+    { name: 'Centro histórico de Zurique', city: 'Zurique', description: 'Ruas históricas e margem do rio.' },
+    { name: 'Harder Kulm', city: 'Interlaken', description: 'Mirante alpino acessível por funicular.' },
+  ],
+  japan: [
+    { name: 'Templo Senso-ji', city: 'Tóquio', description: 'Templo histórico em Asakusa.' },
+    { name: 'Fushimi Inari', city: 'Kyoto', description: 'Santuário famoso pelos portais vermelhos.' },
+    { name: 'Dotonbori', city: 'Osaka', description: 'Bairro turístico para noite e gastronomia.' },
+  ],
+  united_states: [
+    { name: 'Central Park', city: 'Nova York', description: 'Parque urbano clássico para caminhada.' },
+    { name: 'Times Square', city: 'Nova York', description: 'Região turística iluminada e movimentada.' },
+    { name: 'National Mall', city: 'Washington', description: 'Eixo de monumentos e museus.' },
+  ],
+  brazil: [
+    { name: 'Avenida Paulista', city: 'São Paulo', description: 'Região cultural e gastronômica.' },
+    { name: 'Cristo Redentor', city: 'Rio de Janeiro', description: 'Mirante e atração icônica.' },
+    { name: 'Praça dos Três Poderes', city: 'Brasília', description: 'Conjunto arquitetônico e cívico.' },
+  ],
+};
+
+const brazilCityKeys = new Set([
+  'sao_paulo',
+  'rio_de_janeiro',
+  'brasilia',
+  'salvador',
+  'recife',
+  'fortaleza',
+  'curitiba',
+  'belo_horizonte',
+  'porto_alegre',
+]);
 
 const internationalCountryKeys = new Set(['international', 'internacional']);
 
@@ -391,6 +466,139 @@ const getTimeMinutes = (value: unknown) => {
   return Math.min(24 * 60, Math.max(0, hours * 60 + minutes));
 };
 
+const getCountryForDay = (input: TripPlanInput, dayNumber: number) =>
+  input.countries[(Math.max(1, dayNumber) - 1) % Math.max(1, input.countries.length)] ??
+  input.countries[0] ??
+  'international';
+
+const getDefaultCityForCountry = (country: string, dayNumber = 1) => {
+  const cities = defaultCitiesByCountry[countryKey(country)] ?? [country];
+  return cities[(Math.max(1, dayNumber) - 1) % cities.length] ?? country;
+};
+
+const sanitizeCityForCountry = (city: unknown, country: string, dayNumber = 1) => {
+  const rawCity = asText(city);
+  const normalizedCity = normalizeKey(rawCity);
+  const normalizedCountry = countryKey(country);
+
+  if (!rawCity) return getDefaultCityForCountry(country, dayNumber);
+  if (normalizedCountry !== 'brazil' && brazilCityKeys.has(normalizedCity)) {
+    return getDefaultCityForCountry(country, dayNumber);
+  }
+
+  return rawCity;
+};
+
+const supplementalSlots = [
+  { time: '08h30', title: 'Café e planejamento do dia', type: 'alimentacao', description: 'Comece com uma refeição leve e revise deslocamentos do dia.' },
+  { time: '09h30', title: 'Ponto turístico principal', type: 'passeio', description: 'Visite a atração mais importante da região escolhida.' },
+  { time: '12h30', title: 'Almoço próximo', type: 'alimentacao', description: 'Pausa para almoço em área próxima ao roteiro da manhã.' },
+  { time: '14h30', title: 'Caminhada por bairro turístico', type: 'passeio', description: 'Agrupe atrações próximas e evite deslocamentos longos.' },
+  { time: '18h00', title: 'Retorno ao hotel e descanso', type: 'descanso', description: 'Tempo para banho, descanso e organização da noite.' },
+  { time: '20h00', title: 'Jantar ou noite livre', type: 'alimentacao', description: 'Jantar em região central ou passeio leve noturno.' },
+];
+
+const compactLongTripSlots = [
+  { time: '09h00', title: 'Manhã na cidade-base', type: 'passeio', description: 'Explore a área principal com ritmo realista.' },
+  { time: '15h00', title: 'Tarde com atração próxima', type: 'passeio', description: 'Complete o dia com bairro, parque ou museu próximo.' },
+];
+
+const completeItineraryItems = (items: Record<string, unknown>[], input: TripPlanInput) => {
+  const tripDays = getTripDayCount(input);
+  const isLongTrip = tripDays > 15;
+  const minimumBlocksPerDay = isLongTrip ? 2 : 4;
+  const slots = isLongTrip ? compactLongTripSlots : supplementalSlots;
+  const byDay = new Map<number, Record<string, unknown>[]>();
+
+  items.forEach((item) => {
+    const dayNumber = Math.min(tripDays, Math.max(1, getDayNumberFromItem(item) ?? 1));
+    byDay.set(dayNumber, [...(byDay.get(dayNumber) ?? []), item]);
+  });
+
+  for (let dayNumber = 1; dayNumber <= tripDays; dayNumber += 1) {
+    const currentItems = [...(byDay.get(dayNumber) ?? [])].sort((a, b) => getTimeMinutes(a.time) - getTimeMinutes(b.time));
+    const dayCountry = asText(currentItems.find((item) => asText(item.country) && asText(item.country) !== 'international')?.country) ||
+      getCountryForDay(input, dayNumber);
+    const city = asText(currentItems.find((item) => asText(item.city))?.city) ||
+      getDefaultCityForCountry(dayCountry, dayNumber);
+    const date = asText(currentItems.find((item) => asText(item.date))?.date) || getDateForDay(input, dayNumber);
+    const day = `Dia ${dayNumber}${date ? ` - ${date}` : ''}`;
+    let slotIndex = 0;
+
+    while (currentItems.length < minimumBlocksPerDay && slotIndex < slots.length) {
+      const slot = slots[slotIndex];
+      slotIndex += 1;
+
+      const hasSameTime = currentItems.some((item) => asText(item.time) === slot.time);
+      if (hasSameTime) continue;
+
+      currentItems.push({
+        day,
+        date,
+        time: slot.time,
+        country: dayCountry,
+        city,
+        title: slot.title,
+        description: slot.description,
+        type: slot.type,
+        order_index: currentItems.length,
+        links: [],
+      });
+    }
+
+    byDay.set(dayNumber, currentItems);
+  }
+
+  return Array.from(byDay.entries())
+    .sort(([dayA], [dayB]) => dayA - dayB)
+    .flatMap(([, dayItems]) => dayItems)
+    .sort((a, b) => {
+      const dayA = getDayNumberFromItem(a) ?? 0;
+      const dayB = getDayNumberFromItem(b) ?? 0;
+      if (dayA !== dayB) return dayA - dayB;
+      return getTimeMinutes(a.time) - getTimeMinutes(b.time);
+    })
+    .map((item, index) => ({ ...item, order_index: index }));
+};
+
+const createFallbackExpenses = (input: TripPlanInput) => {
+  const primaryCountry = input.countries[0] ?? 'international';
+  const primaryCurrency = currencyForCountry(primaryCountry);
+  const lodgingAmount = input.style === 'confortavel' ? 180 : input.style === 'economica' ? 80 : 120;
+  const foodAmount = input.style === 'confortavel' ? 65 : input.style === 'economica' ? 30 : 45;
+
+  return [
+    { category: 'Hospedagem', title: 'Hospedagem base', detail: 'Estimativa por diária', amount: lodgingAmount, country: primaryCountry, currency: primaryCurrency },
+    { category: 'Transporte', title: 'Transporte local', detail: 'Metrô, ônibus, trem ou táxi', amount: input.style === 'confortavel' ? 45 : 25, country: primaryCountry, currency: primaryCurrency },
+    { category: 'Passeios', title: 'Ingressos e experiências', detail: 'Museus, mirantes e atrações principais', amount: input.style === 'economica' ? 35 : 70, country: primaryCountry, currency: primaryCurrency },
+    { category: 'Alimentacao', title: 'Alimentação diária', detail: 'Cafés, almoços e jantares', amount: foodAmount, country: primaryCountry, currency: primaryCurrency },
+    { category: 'Seguro', title: 'Seguro viagem', detail: 'Estimativa geral', amount: 60, country: primaryCountry, currency: 'BRL' },
+    { category: 'Outros', title: 'Reserva para imprevistos', detail: 'Margem de segurança', amount: 100, country: primaryCountry, currency: primaryCurrency },
+  ];
+};
+
+const createFallbackPlan = (input: TripPlanInput, warning: string) =>
+  ensurePlanShape({
+    summary: `Prévia estruturada para ${input.tripName}.`,
+    documents: [
+      { title: 'Documento de viagem', detail: 'Confira passaporte, vistos, reservas e seguro antes do embarque.' },
+    ],
+    routes: input.countries.length > 1
+      ? input.countries.slice(0, -1).map((country, index) => ({
+          from: getDefaultCityForCountry(country, index + 1),
+          to: getDefaultCityForCountry(input.countries[index + 1], index + 2),
+          transport: input.description.toLowerCase().includes('motorhome') ? 'motorhome' : 'trem/avião',
+          duration: '2h a 5h',
+          estimatedCost: 'A confirmar',
+          notes: 'Ajuste horário conforme reservas reais.',
+        }))
+      : [],
+    itinerary_items: [],
+    expenses: createFallbackExpenses(input),
+    attractions: createFallbackAttractions(input, []),
+    warnings: [warning],
+  }, input);
+
 const uniqueByKey = <T>(items: T[], getKey: (item: T) => string) => {
   const seen = new Set<string>();
   return items.filter((item) => {
@@ -526,6 +734,33 @@ const looksLikeAttraction = (item: Record<string, unknown>, requireTourSignal: b
   return attractionSignals.some((keyword) => text.includes(stripDiacritics(keyword)));
 };
 
+const createFallbackAttractions = (input: TripPlanInput, itineraryItems: Record<string, unknown>[]) => {
+  const usedDays = new Map<string, string>();
+  itineraryItems.forEach((item) => {
+    const country = asText(item.country);
+    if (!country || internationalCountryKeys.has(countryKey(country))) return;
+    if (!usedDays.has(country)) usedDays.set(country, asText(item.day).split(' - ')[0] || 'Dia 1');
+  });
+
+  return input.countries.flatMap((country) => {
+    const seeds = defaultAttractionsByCountry[countryKey(country)] ?? [
+      {
+        name: `Centro turístico de ${country}`,
+        city: getDefaultCityForCountry(country),
+        description: 'Área principal para caminhada, refeições e reconhecimento local.',
+      },
+    ];
+
+    return seeds.slice(0, 3).map((seed, index) => ({
+      ...seed,
+      country,
+      day: usedDays.get(country) ?? `Dia ${index + 1}`,
+      time: index === 0 ? '09h30' : index === 1 ? '14h30' : '16h30',
+      links: [],
+    }));
+  });
+};
+
 const findInvalidCountries = (plan: Record<string, unknown>, input: TripPlanInput) => {
   const countryMap = buildCountryMap(input);
   const invalid = new Set<string>();
@@ -554,7 +789,7 @@ const ensurePlanShape = (value: unknown, input: TripPlanInput) => {
   const warnings = safeArray(plan.warnings).map(String).filter(Boolean);
   const requiredWarning = 'Confirme as exigencias oficiais antes da viagem.';
 
-  const itineraryItems = uniqueByKey(
+  const normalizedItineraryItems = uniqueByKey(
     asRecords(plan.itinerary_items)
       .map((item, index) => {
         const inferredDay = Math.min(tripDays, Math.floor(index / 6) + 1);
@@ -581,7 +816,7 @@ const ensurePlanShape = (value: unknown, input: TripPlanInput) => {
           date,
           time: asText(item.time),
           country,
-          city: asText(item.city),
+          city: sanitizeCityForCountry(item.city, country, dayNumber),
           order_index: Number.isFinite(orderIndex) ? orderIndex : index,
           links: safeArray(item.links),
         };
@@ -601,7 +836,10 @@ const ensurePlanShape = (value: unknown, input: TripPlanInput) => {
     return getTimeMinutes(a.time) - getTimeMinutes(b.time);
   }).map((item, index) => ({ ...item, order_index: index }));
 
-  const expenses = uniqueByKey(
+  const itineraryItems = completeItineraryItems(normalizedItineraryItems, input);
+  const itineraryWasSupplemented = itineraryItems.length > normalizedItineraryItems.length;
+
+  const normalizedExpenses = uniqueByKey(
     asRecords(plan.expenses)
       .map((expense) => {
         const normalizedExpense = {
@@ -627,6 +865,7 @@ const ensurePlanShape = (value: unknown, input: TripPlanInput) => {
       .filter((expense) => asText(expense.title)),
     expenseKey,
   );
+  const expenses = normalizedExpenses.length ? normalizedExpenses : createFallbackExpenses(input);
 
   const explicitAttractions = asRecords(plan.attractions)
     .map((attraction) => {
@@ -643,7 +882,11 @@ const ensurePlanShape = (value: unknown, input: TripPlanInput) => {
         allowInternational: false,
       });
       if (!country) return null;
-      return { ...normalizedAttraction, country };
+      return {
+        ...normalizedAttraction,
+        country,
+        city: sanitizeCityForCountry(normalizedAttraction.city, country),
+      };
     })
     .filter((attraction): attraction is Record<string, unknown> => Boolean(attraction))
     .filter((attraction) => looksLikeAttraction(attraction, false));
@@ -660,16 +903,24 @@ const ensurePlanShape = (value: unknown, input: TripPlanInput) => {
       links: [],
     }));
 
+  const attractions = uniqueByKey([...explicitAttractions, ...itineraryAttractions], attractionKey);
+  const finalAttractions = attractions.length ? attractions : createFallbackAttractions(input, itineraryItems);
+  const finalWarnings = [
+    ...warnings,
+    itineraryWasSupplemented ? 'Alguns dias foram complementados automaticamente para evitar roteiro vazio.' : '',
+    normalizedExpenses.length ? '' : 'Despesas aproximadas foram complementadas por categoria.',
+  ].filter(Boolean);
+
   return {
-    summary: asText(plan.summary),
+    summary: asText(plan.summary, `Prévia de roteiro para ${input.tripName}.`),
     documents: asRecords(plan.documents),
     routes: asRecords(plan.routes),
     itinerary_items: itineraryItems,
     expenses,
-    attractions: uniqueByKey([...explicitAttractions, ...itineraryAttractions], attractionKey),
-    warnings: warnings.some((warning) => stripDiacritics(warning).includes('exigencias oficiais'))
-      ? warnings
-      : [...warnings, requiredWarning],
+    attractions: finalAttractions,
+    warnings: finalWarnings.some((warning) => stripDiacritics(warning).includes('exigencias oficiais'))
+      ? finalWarnings
+      : [...finalWarnings, requiredWarning],
   };
 };
 
@@ -858,20 +1109,23 @@ class ProfileSyncError extends Error {
 const validateRawPlanSchema = (value: unknown) => {
   const plan = asRecord(value);
   const reasons: string[] = [];
-  const arrayFields = ['documents', 'routes', 'itinerary_items', 'expenses', 'attractions'];
+  const objectKeys = Object.keys(plan);
 
-  arrayFields.forEach((field) => {
-    if (!Array.isArray(plan[field])) reasons.push(`${field} ausente ou nao e array`);
-  });
+  if (!objectKeys.length) reasons.push('JSON vazio');
 
   const itineraryItems = asRecords(plan.itinerary_items);
   const expenses = asRecords(plan.expenses);
   const attractions = asRecords(plan.attractions);
+  const routes = asRecords(plan.routes);
+  const documents = asRecords(plan.documents);
+  const hasUsefulContent = Boolean(asText(plan.summary)) ||
+    itineraryItems.length > 0 ||
+    expenses.length > 0 ||
+    attractions.length > 0 ||
+    routes.length > 0 ||
+    documents.length > 0;
 
-  if (!asText(plan.summary)) reasons.push('summary ausente');
-  if (!itineraryItems.length) reasons.push('itinerary_items vazio');
-  if (!expenses.length) reasons.push('expenses vazio');
-  if (!attractions.length) reasons.push('attractions vazio');
+  if (!hasUsefulContent) reasons.push('JSON sem conteudo de roteiro');
 
   const invalidItineraryIndex = itineraryItems.findIndex((item) =>
     !asText(item.day) || !asText(item.country) || !asText(item.city) || !asText(item.title) || !asText(item.type)
@@ -1108,6 +1362,7 @@ const generatePlanWithAI = async (
       body: JSON.stringify({
         model,
         temperature: qualityFeedback ? 0.42 : 0.38,
+        max_completion_tokens: getMaxCompletionTokens(input),
         response_format: { type: 'json_object' },
         messages: [
           {
@@ -1493,11 +1748,31 @@ Deno.serve(async (req) => {
         has_quality_feedback: Boolean(qualityFeedback),
       });
 
-      const rawOutput = await generatePlanWithAI(apiKey, model, input, qualityFeedback, {
-        groupId: input.groupId,
-        userId: user.id,
-        attempt,
-      });
+      let rawOutput: unknown;
+      try {
+        rawOutput = await generatePlanWithAI(apiKey, model, input, qualityFeedback, {
+          groupId: input.groupId,
+          userId: user.id,
+          attempt,
+        });
+      } catch (error) {
+        if (error instanceof AiTimeoutError) {
+          logAiEvent('warn', 'openai_timeout_fallback_plan', {
+            group_id: input.groupId,
+            user_id: user.id,
+            attempt,
+            timeout_ms: error.timeoutMs,
+          });
+          output = createFallbackPlan(
+            input,
+            'A OpenAI demorou demais; foi gerada uma prévia estruturada para revisão.',
+          );
+          break;
+        }
+
+        throw error;
+      }
+
       const schema = validateRawPlanSchema(rawOutput);
       if (!schema.ok) {
         qualityReasons = schema.reasons;
