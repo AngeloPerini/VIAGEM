@@ -563,6 +563,7 @@ export function ProfilePage() {
   const [isGeneratingAI, setIsGeneratingAI] = useState(false);
   const [aiFailedGroup, setAiFailedGroup] = useState<UserTravelGroup | null>(null);
   const [aiRetryInput, setAiRetryInput] = useState<TripAIInput | null>(null);
+  const [recentlyCreatedTripId, setRecentlyCreatedTripId] = useState<string | null>(null);
   const [isJoiningTrip, setIsJoiningTrip] = useState(false);
   const [notificationActionId, setNotificationActionId] = useState<string | null>(null);
   const [tripActionId, setTripActionId] = useState<string | null>(null);
@@ -673,16 +674,6 @@ export function ProfilePage() {
 
     return caughtError instanceof Error ? caughtError.message : 'Nao foi possivel gerar a previa com IA.';
   };
-
-  const buildAIInput = (group: UserTravelGroup, countries: string[]): TripAIInput => ({
-    tripName: tripName.trim() || group.name,
-    countries,
-    description: tripDescription,
-    startDate: tripStartDate,
-    endDate: tripEndDate,
-    style: tripStyle as TripStyle,
-    groupId: group.id,
-  });
 
   const openAIReview = async (input: TripAIInput, group: UserTravelGroup) => {
     setActiveGroup(group);
@@ -826,39 +817,6 @@ export function ProfilePage() {
       validateDescriptionLength(tripDescription);
       const countries = parsedTripCountries();
 
-      await createGroup({
-        name: tripName,
-        description: tripDescription,
-        countries,
-        startDate: tripStartDate,
-        endDate: tripEndDate,
-        travelStyle: tripStyle,
-      });
-      setStatus('Viagem criada.');
-      setShowCreateTripForm(false);
-      await refreshGroups({ silent: true });
-      window.history.replaceState({}, '', '/dashboard');
-      window.dispatchEvent(new PopStateEvent('popstate'));
-    } catch (caughtError) {
-      setError(caughtError instanceof Error ? caughtError.message : 'Nao foi possivel criar sua viagem.');
-    } finally {
-      setIsCreatingTrip(false);
-    }
-  };
-
-  const handleGenerateTripPreview = async () => {
-    setError(null);
-    setStatus(null);
-    setIsGeneratingAI(true);
-    let groupForRetry: UserTravelGroup | null = null;
-    let inputForRetry: TripAIInput | null = null;
-
-    try {
-      validateDescriptionLength(tripDescription);
-      const countries = parsedTripCountries();
-      if (!countries.length) throw new Error(t('ai.missingCountries'));
-      if (!tripStartDate || !tripEndDate) throw new Error(t('ai.missingDates'));
-
       const group = await createGroup({
         name: tripName,
         description: tripDescription,
@@ -867,24 +825,14 @@ export function ProfilePage() {
         endDate: tripEndDate,
         travelStyle: tripStyle,
       });
-
-      groupForRetry = group;
-      inputForRetry = buildAIInput(group, countries);
-      await openAIReview(inputForRetry, group);
+      setRecentlyCreatedTripId(group.id);
+      setStatus(t('profile.tripCreatedNextAI'));
+      setShowCreateTripForm(false);
+      await refreshGroups({ silent: true });
     } catch (caughtError) {
-      console.error('Falha no fluxo Gerar previa com IA', {
-        groupId: groupForRetry?.id,
-        input: inputForRetry,
-        error: caughtError,
-      });
-      if (groupForRetry && inputForRetry) {
-        setAiFailedGroup(groupForRetry);
-        setAiRetryInput(inputForRetry);
-      }
-      await loadProfile().catch(() => null);
-      setError(formatAIError(caughtError));
+      setError(caughtError instanceof Error ? caughtError.message : 'Nao foi possivel criar sua viagem.');
     } finally {
-      setIsGeneratingAI(false);
+      setIsCreatingTrip(false);
     }
   };
 
@@ -899,7 +847,9 @@ export function ProfilePage() {
       validateDescriptionLength(activeGroup.description ?? '');
       const countries = activeGroup.countries?.length
         ? activeGroup.countries.flatMap((country) => parseCountryInput(country))
-        : ['Europa'];
+        : [];
+      if (!countries.length) throw new Error(t('ai.missingCountries'));
+      if (!activeGroup.startDate || !activeGroup.endDate) throw new Error(t('ai.missingDates'));
       const input: TripAIInput = {
         tripName: activeGroup.name,
         countries,
@@ -920,7 +870,7 @@ export function ProfilePage() {
         tripName: activeGroup.name,
         countries: activeGroup.countries?.length
           ? activeGroup.countries.flatMap((country) => parseCountryInput(country))
-          : ['Europa'],
+          : [],
         description: activeGroup.description ?? '',
         startDate: activeGroup.startDate ?? '',
         endDate: activeGroup.endDate ?? '',
@@ -1606,28 +1556,16 @@ export function ProfilePage() {
                   </select>
                 </label>
               </div>
-              <div className="grid gap-3 md:grid-cols-2">
+              <div>
                 <button
                   type="submit"
-                  disabled={isCreatingTrip || isGeneratingAI || isTripDescriptionTooLong}
+                  disabled={isCreatingTrip || isTripDescriptionTooLong}
                   className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-slate-950 px-5 font-black text-white transition hover:bg-teal-700 disabled:cursor-not-allowed disabled:opacity-70"
                 >
                   <Plus className="h-5 w-5" />
                   {isCreatingTrip ? t('profile.creatingTrip') : t('profile.createTrip')}
                 </button>
-                <button
-                  type="button"
-                  onClick={() => void handleGenerateTripPreview()}
-                  disabled={isCreatingTrip || isGeneratingAI || aiGenerationBlocked || isTripDescriptionTooLong}
-                  className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-teal-700 px-5 font-black text-white transition hover:bg-teal-800 disabled:cursor-not-allowed disabled:opacity-70"
-                >
-                  {isGeneratingAI ? <Loader2 className="h-5 w-5 animate-spin" /> : <Sparkles className="h-5 w-5" />}
-                  {isGeneratingAI ? t('profile.generatingAI') : t('profile.generateAI')}
-                </button>
               </div>
-              <p className="rounded-2xl bg-slate-50 px-4 py-3 text-sm font-bold text-slate-600">
-                {aiUsageLabel}
-              </p>
             </form>
           </motion.section>
 
@@ -1695,15 +1633,32 @@ export function ProfilePage() {
                   {activeGroup.role}
                 </span>
               </div>
-              <button
-                type="button"
-                onClick={() => void handleGenerateActiveTripPreview()}
-                disabled={isGeneratingAI || aiGenerationBlocked}
-                className="mt-5 inline-flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-teal-700 px-5 font-black text-white transition hover:bg-teal-800 disabled:cursor-not-allowed disabled:opacity-70 sm:w-auto"
+              <div
+                className={`mt-5 border-l-4 pl-4 ${
+                  recentlyCreatedTripId === activeGroup.id ? 'border-teal-500' : 'border-slate-200'
+                }`}
+                aria-live={recentlyCreatedTripId === activeGroup.id ? 'polite' : undefined}
               >
-                {isGeneratingAI ? <Loader2 className="h-5 w-5 animate-spin" /> : <Sparkles className="h-5 w-5" />}
-                {isGeneratingAI ? t('profile.generatingAI') : t('profile.generateAI')}
-              </button>
+                <p className="text-sm font-black uppercase tracking-[0.16em] text-teal-700">
+                  {t('profile.aiNextStepTitle')}
+                </p>
+                <p className="mt-1 max-w-xl text-sm font-bold leading-6 text-slate-600">
+                  {recentlyCreatedTripId === activeGroup.id
+                    ? t('profile.aiTripCreatedPrompt')
+                    : t('profile.aiActiveTripPrompt')}
+                </p>
+                <button
+                  type="button"
+                  onClick={() => void handleGenerateActiveTripPreview()}
+                  disabled={isGeneratingAI || aiGenerationBlocked}
+                  className={`mt-4 inline-flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-teal-700 px-5 font-black text-white transition hover:bg-teal-800 disabled:cursor-not-allowed disabled:opacity-70 sm:w-auto ${
+                    recentlyCreatedTripId === activeGroup.id ? 'shadow-xl shadow-teal-900/20 ring-4 ring-teal-100' : ''
+                  }`}
+                >
+                  {isGeneratingAI ? <Loader2 className="h-5 w-5 animate-spin" /> : <Sparkles className="h-5 w-5" />}
+                  {isGeneratingAI ? t('profile.generatingAI') : t('profile.generateAI')}
+                </button>
+              </div>
               <p className="mt-3 rounded-2xl bg-slate-50 px-4 py-3 text-sm font-bold text-slate-600">
                 {aiUsageLabel}
               </p>
