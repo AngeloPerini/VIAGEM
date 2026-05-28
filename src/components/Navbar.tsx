@@ -60,7 +60,7 @@ export function Navbar({ activeView, onNavigate }: NavbarProps) {
 
     void loadUnreadNotifications();
     let fallbackInterval: number | undefined;
-    const channel = subscribeNotifications(
+    const notificationSubscription = subscribeNotifications(
       user.id,
       () => void loadUnreadNotifications(),
       (state) => {
@@ -80,7 +80,7 @@ export function Navbar({ activeView, onNavigate }: NavbarProps) {
 
     return () => {
       if (fallbackInterval) window.clearInterval(fallbackInterval);
-      channel.unsubscribe();
+      notificationSubscription.remove();
     };
   }, [loadUnreadNotifications, user?.id]);
 

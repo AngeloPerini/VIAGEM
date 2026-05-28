@@ -348,8 +348,15 @@ export function cacheAttractionsFallback(groupId: string, payload: AttractionSyn
 }
 
 export function subscribeAttractions(groupId: string, onChange: () => void): RealtimeChannel {
+  const topic = `attractions-sync-${groupId}`;
+  supabase.getChannels()
+    .filter((channel) => channel.topic === `realtime:${topic}`)
+    .forEach((channel) => {
+      void supabase.removeChannel(channel);
+    });
+
   return supabase
-    .channel(`attractions-sync-${groupId}`)
+    .channel(topic)
     .on(
       'postgres_changes',
       { event: '*', schema: 'public', table: 'attractions', filter: `group_id=eq.${groupId}` },

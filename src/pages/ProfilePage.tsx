@@ -66,9 +66,9 @@ import {
   updateTripChecklistItem,
   type TripChecklistItemInput,
 } from '../services/checklistService';
-import { getExpenses, subscribeExpenses } from '../services/expensesService';
-import { getItineraryItems, subscribeItineraryItems } from '../services/itineraryService';
-import { getAttractions, subscribeAttractions } from '../services/attractionsService';
+import { getExpenses } from '../services/expensesService';
+import { getItineraryItems } from '../services/itineraryService';
+import { getAttractions } from '../services/attractionsService';
 import { supabase } from '../services/supabaseClient';
 import { generateTripPlan, storeTripAIReview, TripAIFunctionError } from '../services/tripAIService';
 import type {
@@ -633,6 +633,7 @@ export function ProfilePage() {
   const [tripActionId, setTripActionId] = useState<string | null>(null);
   const [removingUserId, setRemovingUserId] = useState<string | null>(null);
 
+  const activeGroupId = activeGroup?.id;
   const isOwner = activeGroup?.role === 'owner';
   const avatarUrl = profile?.avatarUrl;
   const displayName = getProfileName(profile, user?.email);
@@ -776,9 +777,9 @@ export function ProfilePage() {
 
       const [nextProfile, nextStats, nextMembers, nextInvites, nextNotifications, nextTripSummaries] = await Promise.all([
         getCurrentProfile().catch(() => buildFallbackProfile(user)),
-        getUserStats(user?.id, activeGroup?.id),
-        activeGroup ? getGroupMembers(activeGroup.id) : Promise.resolve([]),
-        activeGroup && isOwner ? getInvites(activeGroup.id).catch(() => []) : Promise.resolve([]),
+        getUserStats(user?.id, activeGroupId),
+        activeGroupId ? getGroupMembers(activeGroupId) : Promise.resolve([]),
+        activeGroupId && isOwner ? getInvites(activeGroupId).catch(() => []) : Promise.resolve([]),
         getNotifications().catch(() => []),
         getProfileTripStats().catch(() => []),
       ]);
@@ -794,10 +795,10 @@ export function ProfilePage() {
     } finally {
       setIsLoading(false);
     }
-  }, [activeGroup, isOwner, user]);
+  }, [activeGroupId, isOwner, user]);
 
   const loadActiveTripDetails = useCallback(async () => {
-    if (!activeGroup) {
+    if (!activeGroupId) {
       setTripExpenses([]);
       setTripItineraryItems([]);
       setTripAttractions([]);
@@ -807,9 +808,9 @@ export function ProfilePage() {
 
     try {
       const [nextExpenses, nextItineraryItems, nextAttractions] = await Promise.all([
-        getExpenses(activeGroup.id),
-        getItineraryItems(activeGroup.id),
-        getAttractions(activeGroup.id),
+        getExpenses(activeGroupId),
+        getItineraryItems(activeGroupId),
+        getAttractions(activeGroupId),
       ]);
 
       setTripExpenses(nextExpenses);
@@ -823,17 +824,17 @@ export function ProfilePage() {
           : 'Nao foi possivel carregar os dados da viagem ativa.',
       );
     }
-  }, [activeGroup]);
+  }, [activeGroupId]);
 
   const loadChecklist = useCallback(async () => {
-    if (!activeGroup) {
+    if (!activeGroupId) {
       setChecklistItems([]);
       setChecklistWarning(null);
       return;
     }
 
     try {
-      const nextItems = await getTripChecklistItems(activeGroup.id);
+      const nextItems = await getTripChecklistItems(activeGroupId);
       setChecklistItems(nextItems);
       setChecklistWarning(null);
     } catch (caughtError) {
@@ -843,20 +844,20 @@ export function ProfilePage() {
           : 'Nao foi possivel carregar o checklist da viagem.',
       );
     }
-  }, [activeGroup]);
+  }, [activeGroupId]);
 
   useEffect(() => {
     void loadProfile();
   }, [loadProfile]);
 
   useEffect(() => {
-    if (!activeGroup) return undefined;
+    if (!activeGroupId) return undefined;
 
     const channel = supabase
-      .channel(`profile-members-${activeGroup.id}`)
+      .channel(`profile-members-${activeGroupId}`)
       .on(
         'postgres_changes',
-        { event: '*', schema: 'public', table: 'group_members', filter: `group_id=eq.${activeGroup.id}` },
+        { event: '*', schema: 'public', table: 'group_members', filter: `group_id=eq.${activeGroupId}` },
         () => void loadProfile(),
       )
       .on(
@@ -867,16 +868,16 @@ export function ProfilePage() {
       .subscribe();
 
     return () => {
-      void channel.unsubscribe();
+      void supabase.removeChannel(channel);
     };
-  }, [activeGroup, loadProfile]);
+  }, [activeGroupId, loadProfile]);
 
   useEffect(() => {
     if (!user?.id) return undefined;
 
     void loadNotifications().catch(() => null);
     let fallbackInterval: number | undefined;
-    const channel = subscribeNotifications(
+    const notificationSubscription = subscribeNotifications(
       user.id,
       () => void loadNotifications().catch(() => null),
       (state) => {
@@ -898,7 +899,7 @@ export function ProfilePage() {
 
     return () => {
       if (fallbackInterval) window.clearInterval(fallbackInterval);
-      channel.unsubscribe();
+      notificationSubscription.remove();
     };
   }, [loadNotifications, user?.id]);
 
@@ -910,41 +911,24 @@ export function ProfilePage() {
   }, []);
 
   useEffect(() => {
-    if (!activeGroup) {
-      void loadActiveTripDetails();
-      return undefined;
-    }
-
     void loadActiveTripDetails();
-    const refresh = () => void loadActiveTripDetails();
-    const channels = [
-      subscribeExpenses(activeGroup.id, refresh),
-      subscribeItineraryItems(activeGroup.id, refresh),
-      subscribeAttractions(activeGroup.id, refresh),
-    ];
-
-    return () => {
-      channels.forEach((channel) => {
-        void channel.unsubscribe();
-      });
-    };
-  }, [activeGroup, loadActiveTripDetails]);
+  }, [loadActiveTripDetails]);
 
   useEffect(() => {
-    if (!activeGroup) {
+    if (!activeGroupId) {
       void loadChecklist();
       return undefined;
     }
 
     void loadChecklist();
-    const channel = subscribeTripChecklistItems(activeGroup.id, () => {
+    const channel = subscribeTripChecklistItems(activeGroupId, () => {
       void loadChecklist();
     });
 
     return () => {
-      void channel.unsubscribe();
+      void supabase.removeChannel(channel);
     };
-  }, [activeGroup, loadChecklist]);
+  }, [activeGroupId, loadChecklist]);
 
   const copyToClipboard = async (value: string, label: string) => {
     await navigator.clipboard.writeText(value);

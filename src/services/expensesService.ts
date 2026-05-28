@@ -215,8 +215,15 @@ export function cacheExpensesFallback(groupId: string, expenses: Expense[]) {
 }
 
 export function subscribeExpenses(groupId: string, onChange: () => void): RealtimeChannel {
+  const topic = `expenses-sync-${groupId}`;
+  supabase.getChannels()
+    .filter((channel) => channel.topic === `realtime:${topic}`)
+    .forEach((channel) => {
+      void supabase.removeChannel(channel);
+    });
+
   return supabase
-    .channel(`expenses-sync-${groupId}`)
+    .channel(topic)
     .on(
       'postgres_changes',
       { event: '*', schema: 'public', table: 'expenses', filter: `group_id=eq.${groupId}` },

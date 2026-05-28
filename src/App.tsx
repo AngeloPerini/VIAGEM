@@ -50,6 +50,7 @@ import {
   updateExpenseCategory,
   type ExpenseCategoryInput,
 } from './services/expenseCategoriesService';
+import { supabase } from './services/supabaseClient';
 import type {
   CategoryMeta,
   CountryFilterId,
@@ -251,7 +252,7 @@ function TravelWorkspace({ groupId }: { groupId: string }) {
 
     return () => {
       active = false;
-      void channel.unsubscribe();
+      void supabase.removeChannel(channel);
     };
   }, [groupId]);
 
@@ -293,7 +294,7 @@ function TravelWorkspace({ groupId }: { groupId: string }) {
 
     return () => {
       active = false;
-      void channel.unsubscribe();
+      void supabase.removeChannel(channel);
     };
   }, [groupId]);
 

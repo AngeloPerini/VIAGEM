@@ -161,8 +161,15 @@ export async function deleteTripChecklistItem(groupId: string, itemId: string) {
 }
 
 export function subscribeTripChecklistItems(groupId: string, onChange: () => void): RealtimeChannel {
+  const topic = `trip-checklist-sync-${groupId}`;
+  supabase.getChannels()
+    .filter((channel) => channel.topic === `realtime:${topic}`)
+    .forEach((channel) => {
+      void supabase.removeChannel(channel);
+    });
+
   return supabase
-    .channel(`trip-checklist-sync-${groupId}`)
+    .channel(topic)
     .on(
       'postgres_changes',
       { event: '*', schema: 'public', table: 'trip_checklist_items', filter: `group_id=eq.${groupId}` },

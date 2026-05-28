@@ -209,8 +209,15 @@ export function cacheItineraryFallback(groupId: string, items: ItineraryItem[]) 
 }
 
 export function subscribeItineraryItems(groupId: string, onChange: () => void): RealtimeChannel {
+  const topic = `itinerary-sync-${groupId}`;
+  supabase.getChannels()
+    .filter((channel) => channel.topic === `realtime:${topic}`)
+    .forEach((channel) => {
+      void supabase.removeChannel(channel);
+    });
+
   return supabase
-    .channel(`itinerary-sync-${groupId}`)
+    .channel(topic)
     .on(
       'postgres_changes',
       { event: '*', schema: 'public', table: 'itinerary_items', filter: `group_id=eq.${groupId}` },

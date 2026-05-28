@@ -40,7 +40,7 @@ export type NotificationRealtimeState =
   | { available: false; status: string; message: string };
 
 export type NotificationSubscription = {
-  unsubscribe: () => void;
+  remove: () => void;
 };
 
 type NotificationRealtimeEntry = {
@@ -165,6 +165,8 @@ function getOrCreateNotificationChannel(userId: string): NotificationRealtimeEnt
       lastState: undefined,
     };
 
+    notificationChannels.set(userId, entry);
+
     entry.channel.subscribe((status) => {
       if (status === 'SUBSCRIBED') {
         notifyStatus(entry, { available: true, status });
@@ -180,9 +182,9 @@ function getOrCreateNotificationChannel(userId: string): NotificationRealtimeEnt
       }
     });
 
-    notificationChannels.set(userId, entry);
     return entry;
   } catch (error) {
+    notificationChannels.delete(userId);
     console.warn('Nao foi possivel iniciar realtime de notificacoes.', error);
     return null;
   }
@@ -199,7 +201,7 @@ export function subscribeNotifications(
       status: 'NO_USER',
       message: 'Notificacoes em tempo real indisponiveis no momento.',
     });
-    return { unsubscribe: () => undefined };
+    return { remove: () => undefined };
   }
 
   const entry = getOrCreateNotificationChannel(userId);
@@ -209,7 +211,7 @@ export function subscribeNotifications(
       status: 'INIT_ERROR',
       message: 'Notificacoes em tempo real indisponiveis no momento.',
     });
-    return { unsubscribe: () => undefined };
+    return { remove: () => undefined };
   }
 
   entry.listeners.add(onChange);
@@ -225,7 +227,7 @@ export function subscribeNotifications(
   }
 
   return {
-    unsubscribe: () => {
+    remove: () => {
       entry.listeners.delete(onChange);
       if (onStatus) entry.statusListeners.delete(onStatus);
 

@@ -22,6 +22,7 @@ import {
   updateAttractionVisit,
   uploadAttractionPhoto,
 } from '../services/attractionsService';
+import { supabase } from '../services/supabaseClient';
 import type {
   Attraction,
   AttractionState,
@@ -235,7 +236,7 @@ export function AttractionsPage({
 
     return () => {
       active = false;
-      void channel.unsubscribe();
+      void supabase.removeChannel(channel);
     };
   }, [groupId]);
 

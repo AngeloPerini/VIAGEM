@@ -42,6 +42,7 @@ import {
   updateItineraryItem,
   updateItineraryItemCompleted,
 } from '../services/itineraryService';
+import { supabase } from '../services/supabaseClient';
 import type { CountryFilterId, CountryId, CountryMeta, ItineraryItem, ItineraryType, LinkItem } from '../types';
 import { hasInvalidLinks, normalizeLinks } from '../utils/links';
 import { CountryFilter } from './CountryFilter';
@@ -491,7 +492,7 @@ export function ItineraryPage({
 
     return () => {
       active = false;
-      void channel.unsubscribe();
+      void supabase.removeChannel(channel);
     };
   }, [groupId]);
 
