@@ -53,6 +53,23 @@ export async function resetPassword(email: string) {
   if (error) throw error;
 }
 
+export async function updateCurrentUserEmail(email: string) {
+  const { data, error } = await supabase.auth.updateUser(
+    { email: email.trim() },
+    { emailRedirectTo: getAuthRedirectUrl() },
+  );
+
+  if (error) throw error;
+  return data.user;
+}
+
+export async function updateCurrentUserPassword(password: string) {
+  const { data, error } = await supabase.auth.updateUser({ password });
+
+  if (error) throw error;
+  return data.user;
+}
+
 export async function signOut() {
   const { error } = await supabase.auth.signOut();
   if (error) throw error;

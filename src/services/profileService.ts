@@ -142,6 +142,24 @@ export async function getCurrentProfile() {
   return toProfile(data as ProfileRow);
 }
 
+export async function updateCurrentProfileName(fullName: string) {
+  const normalizedName = fullName.trim();
+  if (!normalizedName) throw new Error('Informe o nome de exibicao.');
+
+  const { data: authData, error: authError } = await supabase.auth.updateUser({
+    data: {
+      full_name: normalizedName,
+      name: normalizedName,
+    },
+  });
+
+  if (authError) throw authError;
+  const updatedUser = authData.user ?? (await requireUser());
+  const updatedProfile = await upsertCurrentProfile(updatedUser);
+  if (!updatedProfile) throw new Error('Perfil nao encontrado.');
+  return updatedProfile;
+}
+
 export async function getGroupMembers(groupId: string) {
   const { data, error } = await supabase
     .from('group_members')

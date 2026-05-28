@@ -710,91 +710,91 @@ export function ItineraryPage({
         </p>
       ) : null}
 
-      <div className="grid gap-6 xl:grid-cols-[360px_minmax(0,1fr)]">
-        <motion.section
-          className="rounded-[2rem] border border-white/70 bg-white/85 p-5 shadow-xl shadow-slate-900/10 backdrop-blur-xl md:p-6 xl:sticky xl:top-28 xl:self-start"
-          initial={{ opacity: 0, y: 18 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.28 }}
-        >
-          <div className="mb-5 flex items-start justify-between gap-4">
-            <div>
-              <p className="text-sm font-bold uppercase tracking-[0.2em] text-slate-400">Calendario</p>
-              <h2 className="mt-1 text-2xl font-black text-slate-950">Dias da viagem</h2>
-            </div>
-            <span className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-slate-950 text-white">
-              <CalendarDays className="h-5 w-5" />
-            </span>
+      <motion.section
+        className="rounded-[2rem] border border-white/70 bg-white/85 p-4 shadow-xl shadow-slate-900/10 backdrop-blur-xl md:p-5"
+        initial={{ opacity: 0, y: 18 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.28 }}
+      >
+        <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="text-sm font-bold uppercase tracking-[0.2em] text-slate-400">Calendario</p>
+            <h2 className="mt-1 text-2xl font-black text-slate-950">Dias da viagem</h2>
           </div>
+          <span className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-slate-950 text-white">
+            <CalendarDays className="h-5 w-5" />
+          </span>
+        </div>
 
-          {calendarDays.length ? (
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-2">
-              {calendarDays.map((day) => {
-                const selected = day.id === selectedDay?.id;
-                const hasItems = day.itemCount > 0;
+        {calendarDays.length ? (
+          <div className="grid auto-cols-[minmax(10.5rem,1fr)] grid-flow-col gap-3 overflow-x-auto pb-2 lg:grid-flow-row lg:grid-cols-4 lg:overflow-visible xl:grid-cols-6 2xl:grid-cols-8">
+            {calendarDays.map((day) => {
+              const selected = day.id === selectedDay?.id;
+              const hasItems = day.itemCount > 0;
 
-                return (
-                  <button
-                    key={day.id}
-                    type="button"
-                    onClick={() => setSelectedDayId(day.id)}
-                    aria-label={`Selecionar ${day.title}`}
-                    className={`min-h-28 rounded-2xl border p-3 text-left transition ${
-                      selected
-                        ? 'border-slate-950 bg-slate-950 text-white shadow-xl shadow-slate-950/20'
-                        : hasItems
-                          ? 'border-teal-200 bg-teal-50/70 text-slate-900 hover:border-teal-300 hover:bg-teal-50'
-                          : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50'
-                    }`}
-                  >
-                    <div className="flex items-start justify-between gap-2">
-                      <div>
-                        <p className={`text-xs font-black uppercase tracking-[0.12em] ${selected ? 'text-white/60' : 'text-slate-400'}`}>
-                          {day.weekdayLabel ?? 'Dia'}
-                        </p>
-                        <p className="mt-1 text-lg font-black">{day.title}</p>
-                      </div>
-                      {day.isToday ? (
-                        <span className={`rounded-full px-2 py-1 text-[0.65rem] font-black uppercase ${selected ? 'bg-white/15 text-white' : 'bg-amber-100 text-amber-700'}`}>
-                          Hoje
-                        </span>
-                      ) : null}
+              return (
+                <button
+                  key={day.id}
+                  type="button"
+                  onClick={() => setSelectedDayId(day.id)}
+                  aria-current={selected ? 'date' : undefined}
+                  aria-label={`Selecionar ${day.title}`}
+                  className={`min-h-24 rounded-2xl border p-3 text-left transition ${
+                    selected
+                      ? 'border-slate-950 bg-slate-950 text-white shadow-xl shadow-slate-950/20'
+                      : hasItems
+                        ? 'border-teal-200 bg-teal-50/70 text-slate-900 hover:border-teal-300 hover:bg-teal-50'
+                        : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50'
+                  }`}
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <p className={`text-xs font-black uppercase tracking-[0.12em] ${selected ? 'text-white/60' : 'text-slate-400'}`}>
+                        {day.weekdayLabel ?? 'Dia'}
+                      </p>
+                      <p className="mt-1 text-lg font-black">{day.title}</p>
                     </div>
-                    <p className={`mt-2 text-xs font-bold ${selected ? 'text-white/70' : 'text-slate-500'}`}>
-                      {day.date ? `${String(day.date.getDate()).padStart(2, '0')} ${day.monthLabel}` : day.subtitle}
-                    </p>
-                    <div className="mt-3 flex items-center justify-between gap-2">
-                      <span className={`text-xs font-black ${selected ? 'text-white' : hasItems ? 'text-teal-700' : 'text-slate-400'}`}>
-                        {day.itemCount} item(ns)
+                    {day.isToday ? (
+                      <span className={`rounded-full px-2 py-1 text-[0.65rem] font-black uppercase ${selected ? 'bg-white/15 text-white' : 'bg-amber-100 text-amber-700'}`}>
+                        Hoje
                       </span>
-                      {day.isComplete ? (
-                        <CheckCircle2 className={`h-4 w-4 ${selected ? 'text-teal-200' : 'text-teal-600'}`} />
-                      ) : hasItems ? (
-                        <span className={`h-2 w-2 rounded-full ${selected ? 'bg-teal-200' : 'bg-teal-600'}`} />
-                      ) : (
-                        <span className={`h-2 w-2 rounded-full ${selected ? 'bg-white/30' : 'bg-slate-300'}`} />
-                      )}
-                    </div>
-                    {hasItems ? (
-                      <div className={`mt-3 h-1.5 overflow-hidden rounded-full ${selected ? 'bg-white/15' : 'bg-white'}`}>
-                        <span
-                          className={`block h-full rounded-full ${selected ? 'bg-teal-200' : 'bg-teal-600'}`}
-                          style={{ width: `${Math.max(8, (day.completedCount / day.itemCount) * 100)}%` }}
-                        />
-                      </div>
                     ) : null}
-                  </button>
-                );
-              })}
-            </div>
-          ) : (
-            <p className="rounded-2xl bg-slate-50 px-4 py-5 text-sm font-bold leading-6 text-slate-500">
-              Nenhum dia disponivel. Adicione datas na viagem ou crie o primeiro item do roteiro.
-            </p>
-          )}
-        </motion.section>
+                  </div>
+                  <p className={`mt-2 text-xs font-bold ${selected ? 'text-white/70' : 'text-slate-500'}`}>
+                    {day.date ? `${String(day.date.getDate()).padStart(2, '0')} ${day.monthLabel}` : day.subtitle}
+                  </p>
+                  <div className="mt-3 flex items-center justify-between gap-2">
+                    <span className={`text-xs font-black ${selected ? 'text-white' : hasItems ? 'text-teal-700' : 'text-slate-400'}`}>
+                      {day.itemCount} item(ns)
+                    </span>
+                    {day.isComplete ? (
+                      <CheckCircle2 className={`h-4 w-4 ${selected ? 'text-teal-200' : 'text-teal-600'}`} />
+                    ) : hasItems ? (
+                      <span className={`h-2 w-2 rounded-full ${selected ? 'bg-teal-200' : 'bg-teal-600'}`} />
+                    ) : (
+                      <span className={`h-2 w-2 rounded-full ${selected ? 'bg-white/30' : 'bg-slate-300'}`} />
+                    )}
+                  </div>
+                  {hasItems ? (
+                    <div className={`mt-3 h-1.5 overflow-hidden rounded-full ${selected ? 'bg-white/15' : 'bg-white'}`}>
+                      <span
+                        className={`block h-full rounded-full ${selected ? 'bg-teal-200' : 'bg-teal-600'}`}
+                        style={{ width: `${Math.max(8, (day.completedCount / day.itemCount) * 100)}%` }}
+                      />
+                    </div>
+                  ) : null}
+                </button>
+              );
+            })}
+          </div>
+        ) : (
+          <p className="rounded-2xl bg-slate-50 px-4 py-5 text-sm font-bold leading-6 text-slate-500">
+            Nenhum dia disponivel. Adicione datas na viagem ou crie o primeiro item do roteiro.
+          </p>
+        )}
+      </motion.section>
 
-        <motion.section
+      <motion.section
           layout
           className="rounded-[2rem] border border-white/70 bg-white/85 p-5 shadow-xl shadow-slate-900/10 backdrop-blur-xl md:p-7"
           initial={{ opacity: 0, y: 18 }}
@@ -896,7 +896,6 @@ export function ItineraryPage({
             </p>
           )}
         </motion.section>
-      </div>
 
       <ItineraryFormModal item={editingItem} countryOptions={countryOptions} dayOptions={dayOptions} onClose={() => setEditingItem(null)} onSave={(item) => void saveItem(item)} />
       <AnimatePresence>

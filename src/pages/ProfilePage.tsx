@@ -5,6 +5,7 @@ import {
   CheckCircle2,
   Copy,
   Eye,
+  EyeOff,
   FileText,
   Link2,
   Loader2,
@@ -37,8 +38,10 @@ import {
   getProfileTripStats,
   getUserStats,
   removeGroupMember,
+  updateCurrentProfileName,
   upsertCurrentProfile,
 } from '../services/profileService';
+import { updateCurrentUserEmail, updateCurrentUserPassword } from '../services/authService';
 import {
   deleteTrip,
   getInvites,
@@ -181,6 +184,28 @@ const getProfileName = (profile?: UserProfile | null, fallbackEmail?: string | n
 const getProfileEmail = (profile?: UserProfile | null, fallbackEmail?: string | null) =>
   profile?.email?.trim() || fallbackEmail?.trim() || 'Perfil ainda sincronizando';
 
+const normalizeProfileEditError = (caughtError: unknown) => {
+  const message = caughtError instanceof Error ? caughtError.message : 'Nao foi possivel atualizar o perfil.';
+
+  if (/already registered|already exists|email exists|user already/i.test(message)) {
+    return 'Este e-mail ja esta em uso em outra conta.';
+  }
+
+  if (/invalid.*email|email.*invalid/i.test(message)) {
+    return 'Informe um e-mail valido.';
+  }
+
+  if (/password/i.test(message) && /weak|short|length|characters|least/i.test(message)) {
+    return 'A senha precisa ter pelo menos 6 caracteres.';
+  }
+
+  if (/session|logged in|jwt/i.test(message)) {
+    return 'Entre novamente na conta para concluir esta alteracao.';
+  }
+
+  return message;
+};
+
 const statusLabels: Record<TripStatus, string> = {
   planned: 'Planejada',
   active: 'Ativa',
@@ -211,6 +236,7 @@ const profileSections = [
   { id: 'create-ai', label: 'Criar viagem / IA', path: '/perfil/criar-viagem', icon: Sparkles },
   { id: 'checklist', label: 'Checklist', path: '/perfil/checklist', icon: CheckCircle2 },
   { id: 'notifications', label: 'Notificacoes', path: '/perfil/notificacoes', icon: Bell },
+  { id: 'edit-profile', label: 'Editar perfil', path: '/perfil/editar', icon: Pencil },
 ] as const;
 
 type ProfileSectionId = typeof profileSections[number]['id'];
@@ -226,6 +252,8 @@ const sectionByPath: Record<string, ProfileSectionId> = {
   '/profile/checklist': 'checklist',
   '/perfil/notificacoes': 'notifications',
   '/profile/notificacoes': 'notifications',
+  '/perfil/editar': 'edit-profile',
+  '/profile/editar': 'edit-profile',
 };
 
 const getProfileSectionFromPath = (): ProfileSectionId =>
@@ -678,12 +706,22 @@ export function ProfilePage() {
   const [notificationActionId, setNotificationActionId] = useState<string | null>(null);
   const [tripActionId, setTripActionId] = useState<string | null>(null);
   const [removingUserId, setRemovingUserId] = useState<string | null>(null);
+  const [displayNameDraft, setDisplayNameDraft] = useState('');
+  const [emailDraft, setEmailDraft] = useState('');
+  const [passwordDraft, setPasswordDraft] = useState('');
+  const [passwordConfirmationDraft, setPasswordConfirmationDraft] = useState('');
+  const [showPasswordDraft, setShowPasswordDraft] = useState(false);
+  const [showPasswordConfirmationDraft, setShowPasswordConfirmationDraft] = useState(false);
+  const [profileEditAction, setProfileEditAction] = useState<'name' | 'email' | 'password' | null>(null);
+  const [profileEditMessage, setProfileEditMessage] = useState<string | null>(null);
+  const [profileEditError, setProfileEditError] = useState<string | null>(null);
 
   const activeGroupId = activeGroup?.id;
   const isOwner = activeGroup?.role === 'owner';
   const avatarUrl = profile?.avatarUrl;
   const displayName = getProfileName(profile, user?.email);
   const displayEmail = getProfileEmail(profile, user?.email);
+  const currentAccountEmail = user?.email ?? profile?.email ?? '';
 
   const ownerMember = useMemo(
     () => members.find((member) => member.userId === activeGroup?.ownerId),
@@ -964,6 +1002,11 @@ export function ProfilePage() {
   }, [loadProfile]);
 
   useEffect(() => {
+    setDisplayNameDraft(displayName === 'Viajante' ? '' : displayName);
+    setEmailDraft(currentAccountEmail);
+  }, [currentAccountEmail, displayName]);
+
+  useEffect(() => {
     if (!activeGroupId) return undefined;
 
     const channel = supabase
@@ -1055,6 +1098,96 @@ export function ProfilePage() {
     setShowNotificationMenu(false);
     window.history.pushState({}, '', targetSection.path);
     window.dispatchEvent(new PopStateEvent('popstate'));
+  };
+
+  const prepareProfileEditFeedback = () => {
+    setProfileEditMessage(null);
+    setProfileEditError(null);
+    setStatus(null);
+    setError(null);
+  };
+
+  const handleUpdateDisplayName = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    prepareProfileEditFeedback();
+
+    const normalizedName = displayNameDraft.trim();
+    if (!normalizedName) {
+      setProfileEditError('Informe o nome de exibicao.');
+      return;
+    }
+
+    if (normalizedName === (profile?.fullName ?? '').trim()) {
+      setProfileEditMessage('Nome de exibicao ja esta atualizado.');
+      return;
+    }
+
+    setProfileEditAction('name');
+    try {
+      const updatedProfile = await updateCurrentProfileName(normalizedName);
+      setProfile(updatedProfile);
+      setDisplayNameDraft(updatedProfile.fullName ?? normalizedName);
+      setProfileEditMessage('Nome de exibicao atualizado com sucesso.');
+    } catch (caughtError) {
+      setProfileEditError(normalizeProfileEditError(caughtError));
+    } finally {
+      setProfileEditAction(null);
+    }
+  };
+
+  const handleRequestEmailChange = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    prepareProfileEditFeedback();
+
+    const nextEmail = emailDraft.trim();
+    if (!nextEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(nextEmail)) {
+      setProfileEditError('Informe um e-mail valido.');
+      return;
+    }
+
+    if (currentAccountEmail && nextEmail.toLowerCase() === currentAccountEmail.toLowerCase()) {
+      setProfileEditMessage('Este e-mail ja e o e-mail atual da conta.');
+      return;
+    }
+
+    setProfileEditAction('email');
+    try {
+      await updateCurrentUserEmail(nextEmail);
+      setProfileEditMessage('Enviamos um e-mail de confirmacao para concluir a alteracao.');
+    } catch (caughtError) {
+      setProfileEditError(normalizeProfileEditError(caughtError));
+    } finally {
+      setProfileEditAction(null);
+    }
+  };
+
+  const handleUpdatePassword = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    prepareProfileEditFeedback();
+
+    if (passwordDraft.length < 6) {
+      setProfileEditError('A senha precisa ter pelo menos 6 caracteres.');
+      return;
+    }
+
+    if (passwordDraft !== passwordConfirmationDraft) {
+      setProfileEditError('A nova senha e a confirmacao precisam coincidir.');
+      return;
+    }
+
+    setProfileEditAction('password');
+    try {
+      await updateCurrentUserPassword(passwordDraft);
+      setPasswordDraft('');
+      setPasswordConfirmationDraft('');
+      setShowPasswordDraft(false);
+      setShowPasswordConfirmationDraft(false);
+      setProfileEditMessage('Senha atualizada com sucesso.');
+    } catch (caughtError) {
+      setProfileEditError(normalizeProfileEditError(caughtError));
+    } finally {
+      setProfileEditAction(null);
+    }
   };
 
   const resetChecklistDraft = () => {
@@ -2058,7 +2191,7 @@ export function ProfilePage() {
         aria-label="Navegacao interna do perfil"
         className="rounded-[1.75rem] border border-white/80 bg-white/90 p-2 shadow-xl shadow-slate-900/10 backdrop-blur-xl"
       >
-        <div className="grid auto-cols-max grid-flow-col gap-2 overflow-x-auto pb-1 sm:pb-0 lg:grid-flow-row lg:grid-cols-5 lg:overflow-visible">
+        <div className="grid auto-cols-max grid-flow-col gap-2 overflow-x-auto pb-1 sm:pb-0 lg:grid-flow-row lg:grid-cols-6 lg:overflow-visible">
           {profileSections.map((section) => {
             const Icon = section.icon;
             const isActive = activeProfileSection === section.id;
@@ -2753,6 +2886,164 @@ export function ProfilePage() {
                   Nenhuma notificacao por enquanto.
                 </p>
               )}
+            </section>
+          ) : null}
+
+          {activeProfileSection === 'edit-profile' ? (
+            <section className="space-y-6">
+              <div className="rounded-[2rem] border border-white/80 bg-white/90 p-6 shadow-xl shadow-slate-900/10 md:p-8">
+                <p className="text-sm font-black uppercase tracking-[0.18em] text-teal-700">Editar perfil</p>
+                <h2 className="mt-2 text-3xl font-black tracking-tight text-slate-950">Conta e acesso</h2>
+                <p className="mt-3 max-w-3xl text-sm font-bold leading-6 text-slate-600">
+                  Atualize seus dados pessoais e credenciais usando os fluxos seguros da conta TripFlow.
+                </p>
+                {profileEditMessage ? (
+                  <p className="mt-5 rounded-2xl bg-teal-50 px-4 py-3 text-sm font-bold text-teal-700">
+                    {profileEditMessage}
+                  </p>
+                ) : null}
+                {profileEditError ? (
+                  <p className="mt-5 rounded-2xl bg-rose-50 px-4 py-3 text-sm font-bold text-rose-700">
+                    {profileEditError}
+                  </p>
+                ) : null}
+              </div>
+
+              <div className="grid gap-6 xl:grid-cols-3">
+                <form onSubmit={handleUpdateDisplayName} className="rounded-[2rem] border border-white/80 bg-white/90 p-6 shadow-xl shadow-slate-900/10 md:p-7">
+                  <div className="flex items-center gap-3">
+                    <span className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-teal-50 text-teal-700">
+                      <UserRound className="h-5 w-5" />
+                    </span>
+                    <div>
+                      <p className="text-sm font-black uppercase tracking-[0.16em] text-slate-400">Dados publicos</p>
+                      <h3 className="text-xl font-black text-slate-950">Nome de exibicao</h3>
+                    </div>
+                  </div>
+                  <label className="mt-6 block text-sm font-black text-slate-700" htmlFor="display-name">
+                    Nome
+                  </label>
+                  <input
+                    id="display-name"
+                    value={displayNameDraft}
+                    onChange={(event) => setDisplayNameDraft(event.target.value)}
+                    autoComplete="name"
+                    className="mt-2 h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-900 outline-none transition focus:border-teal-500 focus:ring-4 focus:ring-teal-100"
+                    placeholder="Seu nome no TripFlow"
+                  />
+                  <button
+                    type="submit"
+                    disabled={profileEditAction === 'name'}
+                    className="mt-6 inline-flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-slate-950 px-5 font-black text-white shadow-xl shadow-slate-900/15 transition hover:bg-teal-700 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {profileEditAction === 'name' ? <Loader2 className="h-5 w-5 animate-spin" /> : <Save className="h-5 w-5" />}
+                    Salvar nome
+                  </button>
+                </form>
+
+                <form onSubmit={handleRequestEmailChange} className="rounded-[2rem] border border-white/80 bg-white/90 p-6 shadow-xl shadow-slate-900/10 md:p-7">
+                  <div className="flex items-center gap-3">
+                    <span className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-sky-50 text-sky-700">
+                      <Send className="h-5 w-5" />
+                    </span>
+                    <div>
+                      <p className="text-sm font-black uppercase tracking-[0.16em] text-slate-400">E-mail de acesso</p>
+                      <h3 className="text-xl font-black text-slate-950">Alterar e-mail</h3>
+                    </div>
+                  </div>
+                  <label className="mt-6 block text-sm font-black text-slate-700" htmlFor="current-email">
+                    E-mail atual
+                  </label>
+                  <input
+                    id="current-email"
+                    value={currentAccountEmail || displayEmail}
+                    readOnly
+                    className="mt-2 h-12 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 text-sm font-bold text-slate-500 outline-none"
+                  />
+                  <label className="mt-4 block text-sm font-black text-slate-700" htmlFor="new-email">
+                    Novo e-mail
+                  </label>
+                  <input
+                    id="new-email"
+                    type="email"
+                    value={emailDraft}
+                    onChange={(event) => setEmailDraft(event.target.value)}
+                    autoComplete="email"
+                    className="mt-2 h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-900 outline-none transition focus:border-teal-500 focus:ring-4 focus:ring-teal-100"
+                    placeholder="novo@email.com"
+                  />
+                  <button
+                    type="submit"
+                    disabled={profileEditAction === 'email'}
+                    className="mt-6 inline-flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-slate-950 px-5 font-black text-white shadow-xl shadow-slate-900/15 transition hover:bg-teal-700 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {profileEditAction === 'email' ? <Loader2 className="h-5 w-5 animate-spin" /> : <Send className="h-5 w-5" />}
+                    Solicitar alteracao
+                  </button>
+                </form>
+
+                <form onSubmit={handleUpdatePassword} className="rounded-[2rem] border border-white/80 bg-white/90 p-6 shadow-xl shadow-slate-900/10 md:p-7">
+                  <div className="flex items-center gap-3">
+                    <span className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-violet-50 text-violet-700">
+                      <ShieldCheck className="h-5 w-5" />
+                    </span>
+                    <div>
+                      <p className="text-sm font-black uppercase tracking-[0.16em] text-slate-400">Seguranca da conta</p>
+                      <h3 className="text-xl font-black text-slate-950">Nova senha</h3>
+                    </div>
+                  </div>
+                  <label className="mt-6 block text-sm font-black text-slate-700" htmlFor="new-password">
+                    Nova senha
+                  </label>
+                  <div className="mt-2 flex h-12 items-center rounded-2xl border border-slate-200 bg-white px-4 transition focus-within:border-teal-500 focus-within:ring-4 focus-within:ring-teal-100">
+                    <input
+                      id="new-password"
+                      type={showPasswordDraft ? 'text' : 'password'}
+                      value={passwordDraft}
+                      onChange={(event) => setPasswordDraft(event.target.value)}
+                      autoComplete="new-password"
+                      className="min-w-0 flex-1 bg-transparent text-sm font-bold text-slate-900 outline-none"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPasswordDraft((current) => !current)}
+                      aria-label={showPasswordDraft ? 'Ocultar senha' : 'Mostrar senha'}
+                      className="ml-2 inline-flex h-9 w-9 items-center justify-center rounded-xl text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
+                    >
+                      {showPasswordDraft ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                  </div>
+                  <label className="mt-4 block text-sm font-black text-slate-700" htmlFor="confirm-password">
+                    Confirmar nova senha
+                  </label>
+                  <div className="mt-2 flex h-12 items-center rounded-2xl border border-slate-200 bg-white px-4 transition focus-within:border-teal-500 focus-within:ring-4 focus-within:ring-teal-100">
+                    <input
+                      id="confirm-password"
+                      type={showPasswordConfirmationDraft ? 'text' : 'password'}
+                      value={passwordConfirmationDraft}
+                      onChange={(event) => setPasswordConfirmationDraft(event.target.value)}
+                      autoComplete="new-password"
+                      className="min-w-0 flex-1 bg-transparent text-sm font-bold text-slate-900 outline-none"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPasswordConfirmationDraft((current) => !current)}
+                      aria-label={showPasswordConfirmationDraft ? 'Ocultar senha' : 'Mostrar senha'}
+                      className="ml-2 inline-flex h-9 w-9 items-center justify-center rounded-xl text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
+                    >
+                      {showPasswordConfirmationDraft ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                  </div>
+                  <button
+                    type="submit"
+                    disabled={profileEditAction === 'password'}
+                    className="mt-6 inline-flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-slate-950 px-5 font-black text-white shadow-xl shadow-slate-900/15 transition hover:bg-teal-700 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {profileEditAction === 'password' ? <Loader2 className="h-5 w-5 animate-spin" /> : <ShieldCheck className="h-5 w-5" />}
+                    Atualizar senha
+                  </button>
+                </form>
+              </div>
             </section>
           ) : null}
       </div>
