@@ -70,7 +70,9 @@ import { inferExpenseCategoryIconId } from './utils/expenseCategoryIcons';
 
 function loadInitialView(): AppView {
   const path = window.location.pathname;
-  if (path === '/perfil' || path === '/profile') return 'profile';
+  if (path === '/perfil' || path.startsWith('/perfil/') || path === '/profile' || path.startsWith('/profile/')) {
+    return 'profile';
+  }
   if (path === '/dashboard' || path === '/groups' || path === '/auth/callback') return 'dashboard';
 
   const hash = window.location.hash.replace('#', '');
@@ -134,6 +136,8 @@ export default function App() {
   const activeInviteToken = inviteToken ?? pendingInviteToken;
   const isAuthCallback = currentPath === '/auth/callback';
   const isGroupsRoute = currentPath === '/groups';
+  const isProfileRoute = currentPath === '/perfil' || currentPath.startsWith('/perfil/')
+    || currentPath === '/profile' || currentPath.startsWith('/profile/');
   const isTripAIReviewRoute = currentPath === '/trip-ai-review';
 
   useEffect(() => {
@@ -154,10 +158,10 @@ export default function App() {
   }, [activeGroup, activeInviteToken, authLoading, groupLoading, isAuthCallback, user]);
 
   useEffect(() => {
-    if (!authLoading && user && !groupLoading && !activeGroup && !activeInviteToken && !isGroupsRoute) {
+    if (!authLoading && user && !groupLoading && !activeGroup && !activeInviteToken && !isGroupsRoute && !isProfileRoute) {
       window.history.replaceState({}, '', '/perfil');
     }
-  }, [activeGroup, activeInviteToken, authLoading, groupLoading, isGroupsRoute, user]);
+  }, [activeGroup, activeInviteToken, authLoading, groupLoading, isGroupsRoute, isProfileRoute, user]);
 
   if (authLoading && !user) return <LoadingScreen message="Verificando sessao..." />;
   if (!user) return <AuthPage initialInviteCode={inviteToken ?? getPendingInviteToken()} />;

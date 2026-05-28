@@ -185,6 +185,30 @@ export type TripSummary = {
   visitedAttractionsCount: number;
 };
 
+export type TripChecklistItemCategory =
+  | 'Documentos'
+  | 'Roupas'
+  | 'Higiene'
+  | 'Eletronicos'
+  | 'Remedios'
+  | 'Utensilios'
+  | 'Acessorios'
+  | 'Outros';
+
+export type TripChecklistItem = {
+  id: string;
+  groupId: string;
+  createdBy: string;
+  assignedTo?: string;
+  title: string;
+  category: TripChecklistItemCategory;
+  notes?: string;
+  quantity: number;
+  checked: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
 export type CreateTravelGroupInput = {
   name: string;
   description?: string;
