@@ -1,5 +1,5 @@
 import { AnimatePresence, motion } from 'framer-motion';
-import { AlertTriangle, Plus, RotateCcw, Trash2 } from 'lucide-react';
+import { AlertTriangle, Plus, Trash2 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { ConversionToggle } from './components/ConversionToggle';
 import { CountryFilter } from './components/CountryFilter';
@@ -7,11 +7,10 @@ import { ExpenseCategoryModal } from './components/ExpenseCategoryModal';
 import { ExpenseChart } from './components/ExpenseChart';
 import { ExpenseFormModal } from './components/ExpenseFormModal';
 import { ExpenseTable } from './components/ExpenseTable';
-import { Header } from './components/Header';
 import { ItineraryPage } from './components/ItineraryPage';
 import { Navbar, type AppView } from './components/Navbar';
+import { NextActionDashboard } from './components/NextActionDashboard';
 import { QuotePage } from './components/QuotePage';
-import { QuoteStatusCard } from './components/QuoteStatusCard';
 import { SummaryCards } from './components/SummaryCards';
 import { useAuth } from './contexts/AuthContext';
 import { useGroup } from './contexts/GroupContext';
@@ -63,8 +62,6 @@ import type {
 import {
   calculateCategoryTotal,
   calculateExpensesTotal,
-  formatOriginalCurrencyBreakdown,
-  formatRange,
   type Totals,
 } from './utils/money';
 import { inferExpenseCategoryIconId } from './utils/expenseCategoryIcons';
@@ -599,6 +596,12 @@ function TravelWorkspace({ groupId }: { groupId: string }) {
     window.history.pushState({}, '', nextUrl);
   };
 
+  const handleNavigateToProfilePath = (path: string) => {
+    setActiveView('profile');
+    window.history.pushState({}, '', path);
+    window.dispatchEvent(new PopStateEvent('popstate'));
+  };
+
   const tables = (
     <div className="space-y-6">
       <AnimatePresence initial={false}>
@@ -737,97 +740,31 @@ function TravelWorkspace({ groupId }: { groupId: string }) {
               {tables}
             </motion.div>
           ) : (
-            <motion.div
-              key="dashboard"
-              className="space-y-6"
-              initial={{ opacity: 0, y: 16 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -12 }}
-            >
-              <Header onAdd={openNewExpenseModal} />
-
-              <ConversionToggle mode={realValueMode} quote={exchangeRates.EUR ?? null} onChange={setRealValueMode} />
-              {expenseSyncWarning || categorySyncWarning || isExpenseLoading || isExpenseSaving || isCategorySaving ? (
-                <p className="rounded-2xl border border-white/70 bg-white/75 px-4 py-3 text-sm font-semibold text-slate-600 shadow-lg shadow-slate-900/5 backdrop-blur-xl">
-                  {isExpenseSaving || isCategorySaving
-                    ? t('dashboard.savingExpenses')
-                    : isExpenseLoading
-                      ? t('dashboard.syncingExpenses')
-                      : expenseSyncWarning ?? categorySyncWarning}
-                </p>
-              ) : null}
-
-              <SummaryCards
-                categories={categoriesForDisplay}
-                totalsByCategory={totalsByCategory}
-                grandTotal={grandTotal}
-                realValueMode={realValueMode}
-              />
-
-              <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_380px]">
-                <div className="space-y-6">
-                  <ExpenseChart categories={categoriesForDisplay} totalsByCategory={totalsByCategory} />
-                  <QuoteStatusCard
-                    rate={exchangeRates.EUR ?? null}
-                    isLoading={isQuoteLoading}
-                    warning={quoteWarning}
-                    onRefresh={() => void refreshQuote()}
-                    compact
-                  />
-                </div>
-
-                <motion.section
-                  className="rounded-[2rem] border border-slate-950 bg-slate-950 p-6 text-white shadow-2xl shadow-slate-950/20 xl:sticky xl:top-28 xl:self-start"
-                  initial={{ opacity: 0, y: 20 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  viewport={{ once: true }}
-                >
-                  <p className="text-sm font-bold uppercase tracking-[0.22em] text-teal-200">
-                    {t('dashboard.closeout')}
-                  </p>
-                  <h2 className="mt-3 text-3xl font-black">{t('dashboard.tripGrandTotal')}</h2>
-                  <div className="mt-6 space-y-4">
-                    <AnimatePresence mode="wait">
-                      <motion.div
-                        key={`${realValueMode}-${grandTotal.euro.min}-${grandTotal.real.min}`}
-                        initial={{ opacity: 0, y: 8 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: -8 }}
-                        transition={{ duration: 0.22 }}
-                        className="space-y-4"
-                      >
-                        <div>
-                          <p className="text-sm font-semibold text-slate-400">
-                            {t('dashboard.convertedReal')}
-                          </p>
-                          <p className="text-3xl font-black">
-                            {formatRange(grandTotal.real, 'BRL', true)}
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-sm font-semibold text-slate-400">
-                            Valores originais
-                          </p>
-                          <p className="text-3xl font-black">
-                            {formatOriginalCurrencyBreakdown(grandTotal.originalByCurrency)}
-                          </p>
-                        </div>
-                      </motion.div>
-                    </AnimatePresence>
-                  </div>
-                  {canUseEuropeDefaults ? (
-                    <button
-                      type="button"
-                      onClick={() => void handleReset()}
-                      className="mt-7 inline-flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-white px-5 font-bold text-slate-950 transition hover:bg-teal-100 focus:outline-none focus:ring-4 focus:ring-teal-300"
-                    >
-                      <RotateCcw className="h-5 w-5" />
-                      {t('dashboard.resetInitialData')}
-                    </button>
-                  ) : null}
-                </motion.section>
-              </div>
-            </motion.div>
+            <NextActionDashboard
+              activeGroup={activeGroup}
+              canUseEuropeDefaults={canUseEuropeDefaults}
+              categories={categoriesForDisplay}
+              exchangeRates={exchangeRates}
+              expenseStatusMessage={
+                isExpenseSaving || isCategorySaving
+                  ? t('dashboard.savingExpenses')
+                  : isExpenseLoading
+                    ? t('dashboard.syncingExpenses')
+                    : expenseSyncWarning ?? categorySyncWarning
+              }
+              expenses={scopedExpenses}
+              grandTotal={grandTotal}
+              isQuoteLoading={isQuoteLoading}
+              onAddExpense={openNewExpenseModal}
+              onNavigate={handleNavigate}
+              onNavigateToProfilePath={handleNavigateToProfilePath}
+              onRefreshQuote={() => void refreshQuote()}
+              onResetExpenses={() => void handleReset()}
+              onValueModeChange={setRealValueMode}
+              quoteWarning={quoteWarning}
+              realValueMode={realValueMode}
+              totalsByCategory={totalsByCategory}
+            />
           )}
         </AnimatePresence>
       </div>
