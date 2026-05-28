@@ -5,6 +5,7 @@ import {
   CheckCircle2,
   Copy,
   Eye,
+  FileText,
   Link2,
   Loader2,
   LogOut,
@@ -28,6 +29,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useGroup } from '../contexts/GroupContext';
 import { languageOptions, useLanguage } from '../contexts/LanguageContext';
 import type { LanguageCode } from '../i18n';
+import { ExpenseChart } from '../components/ExpenseChart';
 import { countryLabel } from '../data/countries';
 import {
   getCurrentProfile,
@@ -66,13 +68,21 @@ import {
   updateTripChecklistItem,
   type TripChecklistItemInput,
 } from '../services/checklistService';
+import {
+  getCachedExpenseCategories,
+  getExpenseCategories,
+} from '../services/expenseCategoriesService';
 import { getExpenses } from '../services/expensesService';
 import { getItineraryItems } from '../services/itineraryService';
 import { getAttractions } from '../services/attractionsService';
+import { getCachedExchangeRates } from '../services/currencyService';
 import { supabase } from '../services/supabaseClient';
 import { generateTripPlan, storeTripAIReview, TripAIFunctionError } from '../services/tripAIService';
 import type {
   Attraction,
+  CategoryMeta,
+  CurrencyRange,
+  ExchangeRateMap,
   Expense,
   GroupMemberProfile,
   ItineraryItem,
@@ -87,8 +97,14 @@ import type {
   UserStats,
   UserTravelGroup,
 } from '../types';
-import { formatRange } from '../utils/money';
+import {
+  calculateCategoryTotal,
+  calculateExpensesTotal,
+  formatOriginalCurrencyBreakdown,
+  formatRange,
+} from '../utils/money';
 import { parseCountryInput } from '../utils/countryInput';
+import { inferExpenseCategoryIconId } from '../utils/expenseCategoryIcons';
 
 const emptyStats: UserStats = {
   countriesCount: 0,
@@ -98,6 +114,35 @@ const emptyStats: UserStats = {
   totalAllEuro: { min: 0, max: 0 },
   totalActiveReal: { min: 0, max: 0 },
   totalActiveEuro: { min: 0, max: 0 },
+};
+
+const fallbackExpenseAccents = ['#0f766e', '#2563eb', '#7c3aed', '#d97706', '#be123c', '#475569'];
+
+const sortProfileExpenseCategories = (items: CategoryMeta[]) =>
+  [...items].sort((a, b) => {
+    const order = (a.sortOrder ?? 9999) - (b.sortOrder ?? 9999);
+    if (order !== 0) return order;
+    return a.name.localeCompare(b.name, 'pt-BR');
+  });
+
+const midpoint = (range: CurrencyRange) => (range.min + range.max) / 2;
+
+const normalizeSearchText = (value: string) =>
+  value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[_-]+/g, ' ')
+    .trim();
+
+const isDocumentChecklistCategory = (category: string) => {
+  const normalized = normalizeSearchText(category);
+  return normalized === 'documentos'
+    || normalized === 'documento'
+    || normalized === 'documents'
+    || normalized === 'document'
+    || normalized === 'required documents'
+    || normalized.includes('document');
 };
 
 const formatDate = (value?: string) => {
@@ -600,6 +645,7 @@ export function ProfilePage() {
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [showNotificationMenu, setShowNotificationMenu] = useState(false);
   const [tripExpenses, setTripExpenses] = useState<Expense[]>([]);
+  const [tripExpenseCategories, setTripExpenseCategories] = useState<CategoryMeta[]>(() => getCachedExpenseCategories());
   const [tripItineraryItems, setTripItineraryItems] = useState<ItineraryItem[]>([]);
   const [tripAttractions, setTripAttractions] = useState<Attraction[]>([]);
   const [tripInfoWarning, setTripInfoWarning] = useState<string | null>(null);
@@ -694,6 +740,70 @@ export function ProfilePage() {
   const checklistProgress = checklistItems.length
     ? Math.round((checkedChecklistCount / checklistItems.length) * 100)
     : 0;
+  const memberNameByUserId = useMemo(() => {
+    const names = new Map<string, string>();
+    members.forEach((member) => {
+      const fallbackEmail = member.userId === user?.id ? user?.email : null;
+      names.set(member.userId, getProfileName(member.profile, fallbackEmail));
+    });
+    return names;
+  }, [members, user?.email, user?.id]);
+  const checklistDocumentItems = useMemo(
+    () => checklistItems.filter((item) => isDocumentChecklistCategory(item.category)),
+    [checklistItems],
+  );
+  const legacyItineraryDocuments = useMemo(
+    () => tripItineraryItems.filter((item) => item.type === 'document'),
+    [tripItineraryItems],
+  );
+  const profileExchangeRates = useMemo<ExchangeRateMap>(
+    () => getCachedExchangeRates(),
+    [activeGroupId, tripExpenses],
+  );
+  const tripExpenseCategoriesForDisplay = useMemo(() => {
+    const expenseCategoryIds = new Set(tripExpenses.map((expense) => expense.category).filter(Boolean));
+    const knownCategories = new Map(tripExpenseCategories.map((category) => [category.id, category]));
+    const missingCategories = Array.from(expenseCategoryIds)
+      .filter((categoryId) => !knownCategories.has(categoryId))
+      .map((categoryId, index): CategoryMeta => ({
+        id: categoryId,
+        name: categoryId,
+        label: 'Gasto',
+        accent: fallbackExpenseAccents[index % fallbackExpenseAccents.length],
+        icon: inferExpenseCategoryIconId({ id: categoryId, name: categoryId, icon: undefined }),
+        sortOrder: 1000 + index,
+        isProtected: false,
+      }));
+
+    return sortProfileExpenseCategories([
+      ...tripExpenseCategories.filter((category) => expenseCategoryIds.has(category.id)),
+      ...missingCategories,
+    ]);
+  }, [tripExpenseCategories, tripExpenses]);
+  const tripExpenseTotalsByCategory = useMemo(
+    () =>
+      tripExpenseCategoriesForDisplay.reduce<Record<string, ReturnType<typeof calculateCategoryTotal>>>((totals, category) => {
+        totals[category.id] = calculateCategoryTotal(tripExpenses, category.id, profileExchangeRates);
+        return totals;
+      }, {}),
+    [profileExchangeRates, tripExpenseCategoriesForDisplay, tripExpenses],
+  );
+  const tripExpenseGrandTotal = useMemo(
+    () => calculateExpensesTotal(tripExpenses, profileExchangeRates),
+    [profileExchangeRates, tripExpenses],
+  );
+  const topTripExpenseCategories = useMemo(
+    () =>
+      tripExpenseCategoriesForDisplay
+        .map((category) => ({
+          category,
+          total: tripExpenseTotalsByCategory[category.id],
+        }))
+        .filter((item) => item.total && midpoint(item.total.real) > 0)
+        .sort((a, b) => midpoint(b.total.real) - midpoint(a.total.real))
+        .slice(0, 3),
+    [tripExpenseCategoriesForDisplay, tripExpenseTotalsByCategory],
+  );
   const editingChecklistItem = editingChecklistItemId
     ? checklistItems.find((item) => item.id === editingChecklistItemId) ?? null
     : null;
@@ -800,6 +910,7 @@ export function ProfilePage() {
   const loadActiveTripDetails = useCallback(async () => {
     if (!activeGroupId) {
       setTripExpenses([]);
+      setTripExpenseCategories(getCachedExpenseCategories());
       setTripItineraryItems([]);
       setTripAttractions([]);
       setTripInfoWarning(null);
@@ -807,13 +918,15 @@ export function ProfilePage() {
     }
 
     try {
-      const [nextExpenses, nextItineraryItems, nextAttractions] = await Promise.all([
+      const [nextExpenses, nextItineraryItems, nextAttractions, nextExpenseCategories] = await Promise.all([
         getExpenses(activeGroupId),
         getItineraryItems(activeGroupId),
         getAttractions(activeGroupId),
+        getExpenseCategories(activeGroupId).catch(() => getCachedExpenseCategories(activeGroupId)),
       ]);
 
       setTripExpenses(nextExpenses);
+      setTripExpenseCategories(nextExpenseCategories);
       setTripItineraryItems(nextItineraryItems);
       setTripAttractions(nextAttractions.items);
       setTripInfoWarning(null);
@@ -2136,7 +2249,7 @@ export function ProfilePage() {
                     <span className="rounded-2xl bg-slate-50 px-4 py-3"><ShieldCheck className="mr-2 inline h-4 w-4" />{t('profile.owner')}: {ownerName}</span>
                     <span className="rounded-2xl bg-slate-50 px-4 py-3">{t('profile.createdIn')} {formatDate(activeGroup.createdAt)}</span>
                     <span className="rounded-2xl bg-slate-50 px-4 py-3">Membros: {members.length || activeTripSummary?.participantsCount || 0}</span>
-                    <span className="rounded-2xl bg-slate-50 px-4 py-3">Gastos: {formatRange(activeTripSummary?.totalReal ?? { min: 0, max: 0 }, 'BRL', true)}</span>
+                    <span className="rounded-2xl bg-slate-50 px-4 py-3">Gastos: {formatRange(tripExpenseGrandTotal.real, 'BRL', true)}</span>
                     <span className="rounded-2xl bg-slate-50 px-4 py-3">Roteiro: {tripItineraryItems.length} itens</span>
                     <span className="rounded-2xl bg-slate-50 px-4 py-3">Pontos turisticos: {tripAttractions.length}</span>
                   </div>
@@ -2171,27 +2284,110 @@ export function ProfilePage() {
                     </div>
                   </div>
                   <div className="rounded-[2rem] border border-white/80 bg-white/90 p-6 shadow-xl shadow-slate-900/10">
-                    <h3 className="text-2xl font-black text-slate-950">Documentos</h3>
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-black uppercase tracking-[0.18em] text-slate-400">Checklist</p>
+                        <h3 className="text-2xl font-black text-slate-950">Documentos</h3>
+                      </div>
+                      <FileText className="h-6 w-6 text-teal-700" />
+                    </div>
                     <div className="mt-4 space-y-3">
-                      {tripItineraryItems.filter((item) => item.type === 'document').slice(0, 4).map((item) => (
-                        <p key={item.id} className="rounded-2xl bg-slate-50 px-4 py-3 text-sm font-bold text-slate-600">{item.title}</p>
-                      ))}
-                      {!tripItineraryItems.some((item) => item.type === 'document') ? (
+                      {checklistDocumentItems.length ? (
+                        checklistDocumentItems.map((item) => {
+                          const assignedName = item.assignedTo ? memberNameByUserId.get(item.assignedTo) : null;
+
+                          return (
+                            <article
+                              key={item.id}
+                              className={`rounded-3xl border px-4 py-3 ${
+                                item.checked ? 'border-emerald-100 bg-emerald-50/70' : 'border-slate-100 bg-slate-50'
+                              }`}
+                            >
+                              <div className="flex items-start justify-between gap-3">
+                                <div className="min-w-0">
+                                  <p className={`font-black ${item.checked ? 'text-emerald-900 line-through' : 'text-slate-950'}`}>
+                                    {item.title}
+                                  </p>
+                                  <p className="mt-1 text-xs font-black uppercase tracking-[0.12em] text-slate-400">
+                                    Qtd. {item.quantity}{assignedName ? ` - ${assignedName}` : ''}
+                                  </p>
+                                </div>
+                                <span className={`shrink-0 rounded-full px-3 py-1 text-[0.7rem] font-black uppercase tracking-[0.1em] ${
+                                  item.checked ? 'bg-emerald-600 text-white' : 'bg-white text-slate-500'
+                                }`}>
+                                  {item.checked ? 'Concluido' : 'Pendente'}
+                                </span>
+                              </div>
+                              {item.notes ? (
+                                <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">{item.notes}</p>
+                              ) : null}
+                            </article>
+                          );
+                        })
+                      ) : legacyItineraryDocuments.length ? (
+                        legacyItineraryDocuments.slice(0, 4).map((item) => (
+                          <article key={item.id} className="rounded-3xl border border-slate-100 bg-slate-50 px-4 py-3">
+                            <p className="font-black text-slate-950">{item.title}</p>
+                            <p className="mt-1 text-xs font-black uppercase tracking-[0.12em] text-slate-400">
+                              Fallback do roteiro
+                            </p>
+                          </article>
+                        ))
+                      ) : (
                         <p className="rounded-2xl bg-slate-50 px-4 py-5 text-sm font-bold text-slate-500">
-                          Nenhum documento registrado no roteiro.
+                          Nenhum documento adicionado ao checklist da viagem.
                         </p>
-                      ) : null}
+                      )}
                     </div>
                   </div>
                 </section>
 
-                <section className="grid gap-6 xl:grid-cols-2">
-                  <div className="rounded-[2rem] border border-white/80 bg-white/90 p-6 shadow-xl shadow-slate-900/10">
-                    <h3 className="text-2xl font-black text-slate-950">Resumo de gastos</h3>
-                    <p className="mt-3 rounded-2xl bg-slate-50 px-4 py-3 text-sm font-bold text-slate-600">
-                      {tripExpenses.length} gastos cadastrados nesta viagem. Total estimado: {formatRange(activeTripSummary?.totalReal ?? { min: 0, max: 0 }, 'BRL', true)}.
-                    </p>
-                  </div>
+                <section className="grid gap-6 xl:grid-cols-[minmax(0,1.5fr)_minmax(22rem,0.5fr)]">
+                  {tripExpenses.length ? (
+                    <ExpenseChart
+                      categories={tripExpenseCategoriesForDisplay}
+                      totalsByCategory={tripExpenseTotalsByCategory}
+                      eyebrow="Resumo de gastos"
+                      title="Distribuicao da viagem"
+                      description={`${tripExpenses.length} gasto${tripExpenses.length === 1 ? '' : 's'} cadastrado${tripExpenses.length === 1 ? '' : 's'} nesta viagem, com totais convertidos para BRL e agrupados por categoria.`}
+                      summary={(
+                        <>
+                          <div className="rounded-2xl bg-slate-50 px-4 py-3">
+                            <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-400">Total em BRL</p>
+                            <p className="mt-1 text-lg font-black text-slate-950">
+                              {formatRange(tripExpenseGrandTotal.real, 'BRL', true)}
+                            </p>
+                          </div>
+                          <div className="rounded-2xl bg-slate-50 px-4 py-3">
+                            <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-400">Moeda original</p>
+                            <p className="mt-1 text-sm font-black leading-6 text-slate-950">
+                              {formatOriginalCurrencyBreakdown(tripExpenseGrandTotal.originalByCurrency)}
+                            </p>
+                          </div>
+                          {topTripExpenseCategories.length ? (
+                            <div className="rounded-2xl bg-teal-50 px-4 py-3 sm:col-span-2">
+                              <p className="text-xs font-black uppercase tracking-[0.14em] text-teal-700">Maiores categorias</p>
+                              <div className="mt-2 flex flex-wrap gap-2">
+                                {topTripExpenseCategories.map(({ category, total }) => (
+                                  <span key={category.id} className="rounded-full bg-white px-3 py-2 text-xs font-black text-slate-700">
+                                    {category.name}: {formatRange(total.real, 'BRL', true)}
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+                          ) : null}
+                        </>
+                      )}
+                    />
+                  ) : (
+                    <div className="rounded-[2rem] border border-white/80 bg-white/90 p-6 shadow-xl shadow-slate-900/10 md:p-8">
+                      <p className="text-sm font-black uppercase tracking-[0.18em] text-slate-400">Resumo de gastos</p>
+                      <h3 className="mt-2 text-2xl font-black text-slate-950">Controle financeiro</h3>
+                      <p className="mt-4 rounded-2xl bg-slate-50 px-4 py-5 text-sm font-bold text-slate-500">
+                        Nenhum gasto cadastrado nesta viagem.
+                      </p>
+                    </div>
+                  )}
                   <div className="rounded-[2rem] border border-white/80 bg-white/90 p-6 shadow-xl shadow-slate-900/10">
                     <h3 className="text-2xl font-black text-slate-950">Pontos turisticos</h3>
                     <div className="mt-4 space-y-3">

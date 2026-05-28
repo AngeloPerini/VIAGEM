@@ -1,4 +1,5 @@
 import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from 'recharts';
+import type { ReactNode } from 'react';
 import type { CategoryMeta } from '../types';
 import type { Totals } from '../utils/money';
 import { formatRange } from '../utils/money';
@@ -6,9 +7,22 @@ import { formatRange } from '../utils/money';
 type ExpenseChartProps = {
   categories: CategoryMeta[];
   totalsByCategory: Record<string, Totals>;
+  eyebrow?: string;
+  title?: string;
+  description?: string;
+  summary?: ReactNode;
+  className?: string;
 };
 
-export function ExpenseChart({ categories, totalsByCategory }: ExpenseChartProps) {
+export function ExpenseChart({
+  categories,
+  totalsByCategory,
+  eyebrow = 'Distribuicao',
+  title = 'Peso por categoria',
+  description = 'O grafico usa a media dos valores convertidos para real para mostrar a proporcao dos gastos planejados.',
+  summary,
+  className = '',
+}: ExpenseChartProps) {
   const data = categories.map((category) => {
     const total = totalsByCategory[category.id];
     return {
@@ -20,18 +34,22 @@ export function ExpenseChart({ categories, totalsByCategory }: ExpenseChartProps
   });
 
   return (
-    <section className="grid gap-6 rounded-[2rem] border border-white/70 bg-white/80 p-5 shadow-xl shadow-slate-900/10 backdrop-blur-xl lg:grid-cols-[0.9fr_1.1fr] lg:p-7">
+    <section className={`grid gap-6 rounded-[2rem] border border-white/70 bg-white/80 p-5 shadow-xl shadow-slate-900/10 backdrop-blur-xl lg:grid-cols-[0.9fr_1.1fr] lg:p-7 ${className}`}>
       <div>
         <p className="text-sm font-bold uppercase tracking-[0.2em] text-slate-400">
-          Distribuicao
+          {eyebrow}
         </p>
         <h2 className="mt-2 text-2xl font-black text-slate-950">
-          Peso por categoria
+          {title}
         </h2>
         <p className="mt-3 leading-7 text-slate-600">
-          O grafico usa a media dos valores convertidos para real para mostrar
-          a proporcao dos gastos planejados.
+          {description}
         </p>
+        {summary ? (
+          <div className="mt-5 grid gap-3 sm:grid-cols-2">
+            {summary}
+          </div>
+        ) : null}
         <div className="mt-6 space-y-3">
           {data.map((item) => (
             <div key={item.name} className="flex items-center justify-between gap-4">
