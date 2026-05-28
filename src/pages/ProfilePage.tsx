@@ -1941,14 +1941,11 @@ export function ProfilePage() {
         </div>
       </section>
 
-      {(status || error || isLoading) ? (
-        <p className="rounded-2xl border border-white/80 bg-white/85 px-4 py-3 text-sm font-bold text-slate-600 shadow-lg shadow-slate-900/5">
-          {isLoading ? t('profile.loading') : error ?? status}
-        </p>
-      ) : null}
-
-      <div className="grid gap-6 lg:grid-cols-[16rem_1fr] lg:items-start">
-        <nav className="flex gap-2 overflow-x-auto rounded-[2rem] border border-white/80 bg-white/85 p-2 shadow-xl shadow-slate-900/10 lg:sticky lg:top-28 lg:flex-col lg:overflow-visible">
+      <nav
+        aria-label="Navegacao interna do perfil"
+        className="rounded-[1.75rem] border border-white/80 bg-white/90 p-2 shadow-xl shadow-slate-900/10 backdrop-blur-xl"
+      >
+        <div className="grid auto-cols-max grid-flow-col gap-2 overflow-x-auto pb-1 sm:pb-0 lg:grid-flow-row lg:grid-cols-5 lg:overflow-visible">
           {profileSections.map((section) => {
             const Icon = section.icon;
             const isActive = activeProfileSection === section.id;
@@ -1957,26 +1954,36 @@ export function ProfilePage() {
               <button
                 key={section.id}
                 type="button"
+                aria-current={isActive ? 'page' : undefined}
                 onClick={() => navigateProfileSection(section.id)}
-                className={`inline-flex h-12 shrink-0 items-center justify-start gap-3 rounded-2xl px-4 text-sm font-black transition ${
+                className={`group relative inline-flex h-12 min-w-max items-center justify-center gap-2 rounded-2xl px-4 text-sm font-black transition lg:min-w-0 ${
                   isActive
                     ? 'bg-slate-950 text-white shadow-lg shadow-slate-900/15'
                     : 'text-slate-600 hover:bg-slate-100 hover:text-slate-950'
                 }`}
               >
-                <Icon className="h-4 w-4" />
-                {section.label}
+                <Icon className={`h-4 w-4 shrink-0 ${isActive ? 'text-teal-200' : 'text-slate-400 group-hover:text-teal-700'}`} />
+                <span className="whitespace-nowrap">{section.label}</span>
                 {section.id === 'notifications' && unreadNotifications > 0 ? (
-                  <span className="ml-auto rounded-full bg-rose-600 px-2 py-1 text-[0.65rem] text-white">
+                  <span className={`rounded-full px-2 py-1 text-[0.65rem] ${
+                    isActive ? 'bg-rose-500 text-white' : 'bg-rose-600 text-white'
+                  }`}>
                     {unreadNotifications > 9 ? '9+' : unreadNotifications}
                   </span>
                 ) : null}
               </button>
             );
           })}
-        </nav>
+        </div>
+      </nav>
 
-        <div className="min-w-0 space-y-6">
+      {(status || error || isLoading) ? (
+        <p className="rounded-2xl border border-white/80 bg-white/85 px-4 py-3 text-sm font-bold text-slate-600 shadow-lg shadow-slate-900/5">
+          {isLoading ? t('profile.loading') : error ?? status}
+        </p>
+      ) : null}
+
+      <div className="min-w-0 space-y-6">
           {activeProfileSection === 'overview' ? (
             <>
               <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
@@ -1995,7 +2002,7 @@ export function ProfilePage() {
                 />
               </section>
 
-              <section className="grid gap-6 xl:grid-cols-[1fr_0.8fr]">
+              <section className="grid gap-6 xl:grid-cols-[minmax(0,1.35fr)_minmax(22rem,0.65fr)]">
                 <div className="rounded-[2rem] border border-white/80 bg-white/90 p-6 shadow-xl shadow-slate-900/10 md:p-8">
                   <p className="text-sm font-black uppercase tracking-[0.18em] text-slate-400">Resumo geral</p>
                   <h2 className="mt-2 text-3xl font-black tracking-tight text-slate-950">Conta TripFlow</h2>
@@ -2081,7 +2088,7 @@ export function ProfilePage() {
                   </div>
                 </div>
 
-                <div className="mt-6 grid gap-4 lg:grid-cols-2">
+                <div className="mt-6 grid gap-4 md:grid-cols-2 2xl:grid-cols-3">
                   {visibleTrips.length ? (
                     visibleTrips.map((group) => (
                       <TripHistoryCard
@@ -2302,206 +2309,208 @@ export function ProfilePage() {
                   ) : null}
                 </section>
 
-                <section className="rounded-[2rem] border border-white/80 bg-white/90 p-6 shadow-xl shadow-slate-900/10 md:p-8">
-                  <div className="mb-6 flex items-center justify-between gap-3">
-                    <div>
-                      <p className="text-sm font-black uppercase tracking-[0.18em] text-slate-400">
-                        {editingChecklistItem ? 'Editar item' : 'Novo item'}
-                      </p>
-                      <h3 className="text-2xl font-black text-slate-950">
-                        {editingChecklistItem ? editingChecklistItem.title : 'Adicionar ao checklist'}
-                      </h3>
+                <div className="grid gap-6 xl:grid-cols-[minmax(21rem,0.75fr)_minmax(0,1.25fr)] xl:items-start">
+                  <section className="rounded-[2rem] border border-white/80 bg-white/90 p-6 shadow-xl shadow-slate-900/10 md:p-8">
+                    <div className="mb-6 flex items-center justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-black uppercase tracking-[0.18em] text-slate-400">
+                          {editingChecklistItem ? 'Editar item' : 'Novo item'}
+                        </p>
+                        <h3 className="text-2xl font-black text-slate-950">
+                          {editingChecklistItem ? editingChecklistItem.title : 'Adicionar ao checklist'}
+                        </h3>
+                      </div>
+                      {editingChecklistItem ? (
+                        <button
+                          type="button"
+                          onClick={resetChecklistDraft}
+                          className="inline-flex h-10 items-center justify-center rounded-2xl bg-slate-100 px-3 text-sm font-black text-slate-600 transition hover:bg-slate-200"
+                        >
+                          Cancelar
+                        </button>
+                      ) : null}
                     </div>
-                    {editingChecklistItem ? (
+                    <form onSubmit={handleChecklistSubmit} className="space-y-4">
+                      <div className="grid gap-4 md:grid-cols-[1.1fr_0.8fr_0.6fr] xl:grid-cols-1">
+                        <label className="block">
+                          <span className="mb-2 block text-sm font-bold text-slate-600">Item</span>
+                          <input
+                            required
+                            value={checklistDraft.title}
+                            onChange={(event) => setChecklistDraft((current) => ({ ...current, title: event.target.value }))}
+                            placeholder="Passaporte, carregador, casaco..."
+                            className="h-12 w-full rounded-2xl border border-slate-200 px-4 font-semibold outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-100"
+                          />
+                        </label>
+                        <label className="block">
+                          <span className="mb-2 block text-sm font-bold text-slate-600">Categoria</span>
+                          <select
+                            value={checklistDraft.category}
+                            onChange={(event) => setChecklistDraft((current) => ({
+                              ...current,
+                              category: event.target.value as TripChecklistItemCategory,
+                            }))}
+                            className="h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 font-semibold outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-100"
+                          >
+                            {checklistCategories.map((category) => (
+                              <option key={category} value={category}>{checklistCategoryLabels[category]}</option>
+                            ))}
+                          </select>
+                        </label>
+                        <label className="block">
+                          <span className="mb-2 block text-sm font-bold text-slate-600">Quantidade</span>
+                          <input
+                            type="number"
+                            min={1}
+                            value={checklistDraft.quantity}
+                            onChange={(event) => setChecklistDraft((current) => ({
+                              ...current,
+                              quantity: Math.max(1, Number(event.target.value) || 1),
+                            }))}
+                            className="h-12 w-full rounded-2xl border border-slate-200 px-4 font-semibold outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-100"
+                          />
+                        </label>
+                      </div>
+                      <div className="grid gap-4 md:grid-cols-[0.8fr_1.2fr] xl:grid-cols-1">
+                        <label className="block">
+                          <span className="mb-2 block text-sm font-bold text-slate-600">Responsavel</span>
+                          <select
+                            value={checklistDraft.assignedTo ?? ''}
+                            onChange={(event) => setChecklistDraft((current) => ({ ...current, assignedTo: event.target.value }))}
+                            className="h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 font-semibold outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-100"
+                          >
+                            <option value="">Sem responsavel</option>
+                            {members.map((member) => {
+                              const fallbackEmail = member.userId === user?.id ? user?.email : null;
+                              return (
+                                <option key={member.userId} value={member.userId}>
+                                  {getProfileName(member.profile, fallbackEmail)}
+                                </option>
+                              );
+                            })}
+                          </select>
+                        </label>
+                        <label className="block">
+                          <span className="mb-2 block text-sm font-bold text-slate-600">Observacao</span>
+                          <input
+                            value={checklistDraft.notes ?? ''}
+                            onChange={(event) => setChecklistDraft((current) => ({ ...current, notes: event.target.value }))}
+                            placeholder="Detalhes, tamanho, onde comprar..."
+                            className="h-12 w-full rounded-2xl border border-slate-200 px-4 font-semibold outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-100"
+                          />
+                        </label>
+                      </div>
                       <button
-                        type="button"
-                        onClick={resetChecklistDraft}
-                        className="inline-flex h-10 items-center justify-center rounded-2xl bg-slate-100 px-3 text-sm font-black text-slate-600 transition hover:bg-slate-200"
+                        type="submit"
+                        disabled={Boolean(checklistActionId) && (
+                          checklistActionId === 'create' || checklistActionId === editingChecklistItemId
+                        )}
+                        className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-slate-950 px-5 font-black text-white transition hover:bg-teal-700 disabled:opacity-60"
                       >
-                        Cancelar
+                        {Boolean(checklistActionId) && (
+                          checklistActionId === 'create' || checklistActionId === editingChecklistItemId
+                        ) ? (
+                          <Loader2 className="h-5 w-5 animate-spin" />
+                        ) : (
+                          <Save className="h-5 w-5" />
+                        )}
+                        {editingChecklistItem ? 'Salvar item' : 'Adicionar item'}
                       </button>
-                    ) : null}
-                  </div>
-                  <form onSubmit={handleChecklistSubmit} className="space-y-4">
-                    <div className="grid gap-4 md:grid-cols-[1.1fr_0.8fr_0.6fr]">
-                      <label className="block">
-                        <span className="mb-2 block text-sm font-bold text-slate-600">Item</span>
-                        <input
-                          required
-                          value={checklistDraft.title}
-                          onChange={(event) => setChecklistDraft((current) => ({ ...current, title: event.target.value }))}
-                          placeholder="Passaporte, carregador, casaco..."
-                          className="h-12 w-full rounded-2xl border border-slate-200 px-4 font-semibold outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-100"
-                        />
-                      </label>
-                      <label className="block">
-                        <span className="mb-2 block text-sm font-bold text-slate-600">Categoria</span>
-                        <select
-                          value={checklistDraft.category}
-                          onChange={(event) => setChecklistDraft((current) => ({
-                            ...current,
-                            category: event.target.value as TripChecklistItemCategory,
-                          }))}
-                          className="h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 font-semibold outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-100"
-                        >
-                          {checklistCategories.map((category) => (
-                            <option key={category} value={category}>{checklistCategoryLabels[category]}</option>
-                          ))}
-                        </select>
-                      </label>
-                      <label className="block">
-                        <span className="mb-2 block text-sm font-bold text-slate-600">Quantidade</span>
-                        <input
-                          type="number"
-                          min={1}
-                          value={checklistDraft.quantity}
-                          onChange={(event) => setChecklistDraft((current) => ({
-                            ...current,
-                            quantity: Math.max(1, Number(event.target.value) || 1),
-                          }))}
-                          className="h-12 w-full rounded-2xl border border-slate-200 px-4 font-semibold outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-100"
-                        />
-                      </label>
-                    </div>
-                    <div className="grid gap-4 md:grid-cols-[0.8fr_1.2fr]">
-                      <label className="block">
-                        <span className="mb-2 block text-sm font-bold text-slate-600">Responsavel</span>
-                        <select
-                          value={checklistDraft.assignedTo ?? ''}
-                          onChange={(event) => setChecklistDraft((current) => ({ ...current, assignedTo: event.target.value }))}
-                          className="h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 font-semibold outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-100"
-                        >
-                          <option value="">Sem responsavel</option>
-                          {members.map((member) => {
-                            const fallbackEmail = member.userId === user?.id ? user?.email : null;
-                            return (
-                              <option key={member.userId} value={member.userId}>
-                                {getProfileName(member.profile, fallbackEmail)}
-                              </option>
-                            );
-                          })}
-                        </select>
-                      </label>
-                      <label className="block">
-                        <span className="mb-2 block text-sm font-bold text-slate-600">Observacao</span>
-                        <input
-                          value={checklistDraft.notes ?? ''}
-                          onChange={(event) => setChecklistDraft((current) => ({ ...current, notes: event.target.value }))}
-                          placeholder="Detalhes, tamanho, onde comprar..."
-                          className="h-12 w-full rounded-2xl border border-slate-200 px-4 font-semibold outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-100"
-                        />
-                      </label>
-                    </div>
-                    <button
-                      type="submit"
-                      disabled={Boolean(checklistActionId) && (
-                        checklistActionId === 'create' || checklistActionId === editingChecklistItemId
-                      )}
-                      className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-slate-950 px-5 font-black text-white transition hover:bg-teal-700 disabled:opacity-60 sm:w-auto"
-                    >
-                      {Boolean(checklistActionId) && (
-                        checklistActionId === 'create' || checklistActionId === editingChecklistItemId
-                      ) ? (
-                        <Loader2 className="h-5 w-5 animate-spin" />
-                      ) : (
-                        <Save className="h-5 w-5" />
-                      )}
-                      {editingChecklistItem ? 'Salvar item' : 'Adicionar item'}
-                    </button>
-                  </form>
-                </section>
+                    </form>
+                  </section>
 
-                <section className="rounded-[2rem] border border-white/80 bg-white/90 p-6 shadow-xl shadow-slate-900/10 md:p-8">
-                  {checklistItems.length ? (
-                    <div className="space-y-5">
-                      {checklistCategories.map((category) => {
-                        const items = checklistItems.filter((item) => item.category === category);
-                        if (!items.length) return null;
+                  <section className="rounded-[2rem] border border-white/80 bg-white/90 p-6 shadow-xl shadow-slate-900/10 md:p-8">
+                    {checklistItems.length ? (
+                      <div className="space-y-5">
+                        {checklistCategories.map((category) => {
+                          const items = checklistItems.filter((item) => item.category === category);
+                          if (!items.length) return null;
 
-                        return (
-                          <div key={category}>
-                            <h3 className="mb-3 text-sm font-black uppercase tracking-[0.18em] text-slate-400">
-                              {checklistCategoryLabels[category]}
-                            </h3>
-                            <div className="space-y-3">
-                              {items.map((item) => {
-                                const assignedMember = item.assignedTo
-                                  ? members.find((member) => member.userId === item.assignedTo)
-                                  : null;
-                                const assignedName = assignedMember
-                                  ? getProfileName(assignedMember.profile, assignedMember.userId === user?.id ? user?.email : null)
-                                  : null;
-                                const isBusy = checklistActionId === item.id;
+                          return (
+                            <div key={category}>
+                              <h3 className="mb-3 text-sm font-black uppercase tracking-[0.18em] text-slate-400">
+                                {checklistCategoryLabels[category]}
+                              </h3>
+                              <div className="space-y-3">
+                                {items.map((item) => {
+                                  const assignedMember = item.assignedTo
+                                    ? members.find((member) => member.userId === item.assignedTo)
+                                    : null;
+                                  const assignedName = assignedMember
+                                    ? getProfileName(assignedMember.profile, assignedMember.userId === user?.id ? user?.email : null)
+                                    : null;
+                                  const isBusy = checklistActionId === item.id;
 
-                                return (
-                                  <article
-                                    key={item.id}
-                                    className={`rounded-3xl border p-4 ${
-                                      item.checked ? 'border-emerald-100 bg-emerald-50/70' : 'border-slate-100 bg-slate-50'
-                                    }`}
-                                  >
-                                    <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-                                      <div className="flex min-w-0 gap-3">
-                                        <button
-                                          type="button"
-                                          onClick={() => void handleToggleChecklistItem(item)}
-                                          disabled={isBusy}
-                                          aria-label={item.checked ? 'Desmarcar item' : 'Marcar item'}
-                                          className={`mt-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl transition ${
-                                            item.checked
-                                              ? 'bg-emerald-600 text-white'
-                                              : 'bg-white text-slate-400 hover:text-teal-700'
-                                          }`}
-                                        >
-                                          {isBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-5 w-5" />}
-                                        </button>
-                                        <div className="min-w-0">
-                                          <p className={`font-black ${item.checked ? 'text-emerald-900 line-through' : 'text-slate-950'}`}>
-                                            {item.title}
-                                          </p>
-                                          <p className="mt-1 text-sm font-bold text-slate-500">
-                                            Qtd. {item.quantity}
-                                            {assignedName ? ` - Responsavel: ${assignedName}` : ''}
-                                          </p>
-                                          {item.notes ? (
-                                            <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">{item.notes}</p>
-                                          ) : null}
+                                  return (
+                                    <article
+                                      key={item.id}
+                                      className={`rounded-3xl border p-4 ${
+                                        item.checked ? 'border-emerald-100 bg-emerald-50/70' : 'border-slate-100 bg-slate-50'
+                                      }`}
+                                    >
+                                      <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                                        <div className="flex min-w-0 gap-3">
+                                          <button
+                                            type="button"
+                                            onClick={() => void handleToggleChecklistItem(item)}
+                                            disabled={isBusy}
+                                            aria-label={item.checked ? 'Desmarcar item' : 'Marcar item'}
+                                            className={`mt-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl transition ${
+                                              item.checked
+                                                ? 'bg-emerald-600 text-white'
+                                                : 'bg-white text-slate-400 hover:text-teal-700'
+                                            }`}
+                                          >
+                                            {isBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-5 w-5" />}
+                                          </button>
+                                          <div className="min-w-0">
+                                            <p className={`font-black ${item.checked ? 'text-emerald-900 line-through' : 'text-slate-950'}`}>
+                                              {item.title}
+                                            </p>
+                                            <p className="mt-1 text-sm font-bold text-slate-500">
+                                              Qtd. {item.quantity}
+                                              {assignedName ? ` - Responsavel: ${assignedName}` : ''}
+                                            </p>
+                                            {item.notes ? (
+                                              <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">{item.notes}</p>
+                                            ) : null}
+                                          </div>
+                                        </div>
+                                        <div className="flex flex-wrap gap-2">
+                                          <button
+                                            type="button"
+                                            onClick={() => startChecklistEdit(item)}
+                                            className="inline-flex h-10 items-center justify-center gap-2 rounded-2xl bg-white px-3 text-sm font-black text-slate-700 transition hover:bg-slate-100"
+                                          >
+                                            <Pencil className="h-4 w-4" />
+                                            Editar
+                                          </button>
+                                          <button
+                                            type="button"
+                                            onClick={() => void handleDeleteChecklistItem(item)}
+                                            disabled={isBusy}
+                                            className="inline-flex h-10 items-center justify-center gap-2 rounded-2xl bg-rose-50 px-3 text-sm font-black text-rose-700 transition hover:bg-rose-100 disabled:opacity-60"
+                                          >
+                                            <Trash2 className="h-4 w-4" />
+                                            Excluir
+                                          </button>
                                         </div>
                                       </div>
-                                      <div className="flex flex-wrap gap-2">
-                                        <button
-                                          type="button"
-                                          onClick={() => startChecklistEdit(item)}
-                                          className="inline-flex h-10 items-center justify-center gap-2 rounded-2xl bg-white px-3 text-sm font-black text-slate-700 transition hover:bg-slate-100"
-                                        >
-                                          <Pencil className="h-4 w-4" />
-                                          Editar
-                                        </button>
-                                        <button
-                                          type="button"
-                                          onClick={() => void handleDeleteChecklistItem(item)}
-                                          disabled={isBusy}
-                                          className="inline-flex h-10 items-center justify-center gap-2 rounded-2xl bg-rose-50 px-3 text-sm font-black text-rose-700 transition hover:bg-rose-100 disabled:opacity-60"
-                                        >
-                                          <Trash2 className="h-4 w-4" />
-                                          Excluir
-                                        </button>
-                                      </div>
-                                    </div>
-                                  </article>
-                                );
-                              })}
+                                    </article>
+                                  );
+                                })}
+                              </div>
                             </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  ) : (
-                    <p className="rounded-2xl bg-slate-50 px-4 py-6 text-sm font-bold text-slate-500">
-                      Nenhum item no checklist desta viagem ainda.
-                    </p>
-                  )}
-                </section>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <p className="rounded-2xl bg-slate-50 px-4 py-6 text-sm font-bold text-slate-500">
+                        Nenhum item no checklist desta viagem ainda.
+                      </p>
+                    )}
+                  </section>
+                </div>
               </>
             ) : (
               <section className="rounded-[2rem] border border-white/80 bg-white/90 p-6 shadow-xl shadow-slate-900/10 md:p-8">
@@ -2550,7 +2559,6 @@ export function ProfilePage() {
               )}
             </section>
           ) : null}
-        </div>
       </div>
 
       <AnimatePresence>
