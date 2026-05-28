@@ -2189,16 +2189,6 @@ export function ProfilePage() {
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -12 }}
     >
-      <div className="flex flex-wrap items-end justify-between gap-3 px-1">
-        <div>
-          <p className="text-xs font-black uppercase tracking-[0.22em] text-teal-700">PERFIL</p>
-          <p className="mt-1 text-sm font-black text-slate-950">Minha viagem</p>
-        </div>
-        <span className="rounded-full border border-white/80 bg-white/80 px-4 py-2 text-xs font-black uppercase tracking-[0.14em] text-slate-500 shadow-lg shadow-slate-900/5">
-          {activeGroup?.name ?? 'Sem viagem ativa'}
-        </span>
-      </div>
-
       <section className="relative overflow-visible rounded-[2rem] border border-slate-800/70 bg-[linear-gradient(135deg,#07111f_0%,#111827_48%,#0f3d3a_100%)] p-5 text-white shadow-2xl shadow-slate-900/25 md:p-8">
         <div className="absolute inset-x-6 top-0 h-px bg-gradient-to-r from-transparent via-teal-200/50 to-transparent" />
         <div className="flex flex-col gap-7 xl:flex-row xl:items-stretch xl:justify-between">
