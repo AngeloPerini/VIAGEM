@@ -194,6 +194,10 @@ const normalizeProfileEditError = (caughtError: unknown) => {
     return 'Este e-mail ja esta em uso em outra conta.';
   }
 
+  if (/new email|different.*email|same.*email/i.test(message)) {
+    return 'Informe um e-mail diferente do e-mail atual.';
+  }
+
   if (/invalid.*email|email.*invalid/i.test(message)) {
     return 'Informe um e-mail valido.';
   }
@@ -202,8 +206,16 @@ const normalizeProfileEditError = (caughtError: unknown) => {
     return 'A senha precisa ter pelo menos 6 caracteres.';
   }
 
+  if (/password/i.test(message) && /same|different/i.test(message)) {
+    return 'Use uma senha nova diferente da senha atual.';
+  }
+
   if (/session|logged in|jwt/i.test(message)) {
     return 'Entre novamente na conta para concluir esta alteracao.';
+  }
+
+  if (/rate limit|too many|over.*limit/i.test(message)) {
+    return 'Muitas tentativas em pouco tempo. Aguarde alguns minutos e tente novamente.';
   }
 
   return message;
@@ -790,6 +802,7 @@ export function ProfilePage() {
   const displayName = getProfileName(profile, user?.email);
   const displayEmail = getProfileEmail(profile, user?.email);
   const currentAccountEmail = user?.email ?? profile?.email ?? '';
+  const isProfileEditBusy = Boolean(profileEditAction);
 
   const ownerMember = useMemo(
     () => members.find((member) => member.userId === activeGroup?.ownerId),
@@ -3188,7 +3201,7 @@ export function ProfilePage() {
 
           {activeProfileSection === 'edit-profile' ? (
             <section className="space-y-6">
-              <div className="rounded-[2rem] border border-white/80 bg-white/90 p-6 shadow-xl shadow-slate-900/10 md:p-8">
+              <div className="rounded-[2rem] border border-white/80 bg-white/95 p-6 shadow-xl shadow-slate-900/10 md:p-8">
                 <p className="text-sm font-black uppercase tracking-[0.18em] text-teal-700">Editar perfil</p>
                 <h2 className="mt-2 text-3xl font-black tracking-tight text-slate-950">Conta e acesso</h2>
                 <p className="mt-3 max-w-3xl text-sm font-bold leading-6 text-slate-600">
@@ -3207,9 +3220,13 @@ export function ProfilePage() {
               </div>
 
               <div className="grid gap-6 xl:grid-cols-3">
-                <form onSubmit={handleUpdateDisplayName} className="rounded-[2rem] border border-white/80 bg-white/90 p-6 shadow-xl shadow-slate-900/10 md:p-7">
+                <form
+                  onSubmit={handleUpdateDisplayName}
+                  noValidate
+                  className="flex min-h-full flex-col rounded-[2rem] border border-white/80 bg-white/95 p-6 shadow-xl shadow-slate-900/10 md:p-7"
+                >
                   <div className="flex items-center gap-3">
-                    <span className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-teal-50 text-teal-700">
+                    <span className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-teal-50 text-teal-700">
                       <UserRound className="h-5 w-5" />
                     </span>
                     <div>
@@ -3217,6 +3234,9 @@ export function ProfilePage() {
                       <h3 className="text-xl font-black text-slate-950">Nome de exibicao</h3>
                     </div>
                   </div>
+                  <p className="mt-4 text-sm font-bold leading-6 text-slate-500">
+                    Esse nome aparece no card principal e nos membros da viagem.
+                  </p>
                   <label className="mt-6 block text-sm font-black text-slate-700" htmlFor="display-name">
                     Nome
                   </label>
@@ -3225,12 +3245,14 @@ export function ProfilePage() {
                     value={displayNameDraft}
                     onChange={(event) => setDisplayNameDraft(event.target.value)}
                     autoComplete="name"
+                    disabled={isProfileEditBusy}
+                    aria-invalid={!displayNameDraft.trim()}
                     className="mt-2 h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-900 outline-none transition focus:border-teal-500 focus:ring-4 focus:ring-teal-100"
                     placeholder="Seu nome no TripFlow"
                   />
                   <button
                     type="submit"
-                    disabled={profileEditAction === 'name'}
+                    disabled={isProfileEditBusy}
                     className="mt-6 inline-flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-slate-950 px-5 font-black text-white shadow-xl shadow-slate-900/15 transition hover:bg-teal-700 disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     {profileEditAction === 'name' ? <Loader2 className="h-5 w-5 animate-spin" /> : <Save className="h-5 w-5" />}
@@ -3238,9 +3260,13 @@ export function ProfilePage() {
                   </button>
                 </form>
 
-                <form onSubmit={handleRequestEmailChange} className="rounded-[2rem] border border-white/80 bg-white/90 p-6 shadow-xl shadow-slate-900/10 md:p-7">
+                <form
+                  onSubmit={handleRequestEmailChange}
+                  noValidate
+                  className="flex min-h-full flex-col rounded-[2rem] border border-white/80 bg-white/95 p-6 shadow-xl shadow-slate-900/10 md:p-7"
+                >
                   <div className="flex items-center gap-3">
-                    <span className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-sky-50 text-sky-700">
+                    <span className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-teal-50 text-teal-700">
                       <Send className="h-5 w-5" />
                     </span>
                     <div>
@@ -3248,6 +3274,9 @@ export function ProfilePage() {
                       <h3 className="text-xl font-black text-slate-950">Alterar e-mail</h3>
                     </div>
                   </div>
+                  <p className="mt-4 text-sm font-bold leading-6 text-slate-500">
+                    A troca usa Supabase Auth e pode exigir confirmacao por e-mail.
+                  </p>
                   <label className="mt-6 block text-sm font-black text-slate-700" htmlFor="current-email">
                     E-mail atual
                   </label>
@@ -3266,29 +3295,41 @@ export function ProfilePage() {
                     value={emailDraft}
                     onChange={(event) => setEmailDraft(event.target.value)}
                     autoComplete="email"
+                    disabled={isProfileEditBusy}
+                    aria-invalid={Boolean(emailDraft.trim()) && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailDraft.trim())}
                     className="mt-2 h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-900 outline-none transition focus:border-teal-500 focus:ring-4 focus:ring-teal-100"
                     placeholder="novo@email.com"
                   />
+                  <p className="mt-2 text-xs font-bold leading-5 text-slate-400">
+                    O e-mail atual continua valendo ate a confirmacao do novo endereco.
+                  </p>
                   <button
                     type="submit"
-                    disabled={profileEditAction === 'email'}
+                    disabled={isProfileEditBusy}
                     className="mt-6 inline-flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-slate-950 px-5 font-black text-white shadow-xl shadow-slate-900/15 transition hover:bg-teal-700 disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     {profileEditAction === 'email' ? <Loader2 className="h-5 w-5 animate-spin" /> : <Send className="h-5 w-5" />}
-                    Solicitar alteracao
+                    Alterar e-mail
                   </button>
                 </form>
 
-                <form onSubmit={handleUpdatePassword} className="rounded-[2rem] border border-white/80 bg-white/90 p-6 shadow-xl shadow-slate-900/10 md:p-7">
+                <form
+                  onSubmit={handleUpdatePassword}
+                  noValidate
+                  className="flex min-h-full flex-col rounded-[2rem] border border-white/80 bg-white/95 p-6 shadow-xl shadow-slate-900/10 md:p-7"
+                >
                   <div className="flex items-center gap-3">
-                    <span className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-violet-50 text-violet-700">
+                    <span className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-teal-50 text-teal-700">
                       <ShieldCheck className="h-5 w-5" />
                     </span>
                     <div>
                       <p className="text-sm font-black uppercase tracking-[0.16em] text-slate-400">Seguranca da conta</p>
-                      <h3 className="text-xl font-black text-slate-950">Nova senha</h3>
+                      <h3 className="text-xl font-black text-slate-950">Seguranca</h3>
                     </div>
                   </div>
+                  <p className="mt-4 text-sm font-bold leading-6 text-slate-500">
+                    A senha e atualizada somente no Supabase Auth e nao e armazenada no TripFlow.
+                  </p>
                   <label className="mt-6 block text-sm font-black text-slate-700" htmlFor="new-password">
                     Nova senha
                   </label>
@@ -3299,6 +3340,10 @@ export function ProfilePage() {
                       value={passwordDraft}
                       onChange={(event) => setPasswordDraft(event.target.value)}
                       autoComplete="new-password"
+                      minLength={6}
+                      disabled={isProfileEditBusy}
+                      aria-invalid={Boolean(passwordDraft) && passwordDraft.length < 6}
+                      placeholder="Minimo de 6 caracteres"
                       className="min-w-0 flex-1 bg-transparent text-sm font-bold text-slate-900 outline-none"
                     />
                     <button
@@ -3320,6 +3365,10 @@ export function ProfilePage() {
                       value={passwordConfirmationDraft}
                       onChange={(event) => setPasswordConfirmationDraft(event.target.value)}
                       autoComplete="new-password"
+                      minLength={6}
+                      disabled={isProfileEditBusy}
+                      aria-invalid={Boolean(passwordConfirmationDraft) && passwordDraft !== passwordConfirmationDraft}
+                      placeholder="Repita a nova senha"
                       className="min-w-0 flex-1 bg-transparent text-sm font-bold text-slate-900 outline-none"
                     />
                     <button
@@ -3333,7 +3382,7 @@ export function ProfilePage() {
                   </div>
                   <button
                     type="submit"
-                    disabled={profileEditAction === 'password'}
+                    disabled={isProfileEditBusy}
                     className="mt-6 inline-flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-slate-950 px-5 font-black text-white shadow-xl shadow-slate-900/15 transition hover:bg-teal-700 disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     {profileEditAction === 'password' ? <Loader2 className="h-5 w-5 animate-spin" /> : <ShieldCheck className="h-5 w-5" />}
