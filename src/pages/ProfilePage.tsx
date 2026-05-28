@@ -1,5 +1,6 @@
 import { AnimatePresence, motion } from 'framer-motion';
 import {
+  ArrowRight,
   Bell,
   CalendarDays,
   CheckCircle2,
@@ -7,12 +8,14 @@ import {
   Eye,
   EyeOff,
   FileText,
+  Globe2,
   Link2,
   Loader2,
   LogOut,
   MapPin,
   Pencil,
   Plus,
+  Route,
   Save,
   Send,
   ShieldCheck,
@@ -25,7 +28,7 @@ import {
   X,
 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import type { FormEvent } from 'react';
+import type { FormEvent, ReactNode } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useGroup } from '../contexts/GroupContext';
 import { languageOptions, useLanguage } from '../contexts/LanguageContext';
@@ -220,6 +223,13 @@ const statusClasses: Record<TripStatus, string> = {
   canceled: 'bg-rose-50 text-rose-700',
 };
 
+const statusDotClasses: Record<TripStatus, string> = {
+  planned: 'bg-sky-300',
+  active: 'bg-teal-300',
+  completed: 'bg-emerald-300',
+  canceled: 'bg-rose-300',
+};
+
 const tripTabs = [
   { id: 'planned', label: 'Planejadas' },
   { id: 'active', label: 'Ativas' },
@@ -272,12 +282,70 @@ const createEmptyChecklistDraft = (): TripChecklistItemInput => ({
   assignedTo: '',
 });
 
-function StatCard({ label, value, detail }: { label: string; value: string; detail?: string }) {
+type ProfileIcon = typeof UserRound;
+
+function HeroMetric({
+  detail,
+  icon: Icon,
+  label,
+  value,
+}: {
+  detail?: string;
+  icon: ProfileIcon;
+  label: string;
+  value: string;
+}) {
   return (
-    <div className="rounded-[2rem] border border-white/80 bg-white/85 p-5 shadow-xl shadow-slate-900/10 backdrop-blur">
-      <p className="text-sm font-black uppercase tracking-[0.18em] text-slate-400">{label}</p>
-      <p className="mt-3 text-3xl font-black tracking-tight text-slate-950">{value}</p>
-      {detail ? <p className="mt-2 text-sm font-bold text-slate-500">{detail}</p> : null}
+    <div className="min-w-0 rounded-2xl border border-white/10 bg-white/10 px-4 py-3 shadow-lg shadow-slate-950/10">
+      <div className="flex items-center gap-2 text-teal-200">
+        <Icon className="h-4 w-4 shrink-0" />
+        <p className="truncate text-[0.68rem] font-black uppercase tracking-[0.16em]">{label}</p>
+      </div>
+      <p className="mt-2 truncate text-sm font-black text-white">{value}</p>
+      {detail ? <p className="mt-1 truncate text-xs font-bold text-slate-300">{detail}</p> : null}
+    </div>
+  );
+}
+
+function DetailTile({
+  icon: Icon,
+  label,
+  value,
+}: {
+  icon: ProfileIcon;
+  label: string;
+  value: string;
+}) {
+  return (
+    <div className="min-w-0 rounded-2xl bg-slate-50 px-4 py-3">
+      <p className="flex items-center gap-2 text-xs font-black uppercase tracking-[0.14em] text-slate-400">
+        <Icon className="h-4 w-4 shrink-0 text-teal-700" />
+        {label}
+      </p>
+      <p className="mt-2 truncate text-sm font-black text-slate-800">{value}</p>
+    </div>
+  );
+}
+
+function EmptyState({
+  action,
+  description,
+  icon: Icon,
+  title,
+}: {
+  action?: ReactNode;
+  description: string;
+  icon: ProfileIcon;
+  title: string;
+}) {
+  return (
+    <div className="rounded-3xl border border-dashed border-slate-200 bg-slate-50 px-4 py-6 text-center">
+      <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-white text-teal-700 shadow-lg shadow-slate-900/5">
+        <Icon className="h-5 w-5" />
+      </span>
+      <p className="mt-4 font-black text-slate-950">{title}</p>
+      <p className="mx-auto mt-2 max-w-sm text-sm font-bold leading-6 text-slate-500">{description}</p>
+      {action ? <div className="mt-4">{action}</div> : null}
     </div>
   );
 }
@@ -774,6 +842,8 @@ export function ProfilePage() {
   const activeTripCountries = activeGroup?.countries?.length
     ? activeGroup.countries.map((country) => countryLabel(country)).join(', ')
     : 'Paises nao informados';
+  const activeTripStatus = activeGroup?.status ?? 'planned';
+  const activeTripParticipantCount = members.length || activeTripSummary?.participantsCount || 0;
   const checkedChecklistCount = checklistItems.filter((item) => item.checked).length;
   const checklistProgress = checklistItems.length
     ? Math.round((checkedChecklistCount / checklistItems.length) * 100)
@@ -842,6 +912,7 @@ export function ProfilePage() {
         .slice(0, 3),
     [tripExpenseCategoriesForDisplay, tripExpenseTotalsByCategory],
   );
+  const topTripExpenseMax = Math.max(1, ...topTripExpenseCategories.map(({ total }) => midpoint(total.real)));
   const editingChecklistItem = editingChecklistItemId
     ? checklistItems.find((item) => item.id === editingChecklistItemId) ?? null
     : null;
@@ -1097,6 +1168,12 @@ export function ProfilePage() {
     setActiveProfileSection(targetSection.id);
     setShowNotificationMenu(false);
     window.history.pushState({}, '', targetSection.path);
+    window.dispatchEvent(new PopStateEvent('popstate'));
+  };
+
+  const navigateWorkspaceView = (view: 'dashboard' | 'expenses' | 'itinerary' | 'attractions' | 'quote') => {
+    const nextPath = view === 'dashboard' ? '/dashboard' : `/#${view}`;
+    window.history.pushState({}, '', nextPath);
     window.dispatchEvent(new PopStateEvent('popstate'));
   };
 
@@ -2099,99 +2176,146 @@ export function ProfilePage() {
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -12 }}
     >
-      <section className="rounded-[2rem] border border-white/80 bg-slate-950 p-6 text-white shadow-2xl shadow-slate-900/20 md:p-8">
-        <div className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
-          <div className="flex items-center gap-4">
-            {avatarUrl ? (
-              <img src={avatarUrl} alt="" className="h-20 w-20 rounded-[1.7rem] object-cover" />
-            ) : (
-              <span className="flex h-20 w-20 items-center justify-center rounded-[1.7rem] bg-white text-slate-950">
-                <UserRound className="h-9 w-9" />
-              </span>
-            )}
-            <div>
-              <p className="text-sm font-black uppercase tracking-[0.2em] text-teal-200">{t('profile.title')}</p>
-              <h1 className="mt-2 text-3xl font-black tracking-tight md:text-5xl">{displayName}</h1>
-              <p className="mt-2 font-bold text-slate-300">{displayEmail}</p>
-            </div>
-          </div>
-          <div className="relative flex flex-col gap-3 sm:flex-row sm:items-center">
-            <img src="/logo.png" alt="TripFlow" className="hidden h-12 w-12 rounded-2xl bg-white object-contain p-1 sm:block" />
-            <button
-              type="button"
-              onClick={() => setShowNotificationMenu((current) => !current)}
-              aria-label="Abrir notificacoes"
-              className="relative inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-white/10 text-white transition hover:bg-white/20"
-            >
-              <Bell className="h-5 w-5" />
-              {unreadNotifications > 0 ? (
-                <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-rose-600 px-1 text-[0.65rem] font-black text-white">
-                  {unreadNotifications > 9 ? '9+' : unreadNotifications}
-                </span>
-              ) : null}
-            </button>
-            {showNotificationMenu ? (
-              <div className="absolute right-0 top-14 z-40 w-[min(24rem,calc(100vw-2rem))] rounded-[1.5rem] border border-white/80 bg-white p-3 text-slate-900 shadow-2xl shadow-slate-950/25">
-                <div className="flex items-center justify-between gap-3 px-1 pb-2">
-                  <div>
-                    <p className="text-xs font-black uppercase tracking-[0.16em] text-teal-700">Notificacoes</p>
-                    <p className="text-sm font-bold text-slate-500">
-                      {unreadNotifications ? `${unreadNotifications} nao lida${unreadNotifications === 1 ? '' : 's'}` : 'Tudo em dia'}
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => navigateProfileSection('notifications')}
-                    className="rounded-2xl bg-slate-100 px-3 py-2 text-xs font-black text-slate-700 transition hover:bg-slate-200"
-                  >
-                    Ver todas
-                  </button>
-                </div>
-                {notificationRealtimeWarning ? (
-                  <p className="mb-2 rounded-2xl bg-amber-50 px-3 py-2 text-xs font-bold text-amber-700">
-                    {notificationRealtimeWarning}
-                  </p>
-                ) : null}
-                <div className="max-h-96 space-y-2 overflow-y-auto pr-1">
-                  {notifications.slice(0, 5).length ? (
-                    notifications.slice(0, 5).map((notification) => renderNotificationCard(notification, true))
-                  ) : (
-                    <p className="rounded-2xl bg-slate-50 px-4 py-5 text-sm font-bold text-slate-500">
-                      Nenhuma notificacao por enquanto.
-                    </p>
-                  )}
+      <div className="flex flex-wrap items-end justify-between gap-3 px-1">
+        <div>
+          <p className="text-xs font-black uppercase tracking-[0.22em] text-teal-700">PERFIL</p>
+          <p className="mt-1 text-sm font-black text-slate-950">Minha viagem</p>
+        </div>
+        <span className="rounded-full border border-white/80 bg-white/80 px-4 py-2 text-xs font-black uppercase tracking-[0.14em] text-slate-500 shadow-lg shadow-slate-900/5">
+          {activeGroup?.name ?? 'Sem viagem ativa'}
+        </span>
+      </div>
+
+      <section className="relative overflow-visible rounded-[2rem] border border-slate-800/70 bg-[linear-gradient(135deg,#07111f_0%,#111827_48%,#0f3d3a_100%)] p-5 text-white shadow-2xl shadow-slate-900/25 md:p-8">
+        <div className="absolute inset-x-6 top-0 h-px bg-gradient-to-r from-transparent via-teal-200/50 to-transparent" />
+        <div className="flex flex-col gap-7 xl:flex-row xl:items-stretch xl:justify-between">
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-col gap-5 sm:flex-row sm:items-center">
+              <div className="relative h-24 w-24 shrink-0">
+                {avatarUrl ? (
+                  <img src={avatarUrl} alt="" className="h-24 w-24 rounded-[1.65rem] border border-white/20 object-cover shadow-2xl shadow-slate-950/35" />
+                ) : (
+                  <span className="flex h-24 w-24 items-center justify-center rounded-[1.65rem] border border-white/20 bg-white text-slate-950 shadow-2xl shadow-slate-950/35">
+                    <UserRound className="h-10 w-10" />
+                  </span>
+                )}
+                <span className={`absolute -right-1 bottom-2 h-5 w-5 rounded-full border-4 border-slate-950 ${activeGroup ? statusDotClasses[activeTripStatus] : 'bg-slate-400'}`} />
+              </div>
+              <div className="min-w-0">
+                <p className="text-sm font-black uppercase tracking-[0.2em] text-teal-200">{t('profile.title')}</p>
+                <h1 className="mt-2 break-words text-3xl font-black tracking-tight md:text-5xl">{displayName}</h1>
+                <p className="mt-2 break-all text-sm font-bold text-slate-300 sm:text-base">{displayEmail}</p>
+                <div className="mt-4 flex flex-wrap gap-2">
+                  <span className={`rounded-full px-3 py-2 text-xs font-black uppercase tracking-[0.12em] ${activeGroup ? statusClasses[activeTripStatus] : 'bg-white/10 text-slate-300'}`}>
+                    {activeGroup ? statusLabels[activeTripStatus] : 'Perfil ativo'}
+                  </span>
+                  <span className="rounded-full bg-white/10 px-3 py-2 text-xs font-black uppercase tracking-[0.12em] text-slate-300">
+                    {t('profile.createdAt')}: {formatDate(profile?.createdAt)}
+                  </span>
                 </div>
               </div>
-            ) : null}
-            <button
-              type="button"
-              onClick={() => void handleSignOut()}
-              className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl bg-white px-5 font-black text-slate-950 transition hover:bg-rose-50 hover:text-rose-700"
-            >
-              <LogOut className="h-5 w-5" />
-              {t('actions.signOut')}
-            </button>
+            </div>
+
+            <div className="mt-7 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+              <HeroMetric
+                icon={Globe2}
+                label="Paises"
+                value={String(stats.countriesCount)}
+                detail={t('profile.uniqueCountries')}
+              />
+              <HeroMetric
+                icon={MapPin}
+                label="Viagem"
+                value={activeGroup?.name ?? t('profile.noActiveTrip')}
+                detail={activeGroup ? statusLabels[activeTripStatus] : 'Crie ou entre por convite'}
+              />
+              <HeroMetric
+                icon={Users}
+                label="Grupo"
+                value={`${userGroups.length} ${userGroups.length === 1 ? t('profile.tripSingular') : t('profile.tripPlural')}`}
+                detail={`${activeTripParticipantCount} participante${activeTripParticipantCount === 1 ? '' : 's'} na ativa`}
+              />
+              <HeroMetric
+                icon={Sparkles}
+                label="IA"
+                value={isAiTestUser ? 'Ilimitada' : `${aiGenerationsUsed}/${aiGenerationsLimit}`}
+                detail={isAiTestUser ? 'IA ativa' : aiUsageMessage}
+              />
+            </div>
           </div>
-        </div>
-        <div className="mt-6 grid gap-3 text-sm font-bold text-slate-300 md:grid-cols-2 xl:grid-cols-4">
-          <span className="rounded-2xl bg-white/10 px-4 py-3">{t('profile.createdAt')}: {formatDate(profile?.createdAt)}</span>
-          <span className="rounded-2xl bg-white/10 px-4 py-3">
-            {t('profile.activeTrip')}: {activeGroup?.name ?? t('profile.noActiveTrip')}
-          </span>
-          <span className="rounded-2xl bg-white/10 px-4 py-3">
-            {t('profile.memberOf')} {userGroups.length} {userGroups.length === 1 ? t('profile.tripSingular') : t('profile.tripPlural')}
-          </span>
-          <span className="rounded-2xl bg-white/10 px-4 py-3">
-            IA: {isAiTestUser ? 'geracoes ilimitadas' : `${aiGenerationsUsed} de ${aiGenerationsLimit} geracoes usadas`}
-          </span>
+
+          <div className="relative flex w-full flex-col justify-between gap-5 rounded-[1.5rem] border border-white/10 bg-white/[0.06] p-4 xl:max-w-sm">
+            <div className="flex items-center justify-between gap-3">
+              <img src="/logo.png" alt="TripFlow" className="h-11 w-11 rounded-2xl bg-white object-contain p-1" />
+              <div className="relative flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowNotificationMenu((current) => !current)}
+                  aria-label="Abrir notificacoes"
+                  className="relative inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-white/10 text-white transition hover:bg-white/20"
+                >
+                  <Bell className="h-5 w-5" />
+                  {unreadNotifications > 0 ? (
+                    <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-rose-600 px-1 text-[0.65rem] font-black text-white">
+                      {unreadNotifications > 9 ? '9+' : unreadNotifications}
+                    </span>
+                  ) : null}
+                </button>
+                {showNotificationMenu ? (
+                  <div className="absolute right-0 top-14 z-40 w-[min(24rem,calc(100vw-2rem))] rounded-[1.5rem] border border-white/80 bg-white p-3 text-slate-900 shadow-2xl shadow-slate-950/25">
+                    <div className="flex items-center justify-between gap-3 px-1 pb-2">
+                      <div>
+                        <p className="text-xs font-black uppercase tracking-[0.16em] text-teal-700">Notificacoes</p>
+                        <p className="text-sm font-bold text-slate-500">
+                          {unreadNotifications ? `${unreadNotifications} nao lida${unreadNotifications === 1 ? '' : 's'}` : 'Tudo em dia'}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => navigateProfileSection('notifications')}
+                        className="rounded-2xl bg-slate-100 px-3 py-2 text-xs font-black text-slate-700 transition hover:bg-slate-200"
+                      >
+                        Ver todas
+                      </button>
+                    </div>
+                    {notificationRealtimeWarning ? (
+                      <p className="mb-2 rounded-2xl bg-amber-50 px-3 py-2 text-xs font-bold text-amber-700">
+                        {notificationRealtimeWarning}
+                      </p>
+                    ) : null}
+                    <div className="max-h-96 space-y-2 overflow-y-auto pr-1">
+                      {notifications.slice(0, 5).length ? (
+                        notifications.slice(0, 5).map((notification) => renderNotificationCard(notification, true))
+                      ) : (
+                        <p className="rounded-2xl bg-slate-50 px-4 py-5 text-sm font-bold text-slate-500">
+                          Nenhuma notificacao por enquanto.
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                ) : null}
+                <button
+                  type="button"
+                  onClick={() => void handleSignOut()}
+                  className="inline-flex h-12 items-center justify-center gap-2 whitespace-nowrap rounded-2xl bg-white px-4 text-sm font-black text-slate-950 transition hover:bg-rose-50 hover:text-rose-700"
+                >
+                  <LogOut className="h-5 w-5" />
+                  Sair da conta
+                </button>
+              </div>
+            </div>
+            <p className="text-sm font-semibold leading-7 text-slate-300">
+              Cada viagem comeca com um sonho e se transforma em memorias que duram para sempre.
+            </p>
+          </div>
         </div>
       </section>
 
       <nav
         aria-label="Navegacao interna do perfil"
-        className="rounded-[1.75rem] border border-white/80 bg-white/90 p-2 shadow-xl shadow-slate-900/10 backdrop-blur-xl"
+        className="rounded-[1.5rem] border border-white/80 bg-white/95 p-2 shadow-xl shadow-slate-900/10 backdrop-blur-xl"
       >
-        <div className="grid auto-cols-max grid-flow-col gap-2 overflow-x-auto pb-1 sm:pb-0 lg:grid-flow-row lg:grid-cols-6 lg:overflow-visible">
+        <div className="flex gap-2 overflow-x-auto pb-1 sm:pb-0 lg:grid lg:grid-cols-6 lg:overflow-visible">
           {profileSections.map((section) => {
             const Icon = section.icon;
             const isActive = activeProfileSection === section.id;
@@ -2202,7 +2326,7 @@ export function ProfilePage() {
                 type="button"
                 aria-current={isActive ? 'page' : undefined}
                 onClick={() => navigateProfileSection(section.id)}
-                className={`group relative inline-flex h-12 min-w-max items-center justify-center gap-2 rounded-2xl px-4 text-sm font-black transition lg:min-w-0 ${
+                className={`group relative inline-flex h-12 min-w-max shrink-0 items-center justify-center gap-2 rounded-2xl px-4 text-sm font-black transition lg:min-w-0 ${
                   isActive
                     ? 'bg-slate-950 text-white shadow-lg shadow-slate-900/15'
                     : 'text-slate-600 hover:bg-slate-100 hover:text-slate-950'
@@ -2232,125 +2356,280 @@ export function ProfilePage() {
       <div className="min-w-0 space-y-6">
           {activeProfileSection === 'overview' ? (
             <>
-              <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
-                <StatCard label={t('profile.countries')} value={String(stats.countriesCount)} detail={t('profile.uniqueCountries')} />
-                <StatCard label={t('profile.trips')} value={String(stats.travelCount)} detail={t('profile.groupsYouJoin')} />
-                <StatCard label={t('profile.activeTripStat')} value={stats.hasActiveTrip ? t('profile.yes') : t('profile.no')} detail={activeGroup?.name} />
-                <StatCard
-                  label={t('profile.totalAll')}
-                  value={formatRange(stats.totalAllReal, 'BRL', true)}
-                  detail={formatRange(stats.totalAllEuro, 'EUR', true)}
-                />
-                <StatCard
-                  label={t('profile.totalActive')}
-                  value={formatRange(stats.totalActiveReal, 'BRL', true)}
-                  detail={formatRange(stats.totalActiveEuro, 'EUR', true)}
-                />
-              </section>
-
-              <section className="grid gap-6 xl:grid-cols-[minmax(0,1.35fr)_minmax(22rem,0.65fr)]">
-                <div className="rounded-[2rem] border border-white/80 bg-white/90 p-6 shadow-xl shadow-slate-900/10 md:p-8">
-                  <p className="text-sm font-black uppercase tracking-[0.18em] text-slate-400">Resumo geral</p>
-                  <h2 className="mt-2 text-3xl font-black tracking-tight text-slate-950">Conta TripFlow</h2>
-                  <div className="mt-5 grid gap-3 text-sm font-bold text-slate-600 md:grid-cols-2">
-                    <span className="rounded-2xl bg-slate-50 px-4 py-3">Nome: {displayName}</span>
-                    <span className="rounded-2xl bg-slate-50 px-4 py-3">E-mail: {displayEmail}</span>
-                    <span className="rounded-2xl bg-slate-50 px-4 py-3">Criada em: {formatDate(profile?.createdAt)}</span>
-                    <span className="rounded-2xl bg-slate-50 px-4 py-3">Viagem ativa: {activeGroup?.name ?? t('profile.noActiveTrip')}</span>
-                    <span className="rounded-2xl bg-slate-50 px-4 py-3">
-                      Participa de {userGroups.length} {userGroups.length === 1 ? t('profile.tripSingular') : t('profile.tripPlural')}
+              <section className="grid gap-6 xl:grid-cols-3">
+                <article className="flex min-h-full flex-col rounded-[2rem] border border-white/80 bg-white/95 p-6 shadow-xl shadow-slate-900/10 md:p-7">
+                  <div className="flex items-start justify-between gap-3">
+                    <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-950 text-white">
+                      <MapPin className="h-5 w-5" />
                     </span>
-                    <span className="rounded-2xl bg-slate-50 px-4 py-3">
-                      IA: {isAiTestUser ? 'geracoes ilimitadas' : `${aiGenerationsUsed} de ${aiGenerationsLimit}`}
+                    <span className={`rounded-full px-3 py-2 text-xs font-black uppercase tracking-[0.12em] ${activeGroup ? statusClasses[activeTripStatus] : 'bg-slate-100 text-slate-500'}`}>
+                      {activeGroup ? statusLabels[activeTripStatus] : 'Sem ativa'}
                     </span>
                   </div>
-                </div>
-
-                <div className="rounded-[2rem] border border-white/80 bg-white/90 p-6 shadow-xl shadow-slate-900/10 md:p-8">
-                  <div className="flex items-center gap-3">
-                    <WalletCards className="h-5 w-5 text-teal-700" />
-                    <h2 className="text-2xl font-black">{t('profile.session')}</h2>
-                  </div>
-                  <p className="mt-3 leading-7 text-slate-600">{t('profile.sessionDescription')}</p>
+                  <p className="mt-5 text-sm font-black uppercase tracking-[0.18em] text-slate-400">Viagem ativa</p>
+                  <h2 className="mt-2 text-2xl font-black tracking-tight text-slate-950">
+                    {activeGroup?.name ?? 'Nenhuma viagem ativa'}
+                  </h2>
+                  <p className="mt-3 text-sm font-bold leading-6 text-slate-500">
+                    {activeGroup?.description || 'Crie uma viagem ou entre por convite para organizar roteiro, gastos e documentos em um unico lugar.'}
+                  </p>
+                  {activeGroup ? (
+                    <div className="mt-5 grid gap-3">
+                      <DetailTile icon={Globe2} label="Paises" value={activeTripCountries} />
+                      <DetailTile icon={CalendarDays} label="Datas" value={`${formatDate(activeGroup.startDate)} - ${formatDate(activeGroup.endDate)}`} />
+                      <DetailTile icon={ShieldCheck} label="Dono" value={ownerName} />
+                      <DetailTile icon={Users} label="Participantes" value={String(activeTripParticipantCount)} />
+                    </div>
+                  ) : (
+                    <EmptyState
+                      icon={Plus}
+                      title="Sua proxima viagem espera"
+                      description="A criacao continua na aba Criar viagem / IA, com o mesmo fluxo atual."
+                    />
+                  )}
                   <button
                     type="button"
-                    onClick={() => void handleSignOut()}
-                    className="mt-5 inline-flex h-12 w-full items-center justify-center gap-2 rounded-2xl border border-rose-100 bg-rose-50 px-5 font-black text-rose-700 transition hover:bg-rose-100"
+                    onClick={() => navigateProfileSection(activeGroup ? 'trip' : 'create-ai')}
+                    className="mt-5 inline-flex h-12 items-center justify-center gap-2 rounded-2xl bg-slate-950 px-5 font-black text-white transition hover:bg-teal-700"
                   >
-                    <LogOut className="h-5 w-5" />
-                    {t('actions.signOut')}
+                    {activeGroup ? 'Ver detalhes da viagem' : 'Criar viagem'}
+                    <ArrowRight className="h-4 w-4" />
                   </button>
+                </article>
+
+                <article className="flex min-h-full flex-col rounded-[2rem] border border-white/80 bg-white/95 p-6 shadow-xl shadow-slate-900/10 md:p-7">
+                  <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-teal-50 text-teal-700">
+                    <Route className="h-5 w-5" />
+                  </span>
+                  <p className="mt-5 text-sm font-black uppercase tracking-[0.18em] text-slate-400">Resumo do roteiro</p>
+                  <h2 className="mt-2 text-2xl font-black tracking-tight text-slate-950">
+                    {tripItineraryItems.length ? `${tripItineraryItems.length} itens planejados` : 'Roteiro em construcao'}
+                  </h2>
+                  <div className="mt-5 flex-1 space-y-3">
+                    {tripItineraryItems.length ? (
+                      tripItineraryItems.slice(0, 3).map((item) => (
+                        <article key={item.id} className="rounded-3xl border border-slate-100 bg-slate-50 px-4 py-3">
+                          <p className="truncate font-black text-slate-950">{item.title}</p>
+                          <p className="mt-1 text-sm font-bold text-slate-500">
+                            {item.day || 'Sem dia'} - {item.city || 'Cidade nao informada'} / {countryLabel(item.country)}
+                          </p>
+                        </article>
+                      ))
+                    ) : (
+                      <EmptyState
+                        icon={Route}
+                        title="Nenhum item no roteiro"
+                        description="Quando houver roteiro, os proximos dias aparecem aqui sem mudar a regra atual."
+                      />
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => activeGroup ? navigateWorkspaceView('itinerary') : navigateProfileSection('create-ai')}
+                    className="mt-5 inline-flex h-12 items-center justify-center gap-2 rounded-2xl bg-slate-950 px-5 font-black text-white transition hover:bg-teal-700"
+                  >
+                    Ver roteiro
+                    <ArrowRight className="h-4 w-4" />
+                  </button>
+                </article>
+
+                <article className="flex min-h-full flex-col rounded-[2rem] border border-white/80 bg-white/95 p-6 shadow-xl shadow-slate-900/10 md:p-7">
+                  <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-sky-50 text-sky-700">
+                    <WalletCards className="h-5 w-5" />
+                  </span>
+                  <p className="mt-5 text-sm font-black uppercase tracking-[0.18em] text-slate-400">Resumo de gastos</p>
+                  <h2 className="mt-2 text-2xl font-black tracking-tight text-slate-950">
+                    {formatRange(tripExpenseGrandTotal.real, 'BRL', true)}
+                  </h2>
+                  <p className="mt-2 text-sm font-bold leading-6 text-slate-500">
+                    {tripExpenses.length
+                      ? `${tripExpenses.length} gasto${tripExpenses.length === 1 ? '' : 's'} cadastrado${tripExpenses.length === 1 ? '' : 's'} na viagem ativa.`
+                      : 'Nenhum gasto cadastrado nesta viagem ainda.'}
+                  </p>
+                  <div className="mt-5 flex-1 space-y-3">
+                    {topTripExpenseCategories.length ? (
+                      topTripExpenseCategories.map(({ category, total }) => {
+                        const percent = Math.max(8, Math.round((midpoint(total.real) / topTripExpenseMax) * 100));
+
+                        return (
+                          <div key={category.id} className="rounded-3xl bg-slate-50 px-4 py-3">
+                            <div className="flex items-center justify-between gap-3 text-sm font-black">
+                              <span className="truncate text-slate-800">{category.name}</span>
+                              <span className="shrink-0 text-slate-500">{formatRange(total.real, 'BRL', true)}</span>
+                            </div>
+                            <div className="mt-3 h-2 overflow-hidden rounded-full bg-white">
+                              <div
+                                className="h-full rounded-full bg-teal-600"
+                                style={{ width: `${percent}%` }}
+                              />
+                            </div>
+                          </div>
+                        );
+                      })
+                    ) : (
+                      <EmptyState
+                        icon={WalletCards}
+                        title="Gastos vazios"
+                        description="O resumo financeiro aparece assim que a viagem tiver gastos cadastrados."
+                      />
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => activeGroup ? navigateWorkspaceView('expenses') : navigateProfileSection('create-ai')}
+                    className="mt-5 inline-flex h-12 items-center justify-center gap-2 rounded-2xl bg-slate-950 px-5 font-black text-white transition hover:bg-teal-700"
+                  >
+                    Ver todos os gastos
+                    <ArrowRight className="h-4 w-4" />
+                  </button>
+                </article>
+              </section>
+
+              <section className="rounded-[2rem] border border-white/80 bg-white/95 p-6 shadow-xl shadow-slate-900/10 md:p-8">
+                <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+                  <div>
+                    <p className="text-sm font-black uppercase tracking-[0.18em] text-teal-700">Documentos da viagem</p>
+                    <h2 className="mt-2 text-3xl font-black tracking-tight text-slate-950">
+                      {checklistDocumentItems.length || legacyItineraryDocuments.length
+                        ? `${checklistDocumentItems.length || legacyItineraryDocuments.length} documento${(checklistDocumentItems.length || legacyItineraryDocuments.length) === 1 ? '' : 's'}`
+                        : 'Nenhum documento listado'}
+                    </h2>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => navigateProfileSection('checklist')}
+                    className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl bg-slate-950 px-4 text-sm font-black text-white transition hover:bg-teal-700"
+                  >
+                    Ver todos
+                    <ArrowRight className="h-4 w-4" />
+                  </button>
+                </div>
+                <div className="mt-6 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                  {checklistDocumentItems.length ? (
+                    checklistDocumentItems.slice(0, 4).map((item) => {
+                      const assignedName = item.assignedTo ? memberNameByUserId.get(item.assignedTo) : null;
+
+                      return (
+                        <article
+                          key={item.id}
+                          className={`rounded-3xl border px-4 py-4 ${
+                            item.checked ? 'border-emerald-100 bg-emerald-50/70' : 'border-slate-100 bg-slate-50'
+                          }`}
+                        >
+                          <div className="flex items-start justify-between gap-3">
+                            <FileText className={`mt-1 h-5 w-5 shrink-0 ${item.checked ? 'text-emerald-700' : 'text-teal-700'}`} />
+                            <span className={`rounded-full px-2 py-1 text-[0.65rem] font-black uppercase tracking-[0.1em] ${
+                              item.checked ? 'bg-emerald-600 text-white' : 'bg-white text-slate-500'
+                            }`}>
+                              {item.checked ? 'Ok' : 'Pendente'}
+                            </span>
+                          </div>
+                          <p className={`mt-4 font-black ${item.checked ? 'text-emerald-900 line-through' : 'text-slate-950'}`}>
+                            {item.title}
+                          </p>
+                          <p className="mt-2 text-xs font-black uppercase tracking-[0.12em] text-slate-400">
+                            Qtd. {item.quantity}{assignedName ? ` - ${assignedName}` : ''}
+                          </p>
+                        </article>
+                      );
+                    })
+                  ) : legacyItineraryDocuments.length ? (
+                    legacyItineraryDocuments.slice(0, 4).map((item) => (
+                      <article key={item.id} className="rounded-3xl border border-slate-100 bg-slate-50 px-4 py-4">
+                        <FileText className="h-5 w-5 text-teal-700" />
+                        <p className="mt-4 font-black text-slate-950">{item.title}</p>
+                        <p className="mt-2 text-xs font-black uppercase tracking-[0.12em] text-slate-400">Fallback do roteiro</p>
+                      </article>
+                    ))
+                  ) : (
+                    <div className="md:col-span-2 xl:col-span-4">
+                      <EmptyState
+                        icon={FileText}
+                        title="Documentos ainda vazios"
+                        description="A origem atual foi preservada. A integracao Documentos + Checklist fica para a fase separada."
+                      />
+                    </div>
+                  )}
                 </div>
               </section>
 
-              <section className="rounded-[2rem] border border-white/80 bg-white/90 p-5 shadow-xl shadow-slate-900/10 md:p-6">
-                <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-                  <div>
+              <section className="grid gap-6 xl:grid-cols-[minmax(0,1.35fr)_minmax(20rem,0.65fr)]">
+                <section className="rounded-[2rem] border border-white/80 bg-white/95 p-6 shadow-xl shadow-slate-900/10 md:p-8">
+                  <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+                    <div>
+                      <p className="text-sm font-black uppercase tracking-[0.18em] text-slate-400">{t('profile.history')}</p>
+                      <h2 className="mt-2 text-3xl font-black tracking-tight text-slate-950">{t('profile.myTrips')}</h2>
+                      <p className="mt-2 max-w-2xl text-sm font-bold leading-6 text-slate-500">
+                        {t('profile.historyDescription')}
+                      </p>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {tripTabs.map((tab) => (
+                        <button
+                          key={tab.id}
+                          type="button"
+                          onClick={() => setActiveTripTab(tab.id)}
+                          className={`inline-flex h-11 items-center justify-center rounded-2xl px-4 text-sm font-black transition ${
+                            activeTripTab === tab.id
+                              ? 'bg-slate-950 text-white'
+                              : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                          }`}
+                        >
+                          {tab.label} ({tripCounts[tab.id]})
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="mt-6 grid gap-4 md:grid-cols-2">
+                    {visibleTrips.length ? (
+                      visibleTrips.map((group) => (
+                        <TripHistoryCard
+                          key={group.id}
+                          group={group}
+                          isActive={activeGroup?.id === group.id}
+                          onDetails={setSelectedTrip}
+                          summary={tripSummaries[group.id]}
+                        />
+                      ))
+                    ) : (
+                      <p className="rounded-3xl bg-slate-50 px-4 py-6 text-sm font-bold text-slate-500 lg:col-span-2">
+                        Nenhuma viagem encontrada neste filtro.
+                      </p>
+                    )}
+                  </div>
+                </section>
+
+                <aside className="space-y-6">
+                  <section className="rounded-[2rem] border border-white/80 bg-white/95 p-6 shadow-xl shadow-slate-900/10">
                     <p className="text-sm font-black uppercase tracking-[0.18em] text-slate-400">
                       {t('language.selectorTitle')}
                     </p>
-                    <p className="mt-2 max-w-3xl text-sm font-bold leading-6 text-slate-600">
+                    <p className="mt-2 text-sm font-bold leading-6 text-slate-600">
                       {t('language.selectorDescription')}
                     </p>
-                  </div>
-                  <select
-                    value={language}
-                    onChange={(event) => setLanguage(event.target.value as LanguageCode)}
-                    className="h-12 rounded-2xl border border-slate-200 bg-white px-4 font-black text-slate-800 outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-100"
-                  >
-                    {languageOptions.map((option) => (
-                      <option key={option.code} value={option.code}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </section>
+                    <select
+                      value={language}
+                      onChange={(event) => setLanguage(event.target.value as LanguageCode)}
+                      className="mt-5 h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 font-black text-slate-800 outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-100"
+                    >
+                      {languageOptions.map((option) => (
+                        <option key={option.code} value={option.code}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  </section>
 
-              <section className="rounded-[2rem] border border-white/80 bg-white/90 p-6 shadow-xl shadow-slate-900/10 md:p-8">
-                <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-                  <div>
-                    <p className="text-sm font-black uppercase tracking-[0.18em] text-slate-400">{t('profile.history')}</p>
-                    <h2 className="mt-2 text-3xl font-black tracking-tight text-slate-950">{t('profile.myTrips')}</h2>
-                    <p className="mt-2 max-w-2xl text-sm font-bold leading-6 text-slate-500">
-                      {t('profile.historyDescription')}
-                    </p>
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    {tripTabs.map((tab) => (
-                      <button
-                        key={tab.id}
-                        type="button"
-                        onClick={() => setActiveTripTab(tab.id)}
-                        className={`inline-flex h-11 items-center justify-center rounded-2xl px-4 text-sm font-black transition ${
-                          activeTripTab === tab.id
-                            ? 'bg-slate-950 text-white'
-                            : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                        }`}
-                      >
-                        {tab.label} ({tripCounts[tab.id]})
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="mt-6 grid gap-4 md:grid-cols-2 2xl:grid-cols-3">
-                  {visibleTrips.length ? (
-                    visibleTrips.map((group) => (
-                      <TripHistoryCard
-                        key={group.id}
-                        group={group}
-                        isActive={activeGroup?.id === group.id}
-                        onDetails={setSelectedTrip}
-                        summary={tripSummaries[group.id]}
-                      />
-                    ))
-                  ) : (
-                    <p className="rounded-3xl bg-slate-50 px-4 py-6 text-sm font-bold text-slate-500 lg:col-span-2">
-                      Nenhuma viagem encontrada neste filtro.
-                    </p>
-                  )}
-                </div>
+                  <section className="rounded-[2rem] border border-white/80 bg-white/95 p-6 shadow-xl shadow-slate-900/10">
+                    <p className="text-sm font-black uppercase tracking-[0.18em] text-slate-400">Conta TripFlow</p>
+                    <div className="mt-5 grid gap-3">
+                      <DetailTile icon={UserRound} label="Nome" value={displayName} />
+                      <DetailTile icon={WalletCards} label="Total geral" value={formatRange(stats.totalAllReal, 'BRL', true)} />
+                      <DetailTile icon={Sparkles} label="IA" value={isAiTestUser ? 'Geracoes ilimitadas' : `${aiGenerationsUsed} de ${aiGenerationsLimit}`} />
+                    </div>
+                  </section>
+                </aside>
               </section>
             </>
           ) : null}
@@ -2358,7 +2637,7 @@ export function ProfilePage() {
           {activeProfileSection === 'trip' ? (
             activeGroup ? (
               <>
-                <section className="rounded-[2rem] border border-white/80 bg-white/90 p-6 shadow-xl shadow-slate-900/10 md:p-8">
+                <section className="rounded-[2rem] border border-white/80 bg-white/95 p-6 shadow-xl shadow-slate-900/10 md:p-8">
                   <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
                     <div>
                       <p className="text-sm font-black uppercase tracking-[0.18em] text-slate-400">{t('profile.activeTripSection')}</p>
@@ -2376,15 +2655,15 @@ export function ProfilePage() {
                       {tripInfoWarning}
                     </p>
                   ) : null}
-                  <div className="mt-6 grid gap-3 text-sm font-bold text-slate-600 md:grid-cols-2">
-                    <span className="rounded-2xl bg-slate-50 px-4 py-3"><MapPin className="mr-2 inline h-4 w-4" />{activeTripCountries}</span>
-                    <span className="rounded-2xl bg-slate-50 px-4 py-3"><CalendarDays className="mr-2 inline h-4 w-4" />{formatDate(activeGroup.startDate)} - {formatDate(activeGroup.endDate)}</span>
-                    <span className="rounded-2xl bg-slate-50 px-4 py-3"><ShieldCheck className="mr-2 inline h-4 w-4" />{t('profile.owner')}: {ownerName}</span>
-                    <span className="rounded-2xl bg-slate-50 px-4 py-3">{t('profile.createdIn')} {formatDate(activeGroup.createdAt)}</span>
-                    <span className="rounded-2xl bg-slate-50 px-4 py-3">Membros: {members.length || activeTripSummary?.participantsCount || 0}</span>
-                    <span className="rounded-2xl bg-slate-50 px-4 py-3">Gastos: {formatRange(tripExpenseGrandTotal.real, 'BRL', true)}</span>
-                    <span className="rounded-2xl bg-slate-50 px-4 py-3">Roteiro: {tripItineraryItems.length} itens</span>
-                    <span className="rounded-2xl bg-slate-50 px-4 py-3">Pontos turisticos: {tripAttractions.length}</span>
+                  <div className="mt-6 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                    <DetailTile icon={MapPin} label="Paises" value={activeTripCountries} />
+                    <DetailTile icon={CalendarDays} label="Datas" value={`${formatDate(activeGroup.startDate)} - ${formatDate(activeGroup.endDate)}`} />
+                    <DetailTile icon={ShieldCheck} label={t('profile.owner')} value={ownerName} />
+                    <DetailTile icon={Users} label="Membros" value={String(activeTripParticipantCount)} />
+                    <DetailTile icon={WalletCards} label="Gastos" value={formatRange(tripExpenseGrandTotal.real, 'BRL', true)} />
+                    <DetailTile icon={Route} label="Roteiro" value={`${tripItineraryItems.length} itens`} />
+                    <DetailTile icon={MapPin} label="Pontos turisticos" value={String(tripAttractions.length)} />
+                    <DetailTile icon={CalendarDays} label={t('profile.createdIn')} value={formatDate(activeGroup.createdAt)} />
                   </div>
                   {activeGroup.role === 'member' ? (
                     <button
@@ -2400,7 +2679,7 @@ export function ProfilePage() {
                 </section>
 
                 <section className="grid gap-6 xl:grid-cols-3">
-                  <div className="rounded-[2rem] border border-white/80 bg-white/90 p-6 shadow-xl shadow-slate-900/10 xl:col-span-2">
+                  <div className="rounded-[2rem] border border-white/80 bg-white/95 p-6 shadow-xl shadow-slate-900/10 xl:col-span-2">
                     <h3 className="text-2xl font-black text-slate-950">Resumo do roteiro</h3>
                     <div className="mt-4 space-y-3">
                       {tripItineraryItems.slice(0, 5).map((item) => (
@@ -2410,13 +2689,15 @@ export function ProfilePage() {
                         </div>
                       ))}
                       {!tripItineraryItems.length ? (
-                        <p className="rounded-2xl bg-slate-50 px-4 py-5 text-sm font-bold text-slate-500">
-                          Nenhum item de roteiro cadastrado para esta viagem.
-                        </p>
+                        <EmptyState
+                          icon={Route}
+                          title="Roteiro vazio"
+                          description="Os itens da viagem ativa aparecem aqui assim que forem cadastrados."
+                        />
                       ) : null}
                     </div>
                   </div>
-                  <div className="rounded-[2rem] border border-white/80 bg-white/90 p-6 shadow-xl shadow-slate-900/10">
+                  <div className="rounded-[2rem] border border-white/80 bg-white/95 p-6 shadow-xl shadow-slate-900/10">
                     <div className="flex items-center justify-between gap-3">
                       <div>
                         <p className="text-sm font-black uppercase tracking-[0.18em] text-slate-400">Checklist</p>
@@ -2467,9 +2748,11 @@ export function ProfilePage() {
                           </article>
                         ))
                       ) : (
-                        <p className="rounded-2xl bg-slate-50 px-4 py-5 text-sm font-bold text-slate-500">
-                          Nenhum documento adicionado ao checklist da viagem.
-                        </p>
+                        <EmptyState
+                          icon={FileText}
+                          title="Documentos vazios"
+                          description="Documentos continuam usando a origem atual nesta fase visual."
+                        />
                       )}
                     </div>
                   </div>
@@ -2513,15 +2796,19 @@ export function ProfilePage() {
                       )}
                     />
                   ) : (
-                    <div className="rounded-[2rem] border border-white/80 bg-white/90 p-6 shadow-xl shadow-slate-900/10 md:p-8">
+                    <div className="rounded-[2rem] border border-white/80 bg-white/95 p-6 shadow-xl shadow-slate-900/10 md:p-8">
                       <p className="text-sm font-black uppercase tracking-[0.18em] text-slate-400">Resumo de gastos</p>
                       <h3 className="mt-2 text-2xl font-black text-slate-950">Controle financeiro</h3>
-                      <p className="mt-4 rounded-2xl bg-slate-50 px-4 py-5 text-sm font-bold text-slate-500">
-                        Nenhum gasto cadastrado nesta viagem.
-                      </p>
+                      <div className="mt-4">
+                        <EmptyState
+                          icon={WalletCards}
+                          title="Gastos vazios"
+                          description="O controle financeiro da viagem aparece aqui quando houver lancamentos."
+                        />
+                      </div>
                     </div>
                   )}
-                  <div className="rounded-[2rem] border border-white/80 bg-white/90 p-6 shadow-xl shadow-slate-900/10">
+                  <div className="rounded-[2rem] border border-white/80 bg-white/95 p-6 shadow-xl shadow-slate-900/10">
                     <h3 className="text-2xl font-black text-slate-950">Pontos turisticos</h3>
                     <div className="mt-4 space-y-3">
                       {tripAttractions.slice(0, 4).map((attraction) => (
@@ -2530,9 +2817,11 @@ export function ProfilePage() {
                         </p>
                       ))}
                       {!tripAttractions.length ? (
-                        <p className="rounded-2xl bg-slate-50 px-4 py-5 text-sm font-bold text-slate-500">
-                          Nenhum ponto turistico cadastrado para esta viagem.
-                        </p>
+                        <EmptyState
+                          icon={MapPin}
+                          title="Sem pontos turisticos"
+                          description="Os pontos cadastrados na viagem ativa serao resumidos aqui."
+                        />
                       ) : null}
                     </div>
                   </div>
@@ -2544,19 +2833,22 @@ export function ProfilePage() {
                 </section>
               </>
             ) : (
-              <section className="rounded-[2rem] border border-white/80 bg-white/90 p-6 shadow-xl shadow-slate-900/10 md:p-8">
-                <h2 className="text-2xl font-black text-slate-950">Nenhuma viagem ativa</h2>
-                <p className="mt-3 text-sm font-bold leading-6 text-slate-600">
-                  Crie uma viagem ou entre por convite para ver as informacoes da viagem ativa.
-                </p>
-                <button
-                  type="button"
-                  onClick={() => navigateProfileSection('create-ai')}
-                  className="mt-5 inline-flex h-12 items-center justify-center gap-2 rounded-2xl bg-slate-950 px-5 font-black text-white transition hover:bg-teal-700"
-                >
-                  <Plus className="h-5 w-5" />
-                  Criar minha viagem
-                </button>
+              <section className="rounded-[2rem] border border-white/80 bg-white/95 p-6 shadow-xl shadow-slate-900/10 md:p-8">
+                <EmptyState
+                  icon={Plus}
+                  title="Nenhuma viagem ativa"
+                  description="Crie uma viagem ou entre por convite para ver as informacoes da viagem ativa."
+                  action={(
+                    <button
+                      type="button"
+                      onClick={() => navigateProfileSection('create-ai')}
+                      className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl bg-slate-950 px-5 font-black text-white transition hover:bg-teal-700"
+                    >
+                      <Plus className="h-5 w-5" />
+                      Criar minha viagem
+                    </button>
+                  )}
+                />
               </section>
             )
           ) : null}
@@ -2834,19 +3126,22 @@ export function ProfilePage() {
                         })}
                       </div>
                     ) : (
-                      <p className="rounded-2xl bg-slate-50 px-4 py-6 text-sm font-bold text-slate-500">
-                        Nenhum item no checklist desta viagem ainda.
-                      </p>
+                      <EmptyState
+                        icon={CheckCircle2}
+                        title="Checklist vazio"
+                        description="Adicione o primeiro item para acompanhar documentos, roupas e tarefas da viagem."
+                      />
                     )}
                   </section>
                 </div>
               </>
             ) : (
-              <section className="rounded-[2rem] border border-white/80 bg-white/90 p-6 shadow-xl shadow-slate-900/10 md:p-8">
-                <h2 className="text-2xl font-black text-slate-950">Checklist indisponivel</h2>
-                <p className="mt-3 text-sm font-bold leading-6 text-slate-600">
-                  O checklist e vinculado ao group_id ativo. Crie ou abra uma viagem primeiro.
-                </p>
+              <section className="rounded-[2rem] border border-white/80 bg-white/95 p-6 shadow-xl shadow-slate-900/10 md:p-8">
+                <EmptyState
+                  icon={CheckCircle2}
+                  title="Checklist indisponivel"
+                  description="O checklist e vinculado ao group_id ativo. Crie ou abra uma viagem primeiro."
+                />
               </section>
             )
           ) : null}
@@ -2882,9 +3177,11 @@ export function ProfilePage() {
                   {notifications.map((notification) => renderNotificationCard(notification))}
                 </div>
               ) : (
-                <p className="rounded-2xl bg-slate-50 px-4 py-5 text-sm font-bold text-slate-500">
-                  Nenhuma notificacao por enquanto.
-                </p>
+                <EmptyState
+                  icon={Bell}
+                  title="Nenhuma notificacao"
+                  description="Quando convites e atualizacoes chegarem, eles aparecerao aqui."
+                />
               )}
             </section>
           ) : null}
