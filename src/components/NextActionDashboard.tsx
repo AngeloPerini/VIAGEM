@@ -21,6 +21,7 @@ import { ExpenseChart } from './ExpenseChart';
 import { QuoteStatusCard } from './QuoteStatusCard';
 import { SummaryCards } from './SummaryCards';
 import type { AppView } from './Navbar';
+import { useAuth } from '../contexts/AuthContext';
 import { countryLabel } from '../data/countries';
 import { getGroupMembers } from '../services/groupsService';
 import { getCachedItineraryItems, getItineraryItems } from '../services/itineraryService';
@@ -29,6 +30,7 @@ import type {
   CategoryMeta,
   ExchangeRateMap,
   Expense,
+  GroupMember,
   ItineraryItem,
   RealValueMode,
   TripChecklistItem,
@@ -152,14 +154,75 @@ const isDocumentChecklistItem = (item: TripChecklistItem) => {
   return /document|passaporte|visto|reserva|comprovante|voucher|seguro/.test(searchable);
 };
 
+const dashboardHeroImage =
+  'https://lh3.googleusercontent.com/aida-public/AB6AXuB1_s6-IXeqdQenr-iqRsq_Ema-qtKVzaxTrM4pZwFj7bUWrvNEpFB5_e9z6LicJ5Rb4dt2GuO9isUOY-usBaHtvXVUbeoGJveWj37td0C6SW8PzOmBmM-5YwOO3HwPoFsJEORL9cBjU2n6RoWF79d1nGgHZmkxoiCXUZ5hmNBYueSVyqbhkYCfjIw3SxeFZRHQo4wcyy6inD37y-jBUspou5r1q0tkJNBQUfwfglmzzprU_YeR1ldc8oyR6NNRcBqnhgePVdRDu3nY';
+
+const getDaysUntilStart = (startDate?: string) => {
+  if (!startDate) return null;
+  const today = new Date();
+  const start = new Date(`${startDate}T00:00:00`);
+  if (Number.isNaN(start.getTime())) return null;
+
+  const todayUtc = Date.UTC(today.getFullYear(), today.getMonth(), today.getDate());
+  const startUtc = Date.UTC(start.getFullYear(), start.getMonth(), start.getDate());
+  return Math.ceil((startUtc - todayUtc) / 86400000);
+};
+
+const formatDaysUntil = (daysUntil: number | null) => {
+  if (daysUntil === null) return 'A definir';
+  if (daysUntil > 1) return `${daysUntil} dias`;
+  if (daysUntil === 1) return 'Amanha';
+  if (daysUntil === 0) return 'Hoje';
+  return 'Em andamento';
+};
+
+const getDisplayName = (userEmail?: string, fullName?: string, metadataName?: string) =>
+  fullName || metadataName || userEmail || 'viajante';
+
+const getFirstName = (displayName: string) => displayName.trim().split(/\s+/)[0] || 'viajante';
+
+const getMemberInitial = (member: GroupMember) =>
+  member.userId.replace(/[^a-zA-Z0-9]/g, '').slice(0, 1).toUpperCase() || 'T';
+
 function ProgressBar({ value, tone = 'teal' }: { value: number; tone?: 'teal' | 'slate' }) {
   const width = `${Math.max(0, Math.min(100, Math.round(value)))}%`;
   return (
     <div className="h-2 overflow-hidden rounded-full bg-slate-100">
       <div
-        className={`h-full rounded-full ${tone === 'teal' ? 'bg-teal-500' : 'bg-slate-950'}`}
+        className={`h-full rounded-full ${tone === 'teal' ? 'bg-[#006b57]' : 'bg-slate-950'}`}
         style={{ width }}
       />
+    </div>
+  );
+}
+
+function CircularProgress({
+  detail,
+  label,
+  value,
+}: {
+  detail: string;
+  label: string;
+  value: number;
+}) {
+  const roundedValue = Math.max(0, Math.min(100, Math.round(value)));
+
+  return (
+    <div className="flex items-center gap-3">
+      <div
+        className="grid h-16 w-16 shrink-0 place-items-center rounded-full"
+        style={{
+          background: `conic-gradient(#006b57 ${roundedValue * 3.6}deg, #e8edf4 0deg)`,
+        }}
+      >
+        <div className="grid h-12 w-12 place-items-center rounded-full bg-white text-sm font-black text-slate-950">
+          {roundedValue}%
+        </div>
+      </div>
+      <div className="min-w-0">
+        <p className="text-sm font-black text-slate-950">{label}</p>
+        <p className="mt-1 text-xs font-bold leading-5 text-slate-500">{detail}</p>
+      </div>
     </div>
   );
 }
@@ -187,22 +250,21 @@ function DashboardCard({
   title: string;
 }) {
   return (
-    <section className="rounded-[2rem] border border-white/80 bg-white/90 p-5 shadow-xl shadow-slate-900/10 backdrop-blur-xl md:p-6">
+    <section className="rounded-[1.5rem] border border-[#e6ebf2] bg-white p-5 shadow-[0_18px_50px_rgba(15,23,42,0.07)] md:p-6">
       <div className="flex items-start justify-between gap-4">
         <div className="flex min-w-0 items-center gap-3">
-          <span className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-teal-50 text-teal-700">
+          <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-[#eef8f5] text-[#006b57]">
             <Icon className="h-5 w-5" />
           </span>
           <div className="min-w-0">
-            <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-400">Dashboard</p>
-            <h2 className="truncate text-xl font-black text-slate-950">{title}</h2>
+            <h2 className="truncate text-lg font-black text-slate-950">{title}</h2>
           </div>
         </div>
         {actionLabel && onAction ? (
           <button
             type="button"
             onClick={onAction}
-            className="shrink-0 rounded-2xl border border-slate-200 bg-white px-3 py-2 text-xs font-black text-slate-700 transition hover:border-teal-200 hover:bg-teal-50 hover:text-teal-700"
+            className="shrink-0 rounded-full border border-slate-200 bg-white px-3 py-2 text-xs font-black text-slate-700 transition hover:border-[#006b57]/30 hover:bg-[#eef8f5] hover:text-[#006b57]"
           >
             {actionLabel}
           </button>
@@ -223,7 +285,7 @@ function ItemRow({
   title: string;
 }) {
   return (
-    <div className="rounded-2xl border border-slate-100 bg-slate-50/80 px-4 py-3">
+    <div className="border-b border-slate-100 py-3 last:border-b-0">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="truncate text-sm font-black text-slate-950">{title}</p>
@@ -258,8 +320,10 @@ export function NextActionDashboard({
   realValueMode,
   totalsByCategory,
 }: NextActionDashboardProps) {
+  const { user } = useAuth();
   const [itineraryItems, setItineraryItems] = useState<ItineraryItem[]>(() => getCachedItineraryItems(activeGroup?.id));
   const [checklistItems, setChecklistItems] = useState<TripChecklistItem[]>([]);
+  const [members, setMembers] = useState<GroupMember[]>([]);
   const [membersCount, setMembersCount] = useState<number | null>(null);
   const [isPlanningLoading, setIsPlanningLoading] = useState(false);
   const [planningWarning, setPlanningWarning] = useState<string | null>(null);
@@ -268,6 +332,7 @@ export function NextActionDashboard({
     if (!activeGroup?.id) {
       setItineraryItems([]);
       setChecklistItems([]);
+      setMembers([]);
       setMembersCount(null);
       return undefined;
     }
@@ -286,6 +351,7 @@ export function NextActionDashboard({
         if (active) {
           setItineraryItems(nextItineraryItems);
           setChecklistItems(nextChecklistItems);
+          setMembers(nextMembers);
           setMembersCount(nextMembers.length);
           setPlanningWarning(null);
         }
@@ -300,6 +366,9 @@ export function NextActionDashboard({
     };
 
     setItineraryItems(getCachedItineraryItems(activeGroup.id));
+    setChecklistItems([]);
+    setMembers([]);
+    setMembersCount(null);
     void loadPlanningData();
 
     const refreshWhenVisible = () => {
@@ -327,15 +396,46 @@ export function NextActionDashboard({
   const pendingDocuments = documentItems.filter((item) => !item.checked);
   const pendingChecklist = checklistItems.filter((item) => !item.checked);
   const completedChecklistCount = checklistItems.length - pendingChecklist.length;
+  const completedDocumentsCount = documentItems.length - pendingDocuments.length;
   const completedItineraryCount = itineraryItems.length - pendingItineraryItems.length;
   const checklistProgress = checklistItems.length ? (completedChecklistCount / checklistItems.length) * 100 : 0;
+  const documentsProgress = documentItems.length ? (completedDocumentsCount / documentItems.length) * 100 : 0;
   const itineraryProgress = itineraryItems.length ? (completedItineraryCount / itineraryItems.length) * 100 : 0;
   const recentExpenses = useMemo(() => [...expenses].slice(-5).reverse(), [expenses]);
   const tripDayCount = getTripDayCount(activeGroup?.startDate, activeGroup?.endDate);
+  const daysUntilStart = getDaysUntilStart(activeGroup?.startDate);
+  const memberTotal = membersCount ?? (activeGroup ? 1 : 0);
+  const ownerCount = members.filter((member) => member.role === 'owner').length;
+  const travelProgressParts = documentItems.length
+    ? [itineraryProgress, checklistProgress, documentsProgress]
+    : [itineraryProgress, checklistProgress];
+  const travelReadiness = activeGroup
+    ? Math.round(travelProgressParts.reduce((sum, value) => sum + value, 0) / travelProgressParts.length)
+    : 0;
   const tripStatus = activeGroup?.status ?? 'planned';
   const tripCountries = activeGroup?.countries?.length
     ? activeGroup.countries.map((country) => countryLabel(country)).join(', ')
     : 'Paises a definir';
+  const userDisplayName = getDisplayName(
+    user?.email,
+    user?.user_metadata?.full_name as string | undefined,
+    user?.user_metadata?.name as string | undefined,
+  );
+  const firstName = getFirstName(userDisplayName);
+  const tripPeriodLabel = activeGroup
+    ? `${formatDate(activeGroup.startDate)} - ${formatDate(activeGroup.endDate)}`
+    : 'Periodo a definir';
+  const statusMessage = !activeGroup
+    ? 'Crie uma viagem para conectar roteiro, checklist e gastos em um unico painel.'
+    : pendingDocuments.length
+      ? 'Documentos pendentes sao o principal ponto de atencao agora.'
+      : pendingChecklist.length
+        ? 'Checklist ainda tem pendencias antes da viagem.'
+        : nextPendingActivity
+          ? 'Roteiro pronto para acompanhar a proxima atividade.'
+          : recentExpenses.length
+            ? 'Planejamento organizado. Vale revisar os gastos recentes.'
+            : 'Tudo pronto no essencial para esta viagem.';
 
   const nextAction = useMemo<NextAction>(() => {
     if (!activeGroup) {
@@ -457,83 +557,26 @@ export function NextActionDashboard({
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -12 }}
     >
-      <section className="relative overflow-hidden rounded-[2rem] border border-slate-800 bg-[linear-gradient(135deg,#07111f_0%,#101827_50%,#0f4f49_100%)] p-6 text-white shadow-2xl shadow-slate-900/25 md:p-8">
-        <div className="absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent via-teal-200/60 to-transparent" />
-        <div className="grid gap-7 xl:grid-cols-[minmax(0,1fr)_360px] xl:items-stretch">
-          <div className="min-w-0">
-            <div className="flex flex-wrap items-center gap-3">
-              <span className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-white text-slate-950 shadow-xl shadow-slate-950/25">
-                <NextActionIcon className="h-6 w-6" />
-              </span>
-              <div>
-                <p className="text-sm font-black uppercase tracking-[0.2em] text-teal-200">Proxima acao</p>
-                <p className="mt-1 text-sm font-bold text-slate-300">{nextAction.detail ?? 'Continue seu planejamento'}</p>
-              </div>
-            </div>
-            <h1 className="mt-6 max-w-4xl text-4xl font-black tracking-tight md:text-6xl">{nextAction.title}</h1>
-            <p className="mt-4 max-w-3xl text-base font-bold leading-7 text-slate-300 md:text-lg">{nextAction.description}</p>
-            <div className="mt-7 flex flex-col gap-3 sm:flex-row sm:items-center">
-              <button
-                type="button"
-                onClick={() => handleTarget(nextAction.target)}
-                className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl bg-white px-6 font-black text-slate-950 shadow-xl shadow-slate-950/20 transition hover:bg-teal-100 focus:outline-none focus:ring-4 focus:ring-teal-300"
-              >
-                {nextAction.cta}
-                <ArrowRight className="h-5 w-5" />
-              </button>
-              {activeGroup ? (
-                <button
-                  type="button"
-                  onClick={onAddExpense}
-                  className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl border border-white/15 bg-white/10 px-5 font-black text-white transition hover:bg-white/15 focus:outline-none focus:ring-4 focus:ring-teal-300/40"
-                >
-                  <WalletCards className="h-5 w-5" />
-                  Adicionar gasto
-                </button>
-              ) : null}
-            </div>
-          </div>
-
-          <aside className="rounded-[1.5rem] border border-white/10 bg-white/10 p-5 backdrop-blur-md">
-            <div className="flex items-center justify-between gap-3">
-              <p className="text-sm font-black uppercase tracking-[0.18em] text-teal-100">Viagem ativa</p>
-              <span className={`rounded-full px-3 py-1 text-xs font-black ${statusClasses[tripStatus]}`}>
-                {statusLabels[tripStatus]}
-              </span>
-            </div>
-            <h2 className="mt-4 break-words text-2xl font-black">{activeGroup?.name ?? 'Sem viagem ativa'}</h2>
-            <div className="mt-5 grid gap-3 text-sm font-bold text-slate-200">
-              <div className="flex items-center gap-2">
-                <MapPin className="h-4 w-4 text-teal-200" />
-                <span>{tripCountries}</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <CalendarDays className="h-4 w-4 text-teal-200" />
-                <span>{formatDate(activeGroup?.startDate)} - {formatDate(activeGroup?.endDate)}</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <UsersRound className="h-4 w-4 text-teal-200" />
-                <span>{membersCount ?? 1} participante{(membersCount ?? 1) === 1 ? '' : 's'}</span>
-              </div>
-            </div>
-            <div className="mt-6 space-y-4">
-              <div>
-                <div className="mb-2 flex items-center justify-between text-xs font-black uppercase tracking-[0.12em] text-slate-300">
-                  <span>Roteiro</span>
-                  <span>{Math.round(itineraryProgress)}%</span>
-                </div>
-                <ProgressBar value={itineraryProgress} />
-              </div>
-              <div>
-                <div className="mb-2 flex items-center justify-between text-xs font-black uppercase tracking-[0.12em] text-slate-300">
-                  <span>Checklist</span>
-                  <span>{Math.round(checklistProgress)}%</span>
-                </div>
-                <ProgressBar value={checklistProgress} />
-              </div>
-            </div>
-          </aside>
+      <section className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+        <div>
+          <p className="text-sm font-black uppercase tracking-[0.2em] text-[#006b57]">Dashboard TripFlow</p>
+          <h1 className="mt-2 text-3xl font-black tracking-normal text-slate-950 md:text-4xl">
+            Ola, {firstName}
+          </h1>
+          <p className="mt-2 max-w-2xl text-sm font-bold leading-6 text-slate-500 md:text-base">
+            {activeGroup
+              ? `${activeGroup.name} esta ${travelReadiness}% organizada. ${statusMessage}`
+              : statusMessage}
+          </p>
         </div>
+        <button
+          type="button"
+          onClick={() => onNavigateToProfilePath(activeGroup ? '/perfil/viagem' : '/perfil/criar-viagem')}
+          className="inline-flex h-12 items-center justify-center gap-2 rounded-full bg-white px-5 text-sm font-black text-slate-950 shadow-[0_12px_32px_rgba(15,23,42,0.08)] transition hover:bg-[#eef8f5] hover:text-[#006b57]"
+        >
+          {activeGroup ? 'Ver viagem ativa' : 'Criar viagem'}
+          <ArrowRight className="h-4 w-4" />
+        </button>
       </section>
 
       {expenseStatusMessage || planningStatusMessage ? (
@@ -542,7 +585,139 @@ export function NextActionDashboard({
         </p>
       ) : null}
 
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1.15fr)_minmax(320px,0.85fr)]">
+      <div className="grid gap-5 xl:grid-cols-12">
+        <section className="relative min-h-[360px] overflow-hidden rounded-[1.75rem] bg-slate-950 text-white shadow-[0_24px_70px_rgba(15,23,42,0.18)] md:min-h-[420px] xl:col-span-8">
+          <img
+            src={dashboardHeroImage}
+            alt=""
+            className="absolute inset-0 h-full w-full object-cover opacity-80"
+          />
+          <div className="absolute inset-0 bg-gradient-to-br from-slate-950/72 via-slate-950/24 to-[#006b57]/44" />
+          <div className="relative flex min-h-[360px] flex-col justify-between p-6 md:min-h-[420px] md:p-8">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <span className="inline-flex items-center gap-2 rounded-full bg-white/90 px-4 py-2 text-xs font-black uppercase tracking-[0.16em] text-slate-950 shadow-lg shadow-slate-950/15">
+                <NextActionIcon className="h-4 w-4 text-[#006b57]" />
+                Proxima acao
+              </span>
+              <span className="rounded-full border border-white/20 bg-white/10 px-4 py-2 text-xs font-black uppercase tracking-[0.12em] text-white backdrop-blur">
+                {nextAction.detail ?? 'Planejamento'}
+              </span>
+            </div>
+
+            <div className="max-w-2xl">
+              <h2 className="text-3xl font-black tracking-normal md:text-5xl">{nextAction.title}</h2>
+              <p className="mt-4 text-sm font-bold leading-6 text-white/80 md:text-base md:leading-7">
+                {nextAction.description}
+              </p>
+              <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+                <button
+                  type="button"
+                  onClick={() => handleTarget(nextAction.target)}
+                  className="inline-flex h-12 items-center justify-center gap-2 rounded-full bg-white px-5 font-black text-slate-950 shadow-xl shadow-slate-950/20 transition hover:bg-[#48fdd3] focus:outline-none focus:ring-4 focus:ring-white/30"
+                >
+                  {nextAction.cta}
+                  <ArrowRight className="h-5 w-5" />
+                </button>
+                {activeGroup ? (
+                  <button
+                    type="button"
+                    onClick={onAddExpense}
+                    className="inline-flex h-12 items-center justify-center gap-2 rounded-full border border-white/25 bg-white/10 px-5 font-black text-white backdrop-blur transition hover:bg-white/20 focus:outline-none focus:ring-4 focus:ring-white/25"
+                  >
+                    <WalletCards className="h-5 w-5" />
+                    Adicionar gasto
+                  </button>
+                ) : null}
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section className="rounded-[1.75rem] bg-[#101827] p-6 text-white shadow-[0_24px_70px_rgba(15,23,42,0.16)] xl:col-span-4">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-[#48fdd3]">Custo estimado</p>
+              <h2 className="mt-3 text-3xl font-black">{formatRange(grandTotal.real, 'BRL', true)}</h2>
+            </div>
+            <span className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-white/10 text-[#48fdd3]">
+              <WalletCards className="h-5 w-5" />
+            </span>
+          </div>
+          <p className="mt-2 text-sm font-bold text-slate-300">
+            {expenses.length} gasto{expenses.length === 1 ? '' : 's'} cadastrado{expenses.length === 1 ? '' : 's'} na viagem ativa.
+          </p>
+          <div className="mt-7 space-y-5">
+            <div>
+              <div className="mb-2 flex items-center justify-between text-xs font-black uppercase tracking-[0.12em] text-slate-300">
+                <span>Roteiro</span>
+                <span>{Math.round(itineraryProgress)}%</span>
+              </div>
+              <ProgressBar value={itineraryProgress} />
+            </div>
+            <div>
+              <div className="mb-2 flex items-center justify-between text-xs font-black uppercase tracking-[0.12em] text-slate-300">
+                <span>Documentos</span>
+                <span>{documentItems.length ? `${completedDocumentsCount}/${documentItems.length}` : '0/0'}</span>
+              </div>
+              <ProgressBar value={documentsProgress} />
+            </div>
+            <div>
+              <div className="mb-2 flex items-center justify-between text-xs font-black uppercase tracking-[0.12em] text-slate-300">
+                <span>Checklist</span>
+                <span>{Math.round(checklistProgress)}%</span>
+              </div>
+              <ProgressBar value={checklistProgress} />
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => onNavigate('expenses')}
+            className="mt-7 inline-flex h-11 w-full items-center justify-center gap-2 rounded-full bg-white px-5 text-sm font-black text-slate-950 transition hover:bg-[#48fdd3]"
+          >
+            Ver gastos
+            <ArrowRight className="h-4 w-4" />
+          </button>
+        </section>
+
+        <section className="grid gap-5 rounded-[1.75rem] border border-[#e6ebf2] bg-white p-5 shadow-[0_18px_50px_rgba(15,23,42,0.07)] md:grid-cols-[minmax(0,1.4fr)_repeat(4,minmax(110px,1fr))] md:items-center xl:col-span-12">
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className={`rounded-full px-3 py-1 text-xs font-black ${statusClasses[tripStatus]}`}>
+                {statusLabels[tripStatus]}
+              </span>
+              <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-black text-slate-500">
+                Viagem ativa
+              </span>
+            </div>
+            <h2 className="mt-3 truncate text-2xl font-black text-slate-950">
+              {activeGroup?.name ?? 'Sem viagem ativa'}
+            </h2>
+            <p className="mt-2 flex items-center gap-2 text-sm font-bold text-slate-500">
+              <MapPin className="h-4 w-4 text-[#006b57]" />
+              <span className="truncate">{tripCountries}</span>
+            </p>
+          </div>
+
+          <div className="rounded-2xl bg-slate-50 px-4 py-3">
+            <p className="text-xs font-black uppercase tracking-[0.12em] text-slate-400">Periodo</p>
+            <p className="mt-2 text-sm font-black leading-5 text-slate-950">{tripPeriodLabel}</p>
+          </div>
+          <div className="rounded-2xl bg-slate-50 px-4 py-3">
+            <p className="text-xs font-black uppercase tracking-[0.12em] text-slate-400">Faltam</p>
+            <p className="mt-2 text-lg font-black text-slate-950">{formatDaysUntil(daysUntilStart)}</p>
+          </div>
+          <div className="rounded-2xl bg-slate-50 px-4 py-3">
+            <p className="text-xs font-black uppercase tracking-[0.12em] text-slate-400">Atividades</p>
+            <p className="mt-2 text-lg font-black text-slate-950">{itineraryItems.length}</p>
+          </div>
+          <div className="rounded-2xl bg-slate-50 px-4 py-3">
+            <p className="text-xs font-black uppercase tracking-[0.12em] text-slate-400">Membros</p>
+            <p className="mt-2 text-lg font-black text-slate-950">{memberTotal || 1}</p>
+          </div>
+        </section>
+      </div>
+
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1.1fr)_minmax(330px,0.9fr)]">
         <DashboardCard
           icon={Route}
           title="Proximas atividades"
@@ -550,14 +725,27 @@ export function NextActionDashboard({
           onAction={() => onNavigate('itinerary')}
         >
           {activityHighlights.length ? (
-            <div className="space-y-3">
-              {activityHighlights.map((item) => (
-                <ItemRow
-                  key={item.id}
-                  title={item.title}
-                  meta={`${getItemDateLabel(item, activeGroup)} - ${getLocationLabel(item)}${item.time ? ` - ${item.time}` : ''}`}
-                  status={item.completed ? 'Concluida' : 'Pendente'}
-                />
+            <div>
+              {activityHighlights.map((item, index) => (
+                <div key={item.id} className="grid grid-cols-[auto_minmax(0,1fr)] gap-4 border-b border-slate-100 py-4 last:border-b-0">
+                  <div className="flex flex-col items-center">
+                    <span className="grid h-9 w-9 place-items-center rounded-full bg-[#eef8f5] text-sm font-black text-[#006b57]">
+                      {index + 1}
+                    </span>
+                    {index < activityHighlights.length - 1 ? <span className="mt-2 h-full w-px bg-slate-100" /> : null}
+                  </div>
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2 text-xs font-black uppercase tracking-[0.12em] text-slate-400">
+                      <span>{getItemDateLabel(item, activeGroup)}</span>
+                      {item.time ? <span>{item.time}</span> : null}
+                    </div>
+                    <p className="mt-1 truncate text-base font-black text-slate-950">{item.title}</p>
+                    <p className="mt-1 flex items-center gap-2 text-sm font-bold text-slate-500">
+                      <MapPin className="h-4 w-4 text-[#006b57]" />
+                      <span className="truncate">{getLocationLabel(item)}</span>
+                    </p>
+                  </div>
+                </div>
               ))}
               {!pendingItineraryItems.length ? (
                 <p className="rounded-2xl bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-800">
@@ -580,23 +768,24 @@ export function NextActionDashboard({
           onAction={() => onNavigateToProfilePath('/perfil/viagem')}
         >
           <div className="grid gap-3 sm:grid-cols-2">
+            <CircularProgress
+              value={itineraryProgress}
+              label="Roteiro"
+              detail={`${completedItineraryCount} de ${itineraryItems.length} atividades`}
+            />
+            <CircularProgress
+              value={documentsProgress}
+              label="Documentos"
+              detail={`${completedDocumentsCount} de ${documentItems.length} concluidos`}
+            />
+            <CircularProgress
+              value={checklistProgress}
+              label="Checklist"
+              detail={`${completedChecklistCount} de ${checklistItems.length} itens`}
+            />
             <div className="rounded-2xl bg-slate-50 px-4 py-4">
-              <p className="text-xs font-black uppercase tracking-[0.12em] text-slate-400">Duracao</p>
-              <p className="mt-2 text-2xl font-black text-slate-950">
-                {tripDayCount ? `${tripDayCount} dias` : 'A definir'}
-              </p>
-            </div>
-            <div className="rounded-2xl bg-slate-50 px-4 py-4">
-              <p className="text-xs font-black uppercase tracking-[0.12em] text-slate-400">Membros</p>
-              <p className="mt-2 text-2xl font-black text-slate-950">{membersCount ?? 1}</p>
-            </div>
-            <div className="rounded-2xl bg-slate-50 px-4 py-4">
-              <p className="text-xs font-black uppercase tracking-[0.12em] text-slate-400">Atividades</p>
-              <p className="mt-2 text-2xl font-black text-slate-950">{completedItineraryCount}/{itineraryItems.length}</p>
-            </div>
-            <div className="rounded-2xl bg-slate-50 px-4 py-4">
-              <p className="text-xs font-black uppercase tracking-[0.12em] text-slate-400">Checklist</p>
-              <p className="mt-2 text-2xl font-black text-slate-950">{completedChecklistCount}/{checklistItems.length}</p>
+              <p className="text-xs font-black uppercase tracking-[0.12em] text-slate-400">Resumo</p>
+              <p className="mt-2 text-sm font-bold leading-6 text-slate-600">{statusMessage}</p>
             </div>
           </div>
         </DashboardCard>
@@ -611,19 +800,12 @@ export function NextActionDashboard({
         >
           {documentItems.length ? (
             <div className="space-y-4">
-              <div className="grid grid-cols-3 gap-2 text-center">
-                <div className="rounded-2xl bg-slate-50 px-3 py-3">
-                  <p className="text-xl font-black text-slate-950">{documentItems.length}</p>
-                  <p className="text-[0.65rem] font-black uppercase tracking-[0.08em] text-slate-400">Total</p>
+              <div>
+                <div className="mb-2 flex items-center justify-between text-xs font-black uppercase tracking-[0.12em] text-slate-400">
+                  <span>{completedDocumentsCount} de {documentItems.length} concluidos</span>
+                  <span>{Math.round(documentsProgress)}%</span>
                 </div>
-                <div className="rounded-2xl bg-emerald-50 px-3 py-3">
-                  <p className="text-xl font-black text-emerald-800">{documentItems.length - pendingDocuments.length}</p>
-                  <p className="text-[0.65rem] font-black uppercase tracking-[0.08em] text-emerald-700">Ok</p>
-                </div>
-                <div className="rounded-2xl bg-amber-50 px-3 py-3">
-                  <p className="text-xl font-black text-amber-800">{pendingDocuments.length}</p>
-                  <p className="text-[0.65rem] font-black uppercase tracking-[0.08em] text-amber-700">Pend.</p>
-                </div>
+                <ProgressBar value={documentsProgress} tone="slate" />
               </div>
               {pendingDocuments.slice(0, 3).map((item) => (
                 <ItemRow key={item.id} title={item.title} meta={item.notes ?? `${item.quantity} item(ns)`} status="Pendente" />
@@ -701,6 +883,71 @@ export function NextActionDashboard({
               description="Cadastre passagens, hospedagem e reservas para acompanhar o orcamento da viagem."
             />
           )}
+        </DashboardCard>
+      </div>
+
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)]">
+        <DashboardCard
+          icon={UsersRound}
+          title="Membros do grupo"
+          actionLabel="Ver perfil"
+          onAction={() => onNavigateToProfilePath('/perfil/viagem')}
+        >
+          <div className="space-y-4">
+            <div className="flex flex-wrap gap-2">
+              {members.length ? (
+                members.slice(0, 6).map((member) => (
+                  <span
+                    key={member.id}
+                    className="inline-flex h-11 w-11 items-center justify-center rounded-full bg-slate-950 text-sm font-black text-white"
+                    title={member.role === 'owner' ? 'Owner' : 'Member'}
+                  >
+                    {getMemberInitial(member)}
+                  </span>
+                ))
+              ) : (
+                <span className="inline-flex h-11 w-11 items-center justify-center rounded-full bg-slate-950 text-sm font-black text-white">
+                  {firstName.slice(0, 1).toUpperCase()}
+                </span>
+              )}
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <p className="text-2xl font-black text-slate-950">{memberTotal || 1}</p>
+                <p className="mt-1 text-xs font-black uppercase tracking-[0.12em] text-slate-400">Participantes</p>
+              </div>
+              <div>
+                <p className="text-2xl font-black text-slate-950">{ownerCount || 1}</p>
+                <p className="mt-1 text-xs font-black uppercase tracking-[0.12em] text-slate-400">Responsavel</p>
+              </div>
+            </div>
+          </div>
+        </DashboardCard>
+
+        <DashboardCard
+          icon={CalendarDays}
+          title="Resumo da viagem"
+          actionLabel="Continuar planejamento"
+          onAction={() => handleTarget(nextAction.target)}
+        >
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            <div>
+              <p className="text-xs font-black uppercase tracking-[0.12em] text-slate-400">Duracao</p>
+              <p className="mt-2 text-xl font-black text-slate-950">{tripDayCount ? `${tripDayCount} dias` : 'A definir'}</p>
+            </div>
+            <div>
+              <p className="text-xs font-black uppercase tracking-[0.12em] text-slate-400">Dias restantes</p>
+              <p className="mt-2 text-xl font-black text-slate-950">{formatDaysUntil(daysUntilStart)}</p>
+            </div>
+            <div>
+              <p className="text-xs font-black uppercase tracking-[0.12em] text-slate-400">Atividades</p>
+              <p className="mt-2 text-xl font-black text-slate-950">{itineraryItems.length}</p>
+            </div>
+            <div>
+              <p className="text-xs font-black uppercase tracking-[0.12em] text-slate-400">Total</p>
+              <p className="mt-2 text-xl font-black text-slate-950">{formatRange(grandTotal.real, 'BRL', true)}</p>
+            </div>
+          </div>
         </DashboardCard>
       </div>
 

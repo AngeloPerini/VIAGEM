@@ -29,13 +29,13 @@ const travelHeroImage =
   'https://lh3.googleusercontent.com/aida-public/AB6AXuCM6rhDSvqhuD-HpbmgtmEiUAKiTDS1QIKN8krmV7IqkXSWD3ZcNdbS2zNCYsDpEjmqdew1DTSzH4QkSBSk264Kv6K2P4dITmxa8imu0ZS2dAaMbJSaQR1LFBqF9AMEwwki4JWl7hMPBxanunISEng3Jo6rk0WOmGdVSx3N_7VgBvraAsb7T0ifRCAaBUVsqXiGPGnjwUeeO3PqOpo9-pNOyhzhovCcW7tvI6MkWT7yE5abchq9tVG2edFkf23WEfRxP75n5WhDGkV4';
 
 const sharedInputClass =
-  'h-14 w-full rounded-2xl border border-[#c6c6cd] bg-[#f8f9ff] px-4 text-base font-medium text-[#0b1c30] outline-none transition placeholder:text-[#45464d]/45 focus:border-[#131b2e] focus:bg-white focus:ring-4 focus:ring-[#131b2e]/10 disabled:cursor-not-allowed disabled:opacity-70';
+  'h-12 w-full rounded-2xl border border-[#c6c6cd] bg-[#f8f9ff] px-4 text-base font-medium text-[#0b1c30] outline-none transition placeholder:text-[#45464d]/45 focus:border-[#131b2e] focus:bg-white focus:ring-4 focus:ring-[#131b2e]/10 disabled:cursor-not-allowed disabled:opacity-70 sm:h-[3.25rem] lg:h-12';
 const iconInputClass = `${sharedInputClass} pl-12`;
 const passwordInputClass = `${iconInputClass} pr-12`;
 const primaryButtonClass =
-  'inline-flex h-16 w-full items-center justify-center gap-3 rounded-2xl bg-black px-6 text-base font-extrabold text-white shadow-[0_18px_36px_rgba(15,23,42,0.18)] transition hover:-translate-y-0.5 hover:bg-[#131b2e] hover:shadow-[0_22px_42px_rgba(15,23,42,0.22)] active:translate-y-0 disabled:cursor-not-allowed disabled:opacity-70 disabled:hover:translate-y-0';
+  'inline-flex h-[3.25rem] w-full items-center justify-center gap-3 rounded-2xl bg-black px-6 text-base font-extrabold text-white shadow-[0_18px_36px_rgba(15,23,42,0.18)] transition hover:-translate-y-0.5 hover:bg-[#131b2e] hover:shadow-[0_22px_42px_rgba(15,23,42,0.22)] active:translate-y-0 disabled:cursor-not-allowed disabled:opacity-70 disabled:hover:translate-y-0';
 const secondaryButtonClass =
-  'inline-flex h-14 w-full items-center justify-center gap-3 rounded-2xl border border-[#c6c6cd] bg-white px-6 text-base font-bold text-[#0b1c30] transition hover:border-[#131b2e]/35 hover:bg-[#eff4ff] disabled:cursor-not-allowed disabled:opacity-70';
+  'inline-flex h-12 w-full items-center justify-center gap-3 rounded-2xl border border-[#c6c6cd] bg-white px-6 text-base font-bold text-[#0b1c30] transition hover:border-[#131b2e]/35 hover:bg-[#eff4ff] disabled:cursor-not-allowed disabled:opacity-70';
 
 const friendlyAuthError = (message: string) => {
   const normalized = message.toLowerCase();
@@ -256,16 +256,16 @@ export function AuthPage({ initialInviteCode }: AuthPageProps) {
 
   return (
     <main
-      className="flex min-h-screen items-center justify-center overflow-x-hidden px-4 py-5 text-[#0b1c30] sm:px-6 lg:px-10"
+      className="flex min-h-svh items-start justify-center overflow-x-hidden px-4 py-4 text-[#0b1c30] sm:px-6 md:items-center lg:px-10 lg:py-4"
       style={{ background: 'radial-gradient(circle at top left, #f8f9ff 0%, #e5eeff 46%, #dce9ff 100%)' }}
     >
       <motion.section
-        className="grid w-full max-w-[1100px] grid-cols-1 overflow-hidden rounded-[2rem] border border-white/70 bg-white shadow-[0_28px_90px_rgba(15,23,42,0.12)] lg:grid-cols-2"
+        className="grid w-full max-w-[1080px] grid-cols-1 overflow-hidden rounded-[2rem] border border-white/70 bg-white shadow-[0_28px_90px_rgba(15,23,42,0.12)] lg:h-[min(720px,calc(100svh-2rem))] lg:grid-cols-[0.95fr_1.05fr]"
         initial={{ opacity: 0, y: 18 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
       >
-        <aside className="relative hidden min-h-[700px] overflow-hidden bg-[#131b2e] lg:block">
+        <aside className="relative hidden min-h-0 overflow-hidden bg-[#131b2e] lg:block">
           <motion.img
             src={travelHeroImage}
             alt="Vista de viagem acima das nuvens"
@@ -274,31 +274,31 @@ export function AuthPage({ initialInviteCode }: AuthPageProps) {
             transition={{ duration: 6, ease: 'easeOut' }}
           />
           <div className="absolute inset-0 bg-gradient-to-b from-[#020617]/10 via-[#131b2e]/20 to-[#020617]/35" />
-          <div className="absolute bottom-12 left-12 right-12 rounded-3xl border border-white/25 bg-white/82 p-8 text-[#0b1c30] shadow-[0_22px_55px_rgba(2,6,23,0.2)] backdrop-blur-xl">
-            <div className="mb-4 flex items-center gap-3">
+          <div className="absolute bottom-8 left-8 right-8 rounded-3xl border border-white/25 bg-white/82 p-6 text-[#0b1c30] shadow-[0_22px_55px_rgba(2,6,23,0.2)] backdrop-blur-xl xl:p-7">
+            <div className="mb-3 flex items-center gap-3">
               <Sparkles className="h-5 w-5 fill-[#006b57] text-[#006b57]" aria-hidden="true" />
               <span className="text-sm font-bold uppercase tracking-[0.2em]">AI Prediction</span>
             </div>
             <h2 className="text-2xl font-bold leading-tight">Seu proximo destino esta esperando.</h2>
-            <p className="mt-3 text-base leading-7 text-[#45464d]">
+            <p className="mt-2 text-sm leading-6 text-[#45464d] xl:text-base xl:leading-7">
               Otimize sua logistica e reduza custos em ate 22% com o gerenciamento inteligente da TripFlow.
             </p>
           </div>
         </aside>
 
-        <section className="flex min-h-[680px] flex-col bg-white px-6 py-8 sm:px-10 md:px-14 lg:px-20 lg:py-16">
-          <div className="mb-12 flex items-center gap-3">
-            <span className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-2xl bg-[#131b2e] text-[#48fdd3] shadow-lg shadow-slate-900/10">
+        <section className="flex min-h-0 flex-col bg-white px-5 py-6 sm:px-8 md:px-10 lg:h-full lg:overflow-y-auto lg:px-12 lg:py-8 xl:px-14">
+          <div className="mb-6 flex items-center gap-3 lg:mb-5">
+            <span className="flex h-11 w-11 items-center justify-center overflow-hidden rounded-2xl bg-[#131b2e] text-[#48fdd3] shadow-lg shadow-slate-900/10">
               <img src="/logo.png" alt="" className="h-full w-full object-contain p-1.5" />
             </span>
-            <span className="text-3xl font-extrabold tracking-tight text-[#0b1c30]">{t('app.name')}</span>
+            <span className="text-2xl font-extrabold tracking-tight text-[#0b1c30]">{t('app.name')}</span>
           </div>
 
-          <div className="mb-9">
-            <h1 className="text-4xl font-extrabold tracking-normal text-[#0b1c30]">
+          <div className="mb-5">
+            <h1 className="text-3xl font-extrabold tracking-normal text-[#0b1c30] sm:text-4xl lg:text-3xl xl:text-4xl">
               {currentModeContent.title}
             </h1>
-            <p className="mt-3 text-lg leading-7 text-[#45464d]">{currentModeContent.description}</p>
+            <p className="mt-2 text-base leading-6 text-[#45464d]">{currentModeContent.description}</p>
           </div>
 
           <button
@@ -311,7 +311,7 @@ export function AuthPage({ initialInviteCode }: AuthPageProps) {
             <span>{loadingAction === 'google' ? t('auth.googleLoading') : t('auth.google')}</span>
           </button>
 
-          <div className="my-8 flex items-center gap-5">
+          <div className="my-5 flex items-center gap-5">
             <span className="h-px flex-1 bg-[#c6c6cd]/55" />
             <span className="text-sm font-bold uppercase tracking-[0.18em] text-[#45464d]">ou e-mail</span>
             <span className="h-px flex-1 bg-[#c6c6cd]/55" />
@@ -322,13 +322,13 @@ export function AuthPage({ initialInviteCode }: AuthPageProps) {
               <motion.form
                 key="login"
                 onSubmit={handleEmailLogin}
-                className="space-y-5"
+                className="space-y-4"
                 initial={{ opacity: 0, x: 16 }}
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: -16 }}
               >
                 <label className="block" htmlFor="login-email">
-                  <span className="mb-2 block text-base font-bold text-[#0b1c30]">E-mail corporativo</span>
+                  <span className="mb-1.5 block text-sm font-bold text-[#0b1c30]">E-mail corporativo</span>
                   <span className="relative block">
                     <Mail className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-[#45464d]" />
                     <input
@@ -346,7 +346,7 @@ export function AuthPage({ initialInviteCode }: AuthPageProps) {
                 </label>
 
                 <label className="block" htmlFor="login-password">
-                  <span className="mb-2 flex items-center justify-between gap-4 text-base font-bold text-[#0b1c30]">
+                  <span className="mb-1.5 flex items-center justify-between gap-4 text-sm font-bold text-[#0b1c30]">
                     <span>{t('auth.password')}</span>
                     <button
                       type="button"
@@ -393,13 +393,13 @@ export function AuthPage({ initialInviteCode }: AuthPageProps) {
               <motion.form
                 key="signup"
                 onSubmit={handleSignUp}
-                className="space-y-5"
+                className="space-y-4"
                 initial={{ opacity: 0, x: 16 }}
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: -16 }}
               >
                 <label className="block" htmlFor="signup-email">
-                  <span className="mb-2 block text-base font-bold text-[#0b1c30]">{t('auth.email')}</span>
+                  <span className="mb-1.5 block text-sm font-bold text-[#0b1c30]">{t('auth.email')}</span>
                   <span className="relative block">
                     <Mail className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-[#45464d]" />
                     <input
@@ -418,7 +418,7 @@ export function AuthPage({ initialInviteCode }: AuthPageProps) {
 
                 <div className="grid gap-4 sm:grid-cols-2">
                   <label className="block" htmlFor="signup-password">
-                    <span className="mb-2 block text-base font-bold text-[#0b1c30]">{t('auth.password')}</span>
+                    <span className="mb-1.5 block text-sm font-bold text-[#0b1c30]">{t('auth.password')}</span>
                     <span className="relative block">
                       <Lock className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-[#45464d]" />
                       <input
@@ -445,7 +445,7 @@ export function AuthPage({ initialInviteCode }: AuthPageProps) {
                   </label>
 
                   <label className="block" htmlFor="signup-password-confirmation">
-                    <span className="mb-2 block text-base font-bold text-[#0b1c30]">{t('auth.confirmPassword')}</span>
+                    <span className="mb-1.5 block text-sm font-bold text-[#0b1c30]">{t('auth.confirmPassword')}</span>
                     <span className="relative block">
                       <KeyRound className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-[#45464d]" />
                       <input
@@ -485,13 +485,13 @@ export function AuthPage({ initialInviteCode }: AuthPageProps) {
               <motion.form
                 key="reset"
                 onSubmit={handleReset}
-                className="space-y-5"
+                className="space-y-4"
                 initial={{ opacity: 0, x: 16 }}
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: -16 }}
               >
                 <label className="block" htmlFor="reset-email">
-                  <span className="mb-2 block text-base font-bold text-[#0b1c30]">{t('auth.email')}</span>
+                  <span className="mb-1.5 block text-sm font-bold text-[#0b1c30]">{t('auth.email')}</span>
                   <span className="relative block">
                     <Mail className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-[#45464d]" />
                     <input
@@ -520,7 +520,7 @@ export function AuthPage({ initialInviteCode }: AuthPageProps) {
             )}
           </AnimatePresence>
 
-          <div className="pt-8 text-center text-base text-[#45464d]">
+          <div className="pt-5 text-center text-sm text-[#45464d]">
             {mode === 'login' ? (
               <p>
                 Nao possui uma conta corporativa?
@@ -546,9 +546,9 @@ export function AuthPage({ initialInviteCode }: AuthPageProps) {
             )}
           </div>
 
-          <form onSubmit={handleInvite} className="mt-6 rounded-3xl border border-[#d3e4fe] bg-[#eff4ff]/80 p-4">
+          <form onSubmit={handleInvite} className="mt-4 rounded-3xl border border-[#d3e4fe] bg-[#eff4ff]/80 p-3.5">
             <label className="block" htmlFor="invite-code">
-              <span className="mb-2 flex items-center gap-2 text-sm font-extrabold text-[#0b1c30]">
+              <span className="mb-1.5 flex items-center gap-2 text-sm font-extrabold text-[#0b1c30]">
                 <Ticket className="h-4 w-4" aria-hidden="true" />
                 {t('auth.inviteLabel')}
               </span>
@@ -564,7 +564,7 @@ export function AuthPage({ initialInviteCode }: AuthPageProps) {
             <button
               type="submit"
               disabled={isBusy || !normalizedInviteCode}
-              className="mt-3 inline-flex h-12 w-full items-center justify-center gap-2 rounded-2xl border border-[#c6c6cd] bg-white px-4 text-sm font-extrabold text-[#0b1c30] transition hover:bg-[#f8f9ff] disabled:cursor-not-allowed disabled:opacity-60"
+              className="mt-2.5 inline-flex h-11 w-full items-center justify-center gap-2 rounded-2xl border border-[#c6c6cd] bg-white px-4 text-sm font-extrabold text-[#0b1c30] transition hover:bg-[#f8f9ff] disabled:cursor-not-allowed disabled:opacity-60"
             >
               {loadingAction === 'invite' ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : <Route className="h-4 w-4" aria-hidden="true" />}
               {loadingAction === 'invite' ? t('auth.inviteSaving') : t('auth.inviteSubmit')}
@@ -584,9 +584,9 @@ export function AuthPage({ initialInviteCode }: AuthPageProps) {
             ) : null}
           </div>
 
-          <div className="mt-auto pt-10">
+          <div className="mt-auto pt-5">
             <div className="h-px bg-[#c6c6cd]/35" />
-            <nav className="flex flex-wrap justify-center gap-x-8 gap-y-3 pt-7 text-sm font-semibold text-[#45464d]">
+            <nav className="flex flex-wrap justify-center gap-x-6 gap-y-2 pt-4 text-xs font-semibold text-[#45464d] sm:text-sm">
               <a className="transition hover:text-[#0b1c30]" href="#privacidade">Privacidade</a>
               <a className="transition hover:text-[#0b1c30]" href="#termos">Termos de Uso</a>
               <a className="transition hover:text-[#0b1c30]" href="mailto:suporte@tripflow.online">Suporte</a>

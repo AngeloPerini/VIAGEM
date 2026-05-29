@@ -370,13 +370,6 @@ function TravelWorkspace({ groupId }: { groupId: string }) {
     return sortExpenseCategories([...expenseCategories, ...missingCategories]);
   }, [expenseCategories, scopedExpenses]);
 
-  const totalsByCategory = useMemo(() => {
-    return categoriesForDisplay.reduce<Record<string, Totals>>((totals, category) => {
-      totals[category.id] = calculateCategoryTotal(scopedExpenses, category.id, exchangeRates);
-      return totals;
-    }, {});
-  }, [categoriesForDisplay, exchangeRates, scopedExpenses]);
-
   const expenseCountryOptions = useMemo(
     () => buildCountryOptions(scopedExpenses.map((expense) => expense.country), activeGroup?.countries ?? []),
     [activeGroup?.countries, scopedExpenses],
@@ -414,12 +407,18 @@ function TravelWorkspace({ groupId }: { groupId: string }) {
     }, {});
   }, [categoriesForDisplay, exchangeRates, expenseCountryFilter, filteredExpenses]);
 
-  const grandTotal = calculateExpensesTotal(scopedExpenses, exchangeRates);
   const filteredGrandTotal = calculateExpensesTotal(
     filteredExpenses,
     exchangeRates,
     expenseCountryFilter === 'all',
   );
+  const dashboardTotalsByCategory = useMemo(() => {
+    return categoriesForDisplay.reduce<Record<string, Totals>>((totals, category) => {
+      totals[category.id] = calculateCategoryTotal(expenses, category.id, exchangeRates);
+      return totals;
+    }, {});
+  }, [categoriesForDisplay, exchangeRates, expenses]);
+  const dashboardGrandTotal = calculateExpensesTotal(expenses, exchangeRates);
   const canManageExpenses = activeGroup?.role === 'owner' || activeGroup?.role === 'member';
   const categoryDeleteTargets = useMemo(
     () =>
@@ -752,8 +751,8 @@ function TravelWorkspace({ groupId }: { groupId: string }) {
                     ? t('dashboard.syncingExpenses')
                     : expenseSyncWarning ?? categorySyncWarning
               }
-              expenses={scopedExpenses}
-              grandTotal={grandTotal}
+              expenses={expenses}
+              grandTotal={dashboardGrandTotal}
               isQuoteLoading={isQuoteLoading}
               onAddExpense={openNewExpenseModal}
               onNavigate={handleNavigate}
@@ -763,7 +762,7 @@ function TravelWorkspace({ groupId }: { groupId: string }) {
               onValueModeChange={setRealValueMode}
               quoteWarning={quoteWarning}
               realValueMode={realValueMode}
-              totalsByCategory={totalsByCategory}
+              totalsByCategory={dashboardTotalsByCategory}
             />
           )}
         </AnimatePresence>
