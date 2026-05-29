@@ -1,5 +1,4 @@
 export const PRIMARY_APP_URL = 'https://tripflow.online';
-export const LEGACY_APP_URL = 'https://viagem-europa-angelo.web.app';
 
 const trimTrailingSlash = (value: string) => value.replace(/\/+$/, '');
 

@@ -47,7 +47,7 @@ export const ptBR = {
   'auth.inviteSaving': 'Salvando...',
   'auth.loginDone': 'Login concluído.',
   'auth.signupDone': 'Conta criada. Se o Supabase pedir confirmação, verifique seu e-mail.',
-  'auth.resetDone': 'Enviamos um link de recuperação para seu e-mail.',
+  'auth.resetDone': 'Enviamos um e-mail para redefinir sua senha.',
   'auth.inviteSaved': 'Código salvo. Entre ou crie uma conta para acessar a viagem.',
 
   'nav.dashboard': 'Dashboard',

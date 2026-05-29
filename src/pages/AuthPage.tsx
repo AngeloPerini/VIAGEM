@@ -1,6 +1,18 @@
 import { AnimatePresence, motion } from 'framer-motion';
-import { ArrowRight, Eye, EyeOff, KeyRound, Lock, Mail, Ticket, UserPlus } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import {
+  ArrowRight,
+  Eye,
+  EyeOff,
+  KeyRound,
+  Loader2,
+  Lock,
+  Mail,
+  Route,
+  Sparkles,
+  Ticket,
+  UserPlus,
+} from 'lucide-react';
+import { useCallback, useMemo, useState } from 'react';
 import type { FormEvent } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
@@ -12,6 +24,18 @@ type LoadingAction = 'google' | 'login' | 'signup' | 'reset' | 'invite' | null;
 type AuthPageProps = {
   initialInviteCode?: string | null;
 };
+
+const travelHeroImage =
+  'https://lh3.googleusercontent.com/aida-public/AB6AXuCM6rhDSvqhuD-HpbmgtmEiUAKiTDS1QIKN8krmV7IqkXSWD3ZcNdbS2zNCYsDpEjmqdew1DTSzH4QkSBSk264Kv6K2P4dITmxa8imu0ZS2dAaMbJSaQR1LFBqF9AMEwwki4JWl7hMPBxanunISEng3Jo6rk0WOmGdVSx3N_7VgBvraAsb7T0ifRCAaBUVsqXiGPGnjwUeeO3PqOpo9-pNOyhzhovCcW7tvI6MkWT7yE5abchq9tVG2edFkf23WEfRxP75n5WhDGkV4';
+
+const sharedInputClass =
+  'h-14 w-full rounded-2xl border border-[#c6c6cd] bg-[#f8f9ff] px-4 text-base font-medium text-[#0b1c30] outline-none transition placeholder:text-[#45464d]/45 focus:border-[#131b2e] focus:bg-white focus:ring-4 focus:ring-[#131b2e]/10 disabled:cursor-not-allowed disabled:opacity-70';
+const iconInputClass = `${sharedInputClass} pl-12`;
+const passwordInputClass = `${iconInputClass} pr-12`;
+const primaryButtonClass =
+  'inline-flex h-16 w-full items-center justify-center gap-3 rounded-2xl bg-black px-6 text-base font-extrabold text-white shadow-[0_18px_36px_rgba(15,23,42,0.18)] transition hover:-translate-y-0.5 hover:bg-[#131b2e] hover:shadow-[0_22px_42px_rgba(15,23,42,0.22)] active:translate-y-0 disabled:cursor-not-allowed disabled:opacity-70 disabled:hover:translate-y-0';
+const secondaryButtonClass =
+  'inline-flex h-14 w-full items-center justify-center gap-3 rounded-2xl border border-[#c6c6cd] bg-white px-6 text-base font-bold text-[#0b1c30] transition hover:border-[#131b2e]/35 hover:bg-[#eff4ff] disabled:cursor-not-allowed disabled:opacity-70';
 
 const friendlyAuthError = (message: string) => {
   const normalized = message.toLowerCase();
@@ -40,6 +64,47 @@ const getOAuthErrorFromUrl = () => {
   return params.get('error_description') ?? params.get('error') ?? null;
 };
 
+function GoogleIcon() {
+  return (
+    <svg className="h-5 w-5" aria-hidden="true" viewBox="0 0 24 24">
+      <path
+        d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+        fill="#4285F4"
+      />
+      <path
+        d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+        fill="#34A853"
+      />
+      <path
+        d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z"
+        fill="#FBBC05"
+      />
+      <path
+        d="M12 5.38c1.62 0 3.06.56 4.21 1.66l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
+        fill="#EA4335"
+      />
+    </svg>
+  );
+}
+
+function ButtonStatus({
+  loading,
+  loadingLabel,
+  fallback,
+}: {
+  loading: boolean;
+  loadingLabel: string;
+  fallback: string;
+}) {
+  if (!loading) return <span>{fallback}</span>;
+  return (
+    <>
+      <Loader2 className="h-5 w-5 animate-spin" aria-hidden="true" />
+      <span>{loadingLabel}</span>
+    </>
+  );
+}
+
 export function AuthPage({ initialInviteCode }: AuthPageProps) {
   const { sendPasswordReset, signIn, signInWithEmail, signUp } = useAuth();
   const { t } = useLanguage();
@@ -60,14 +125,37 @@ export function AuthPage({ initialInviteCode }: AuthPageProps) {
   const [loadingAction, setLoadingAction] = useState<LoadingAction>(null);
 
   const normalizedInviteCode = useMemo(() => normalizeInviteToken(inviteCode), [inviteCode]);
+  const modeContent = useMemo(
+    () => ({
+      login: {
+        title: 'Bem-vindo de volta',
+        description: 'Acesse sua plataforma de gestao premium.',
+      },
+      signup: {
+        title: 'Crie sua conta',
+        description: 'Comece a organizar roteiro, gastos e convites em um unico lugar.',
+      },
+      reset: {
+        title: 'Redefinir senha',
+        description: 'Informe seu e-mail para receber o link de redefinicao.',
+      },
+    }),
+    [],
+  );
 
-  const rememberInvite = () => {
+  const changeMode = useCallback((nextMode: AuthMode) => {
+    setMode(nextMode);
+    setError(null);
+    setMessage(null);
+  }, []);
+
+  const rememberInvite = useCallback(() => {
     if (!normalizedInviteCode) return false;
     storePendingInviteToken(normalizedInviteCode);
     return true;
-  };
+  }, [normalizedInviteCode]);
 
-  const handleGoogle = async () => {
+  const handleGoogle = useCallback(async () => {
     setError(null);
     rememberInvite();
     setLoadingAction('google');
@@ -78,166 +166,155 @@ export function AuthPage({ initialInviteCode }: AuthPageProps) {
       setError(friendlyAuthError(caughtError instanceof Error ? caughtError.message : 'Falha ao abrir o Google.'));
       setLoadingAction(null);
     }
-  };
+  }, [rememberInvite, signIn]);
 
-  const handleEmailLogin = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    setError(null);
-    setMessage(null);
-    rememberInvite();
-    setLoadingAction('login');
+  const handleEmailLogin = useCallback(
+    async (event: FormEvent<HTMLFormElement>) => {
+      event.preventDefault();
+      setError(null);
+      setMessage(null);
+      rememberInvite();
+      setLoadingAction('login');
 
-    try {
-      await signInWithEmail(email, password);
-      setMessage(t('auth.loginDone'));
-    } catch (caughtError) {
-      setError(friendlyAuthError(caughtError instanceof Error ? caughtError.message : 'Falha no login.'));
-    } finally {
+      try {
+        await signInWithEmail(email, password);
+        setMessage(t('auth.loginDone'));
+      } catch (caughtError) {
+        setError(friendlyAuthError(caughtError instanceof Error ? caughtError.message : 'Falha no login.'));
+      } finally {
+        setLoadingAction(null);
+      }
+    },
+    [email, password, rememberInvite, signInWithEmail, t],
+  );
+
+  const handleSignUp = useCallback(
+    async (event: FormEvent<HTMLFormElement>) => {
+      event.preventDefault();
+      setError(null);
+      setMessage(null);
+
+      if (password !== passwordConfirmation) {
+        setError('As senhas nao conferem.');
+        return;
+      }
+
+      rememberInvite();
+      setLoadingAction('signup');
+
+      try {
+        await signUp(email, password);
+        setMessage(t('auth.signupDone'));
+      } catch (caughtError) {
+        setError(friendlyAuthError(caughtError instanceof Error ? caughtError.message : 'Falha ao criar conta.'));
+      } finally {
+        setLoadingAction(null);
+      }
+    },
+    [email, password, passwordConfirmation, rememberInvite, signUp, t],
+  );
+
+  const handleReset = useCallback(
+    async (event: FormEvent<HTMLFormElement>) => {
+      event.preventDefault();
+      setError(null);
+      setMessage(null);
+      setLoadingAction('reset');
+
+      try {
+        await sendPasswordReset(email);
+        setMessage(t('auth.resetDone'));
+      } catch (caughtError) {
+        setError(friendlyAuthError(caughtError instanceof Error ? caughtError.message : 'Falha ao enviar recuperacao.'));
+      } finally {
+        setLoadingAction(null);
+      }
+    },
+    [email, sendPasswordReset, t],
+  );
+
+  const handleInvite = useCallback(
+    (event: FormEvent<HTMLFormElement>) => {
+      event.preventDefault();
+      setError(null);
+      setLoadingAction('invite');
+
+      if (!rememberInvite()) {
+        setError('Digite um codigo de convite valido.');
+        setLoadingAction(null);
+        return;
+      }
+
+      setMessage(t('auth.inviteSaved'));
       setLoadingAction(null);
-    }
-  };
+    },
+    [rememberInvite, t],
+  );
 
-  const handleSignUp = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    setError(null);
-    setMessage(null);
-
-    if (password !== passwordConfirmation) {
-      setError('As senhas nao conferem.');
-      return;
-    }
-
-    rememberInvite();
-    setLoadingAction('signup');
-
-    try {
-      await signUp(email, password);
-      setMessage(t('auth.signupDone'));
-    } catch (caughtError) {
-      setError(friendlyAuthError(caughtError instanceof Error ? caughtError.message : 'Falha ao criar conta.'));
-    } finally {
-      setLoadingAction(null);
-    }
-  };
-
-  const handleReset = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    setError(null);
-    setMessage(null);
-    setLoadingAction('reset');
-
-    try {
-      await sendPasswordReset(email);
-      setMessage(t('auth.resetDone'));
-    } catch (caughtError) {
-      setError(friendlyAuthError(caughtError instanceof Error ? caughtError.message : 'Falha ao enviar recuperacao.'));
-    } finally {
-      setLoadingAction(null);
-    }
-  };
-
-  const handleInvite = (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    setError(null);
-    setLoadingAction('invite');
-
-    if (!rememberInvite()) {
-      setError('Digite um codigo de convite valido.');
-      setLoadingAction(null);
-      return;
-    }
-
-    setMessage(t('auth.inviteSaved'));
-    setLoadingAction(null);
-  };
-
-  const sharedInputClass =
-    'h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 font-semibold text-slate-900 outline-none transition focus:border-teal-400 focus:ring-4 focus:ring-teal-100';
-  const passwordInputClass = `${sharedInputClass} pr-12`;
+  const isBusy = loadingAction !== null;
+  const currentModeContent = modeContent[mode];
 
   return (
-    <main className="min-h-screen overflow-hidden bg-[#edf4f2] text-slate-950">
-      <div className="mx-auto grid min-h-screen w-full max-w-7xl gap-6 px-4 py-6 md:px-6 lg:grid-cols-[0.95fr_1.05fr] lg:items-center lg:px-8">
-        <motion.section
-          className="flex min-h-[28rem] flex-col justify-between rounded-[2rem] bg-slate-950 p-7 text-white shadow-2xl shadow-slate-900/20 md:p-10"
-          initial={{ opacity: 0, y: 18 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
-        >
-          <div>
-            <span className="inline-flex h-16 w-16 items-center justify-center overflow-hidden rounded-2xl bg-white text-slate-950">
-              <img src="/logo.png" alt="TripFlow" className="h-full w-full object-contain p-1" />
+    <main
+      className="flex min-h-screen items-center justify-center overflow-x-hidden px-4 py-5 text-[#0b1c30] sm:px-6 lg:px-10"
+      style={{ background: 'radial-gradient(circle at top left, #f8f9ff 0%, #e5eeff 46%, #dce9ff 100%)' }}
+    >
+      <motion.section
+        className="grid w-full max-w-[1100px] grid-cols-1 overflow-hidden rounded-[2rem] border border-white/70 bg-white shadow-[0_28px_90px_rgba(15,23,42,0.12)] lg:grid-cols-2"
+        initial={{ opacity: 0, y: 18 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5 }}
+      >
+        <aside className="relative hidden min-h-[700px] overflow-hidden bg-[#131b2e] lg:block">
+          <motion.img
+            src={travelHeroImage}
+            alt="Vista de viagem acima das nuvens"
+            className="h-full w-full scale-105 object-cover opacity-80 mix-blend-overlay"
+            whileHover={{ scale: 1.1 }}
+            transition={{ duration: 6, ease: 'easeOut' }}
+          />
+          <div className="absolute inset-0 bg-gradient-to-b from-[#020617]/10 via-[#131b2e]/20 to-[#020617]/35" />
+          <div className="absolute bottom-12 left-12 right-12 rounded-3xl border border-white/25 bg-white/82 p-8 text-[#0b1c30] shadow-[0_22px_55px_rgba(2,6,23,0.2)] backdrop-blur-xl">
+            <div className="mb-4 flex items-center gap-3">
+              <Sparkles className="h-5 w-5 fill-[#006b57] text-[#006b57]" aria-hidden="true" />
+              <span className="text-sm font-bold uppercase tracking-[0.2em]">AI Prediction</span>
+            </div>
+            <h2 className="text-2xl font-bold leading-tight">Seu proximo destino esta esperando.</h2>
+            <p className="mt-3 text-base leading-7 text-[#45464d]">
+              Otimize sua logistica e reduza custos em ate 22% com o gerenciamento inteligente da TripFlow.
+            </p>
+          </div>
+        </aside>
+
+        <section className="flex min-h-[680px] flex-col bg-white px-6 py-8 sm:px-10 md:px-14 lg:px-20 lg:py-16">
+          <div className="mb-12 flex items-center gap-3">
+            <span className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-2xl bg-[#131b2e] text-[#48fdd3] shadow-lg shadow-slate-900/10">
+              <img src="/logo.png" alt="" className="h-full w-full object-contain p-1.5" />
             </span>
-            <p className="mt-8 text-sm font-black uppercase tracking-[0.22em] text-teal-200">
-              {t('app.heroKicker')}
-            </p>
-            <h1 className="mt-3 max-w-xl text-4xl font-black tracking-tight md:text-6xl">
-              {t('app.heroTitle')}
+            <span className="text-3xl font-extrabold tracking-tight text-[#0b1c30]">{t('app.name')}</span>
+          </div>
+
+          <div className="mb-9">
+            <h1 className="text-4xl font-extrabold tracking-normal text-[#0b1c30]">
+              {currentModeContent.title}
             </h1>
-            <p className="mt-5 max-w-lg text-lg leading-8 text-slate-300">
-              {t('app.heroDescription')}
-            </p>
-          </div>
-
-          <div className="mt-10 grid gap-3 text-sm font-bold text-slate-300 sm:grid-cols-3">
-            <span className="rounded-2xl bg-white/10 px-4 py-3">{t('app.featureExpenses')}</span>
-            <span className="rounded-2xl bg-white/10 px-4 py-3">{t('app.featureItinerary')}</span>
-            <span className="rounded-2xl bg-white/10 px-4 py-3">{t('app.featureDream')}</span>
-          </div>
-        </motion.section>
-
-        <motion.section
-          className="rounded-[2rem] border border-white/80 bg-white/90 p-5 shadow-2xl shadow-slate-900/10 backdrop-blur md:p-8"
-          initial={{ opacity: 0, y: 18 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.08, duration: 0.5 }}
-        >
-          <div className="mb-6 flex flex-wrap gap-2 rounded-3xl bg-slate-100 p-1">
-            {[
-              { id: 'login', label: t('auth.login') },
-              { id: 'signup', label: t('auth.signup') },
-              { id: 'reset', label: t('auth.reset') },
-            ].map((item) => (
-              <button
-                key={item.id}
-                type="button"
-                onClick={() => {
-                  setMode(item.id as AuthMode);
-                  setError(null);
-                  setMessage(null);
-                }}
-                className={`relative h-11 flex-1 rounded-2xl px-3 text-sm font-black transition ${
-                  mode === item.id ? 'text-white' : 'text-slate-500 hover:text-slate-950'
-                }`}
-              >
-                {mode === item.id ? (
-                  <motion.span
-                    layoutId="auth-mode"
-                    className="absolute inset-0 rounded-2xl bg-slate-950"
-                    transition={{ type: 'spring', stiffness: 420, damping: 34 }}
-                  />
-                ) : null}
-                <span className="relative">{item.label}</span>
-              </button>
-            ))}
+            <p className="mt-3 text-lg leading-7 text-[#45464d]">{currentModeContent.description}</p>
           </div>
 
           <button
             type="button"
             onClick={() => void handleGoogle()}
-            disabled={loadingAction !== null}
-            className="inline-flex h-14 w-full items-center justify-center gap-3 rounded-2xl bg-slate-950 px-5 py-4 font-black text-white shadow-xl shadow-slate-900/20 transition hover:bg-teal-700 disabled:cursor-not-allowed disabled:opacity-70"
+            disabled={isBusy}
+            className={secondaryButtonClass}
           >
-            <span className="flex h-7 w-7 items-center justify-center rounded-full bg-white text-sm font-black text-slate-950">
-              G
-            </span>
-            {loadingAction === 'google' ? t('auth.googleLoading') : t('auth.google')}
+            {loadingAction === 'google' ? <Loader2 className="h-5 w-5 animate-spin" aria-hidden="true" /> : <GoogleIcon />}
+            <span>{loadingAction === 'google' ? t('auth.googleLoading') : t('auth.google')}</span>
           </button>
 
-          <div className="my-6 flex items-center gap-3 text-xs font-black uppercase tracking-[0.18em] text-slate-400">
-            <span className="h-px flex-1 bg-slate-200" />
-            {t('auth.or')}
-            <span className="h-px flex-1 bg-slate-200" />
+          <div className="my-8 flex items-center gap-5">
+            <span className="h-px flex-1 bg-[#c6c6cd]/55" />
+            <span className="text-sm font-bold uppercase tracking-[0.18em] text-[#45464d]">ou e-mail</span>
+            <span className="h-px flex-1 bg-[#c6c6cd]/55" />
           </div>
 
           <AnimatePresence mode="wait">
@@ -245,31 +322,49 @@ export function AuthPage({ initialInviteCode }: AuthPageProps) {
               <motion.form
                 key="login"
                 onSubmit={handleEmailLogin}
-                className="space-y-4"
+                className="space-y-5"
                 initial={{ opacity: 0, x: 16 }}
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: -16 }}
               >
-                <label className="block">
-                  <span className="mb-2 flex items-center gap-2 text-sm font-bold text-slate-600">
-                    <Mail className="h-4 w-4" /> {t('auth.email')}
-                  </span>
-                  <input
-                    required
-                    type="email"
-                    value={email}
-                    onChange={(event) => setEmail(event.target.value)}
-                    className={sharedInputClass}
-                  />
-                </label>
-                <label className="block">
-                  <span className="mb-2 flex items-center gap-2 text-sm font-bold text-slate-600">
-                    <Lock className="h-4 w-4" /> {t('auth.password')}
-                  </span>
-                  <div className="relative">
+                <label className="block" htmlFor="login-email">
+                  <span className="mb-2 block text-base font-bold text-[#0b1c30]">E-mail corporativo</span>
+                  <span className="relative block">
+                    <Mail className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-[#45464d]" />
                     <input
+                      id="login-email"
+                      name="email"
+                      required
+                      type="email"
+                      autoComplete="email"
+                      placeholder="nome@empresa.com"
+                      value={email}
+                      onChange={(event) => setEmail(event.target.value)}
+                      className={iconInputClass}
+                    />
+                  </span>
+                </label>
+
+                <label className="block" htmlFor="login-password">
+                  <span className="mb-2 flex items-center justify-between gap-4 text-base font-bold text-[#0b1c30]">
+                    <span>{t('auth.password')}</span>
+                    <button
+                      type="button"
+                      onClick={() => changeMode('reset')}
+                      className="text-sm font-bold text-[#006b57] transition hover:text-[#004638] hover:underline"
+                    >
+                      {t('auth.reset')}
+                    </button>
+                  </span>
+                  <span className="relative block">
+                    <Lock className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-[#45464d]" />
+                    <input
+                      id="login-password"
+                      name="password"
                       required
                       type={showPassword ? 'text' : 'password'}
+                      autoComplete="current-password"
+                      placeholder="********"
                       value={password}
                       onChange={(event) => setPassword(event.target.value)}
                       className={passwordInputClass}
@@ -278,52 +373,62 @@ export function AuthPage({ initialInviteCode }: AuthPageProps) {
                       type="button"
                       aria-label={showPassword ? 'Ocultar senha' : 'Mostrar senha'}
                       onClick={() => setShowPassword((current) => !current)}
-                      className="absolute right-2 top-1/2 inline-flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-xl text-slate-500 transition hover:bg-slate-100 hover:text-slate-900"
+                      className="absolute right-3 top-1/2 inline-flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-xl text-[#45464d] transition hover:bg-white hover:text-[#0b1c30]"
                     >
-                      {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
                     </button>
-                  </div>
+                  </span>
                 </label>
-                <button
-                  type="submit"
-                  disabled={loadingAction !== null}
-                  className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-teal-600 px-5 font-black text-white transition hover:bg-teal-700 disabled:cursor-not-allowed disabled:opacity-70"
-                >
-                  {loadingAction === 'login' ? t('auth.emailLoading') : t('auth.emailLogin')}
-                  <ArrowRight className="h-5 w-5" />
+
+                <button type="submit" disabled={isBusy} className={primaryButtonClass}>
+                  <ButtonStatus
+                    loading={loadingAction === 'login'}
+                    loadingLabel={t('auth.emailLoading')}
+                    fallback="Entrar na Plataforma"
+                  />
+                  {loadingAction === 'login' ? null : <ArrowRight className="h-5 w-5" aria-hidden="true" />}
                 </button>
               </motion.form>
             ) : mode === 'signup' ? (
               <motion.form
                 key="signup"
                 onSubmit={handleSignUp}
-                className="space-y-4"
+                className="space-y-5"
                 initial={{ opacity: 0, x: 16 }}
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: -16 }}
               >
-                <label className="block">
-                  <span className="mb-2 flex items-center gap-2 text-sm font-bold text-slate-600">
-                    <Mail className="h-4 w-4" /> {t('auth.email')}
+                <label className="block" htmlFor="signup-email">
+                  <span className="mb-2 block text-base font-bold text-[#0b1c30]">{t('auth.email')}</span>
+                  <span className="relative block">
+                    <Mail className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-[#45464d]" />
+                    <input
+                      id="signup-email"
+                      name="email"
+                      required
+                      type="email"
+                      autoComplete="email"
+                      placeholder="nome@empresa.com"
+                      value={email}
+                      onChange={(event) => setEmail(event.target.value)}
+                      className={iconInputClass}
+                    />
                   </span>
-                  <input
-                    required
-                    type="email"
-                    value={email}
-                    onChange={(event) => setEmail(event.target.value)}
-                    className={sharedInputClass}
-                  />
                 </label>
+
                 <div className="grid gap-4 sm:grid-cols-2">
-                  <label className="block">
-                    <span className="mb-2 flex items-center gap-2 text-sm font-bold text-slate-600">
-                      <Lock className="h-4 w-4" /> {t('auth.password')}
-                    </span>
-                    <div className="relative">
+                  <label className="block" htmlFor="signup-password">
+                    <span className="mb-2 block text-base font-bold text-[#0b1c30]">{t('auth.password')}</span>
+                    <span className="relative block">
+                      <Lock className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-[#45464d]" />
                       <input
+                        id="signup-password"
+                        name="password"
                         required
                         minLength={6}
                         type={showPassword ? 'text' : 'password'}
+                        autoComplete="new-password"
+                        placeholder="********"
                         value={password}
                         onChange={(event) => setPassword(event.target.value)}
                         className={passwordInputClass}
@@ -332,21 +437,25 @@ export function AuthPage({ initialInviteCode }: AuthPageProps) {
                         type="button"
                         aria-label={showPassword ? 'Ocultar senha' : 'Mostrar senha'}
                         onClick={() => setShowPassword((current) => !current)}
-                        className="absolute right-2 top-1/2 inline-flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-xl text-slate-500 transition hover:bg-slate-100 hover:text-slate-900"
+                        className="absolute right-3 top-1/2 inline-flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-xl text-[#45464d] transition hover:bg-white hover:text-[#0b1c30]"
                       >
-                        {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                        {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
                       </button>
-                    </div>
-                  </label>
-                  <label className="block">
-                    <span className="mb-2 flex items-center gap-2 text-sm font-bold text-slate-600">
-                      <KeyRound className="h-4 w-4" /> {t('auth.confirmPassword')}
                     </span>
-                    <div className="relative">
+                  </label>
+
+                  <label className="block" htmlFor="signup-password-confirmation">
+                    <span className="mb-2 block text-base font-bold text-[#0b1c30]">{t('auth.confirmPassword')}</span>
+                    <span className="relative block">
+                      <KeyRound className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-[#45464d]" />
                       <input
+                        id="signup-password-confirmation"
+                        name="password-confirmation"
                         required
                         minLength={6}
                         type={showPasswordConfirmation ? 'text' : 'password'}
+                        autoComplete="new-password"
+                        placeholder="********"
                         value={passwordConfirmation}
                         onChange={(event) => setPasswordConfirmation(event.target.value)}
                         className={passwordInputClass}
@@ -355,84 +464,136 @@ export function AuthPage({ initialInviteCode }: AuthPageProps) {
                         type="button"
                         aria-label={showPasswordConfirmation ? 'Ocultar senha' : 'Mostrar senha'}
                         onClick={() => setShowPasswordConfirmation((current) => !current)}
-                        className="absolute right-2 top-1/2 inline-flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-xl text-slate-500 transition hover:bg-slate-100 hover:text-slate-900"
+                        className="absolute right-3 top-1/2 inline-flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-xl text-[#45464d] transition hover:bg-white hover:text-[#0b1c30]"
                       >
-                        {showPasswordConfirmation ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                        {showPasswordConfirmation ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
                       </button>
-                    </div>
+                    </span>
                   </label>
                 </div>
-                <button
-                  type="submit"
-                  disabled={loadingAction !== null}
-                  className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-teal-600 px-5 font-black text-white transition hover:bg-teal-700 disabled:cursor-not-allowed disabled:opacity-70"
-                >
-                  {loadingAction === 'signup' ? t('auth.signupLoading') : t('auth.signup')}
-                  <UserPlus className="h-5 w-5" />
+
+                <button type="submit" disabled={isBusy} className={primaryButtonClass}>
+                  <ButtonStatus
+                    loading={loadingAction === 'signup'}
+                    loadingLabel={t('auth.signupLoading')}
+                    fallback={t('auth.signup')}
+                  />
+                  {loadingAction === 'signup' ? null : <UserPlus className="h-5 w-5" aria-hidden="true" />}
                 </button>
               </motion.form>
             ) : (
               <motion.form
                 key="reset"
                 onSubmit={handleReset}
-                className="space-y-4"
+                className="space-y-5"
                 initial={{ opacity: 0, x: 16 }}
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: -16 }}
               >
-                <label className="block">
-                  <span className="mb-2 flex items-center gap-2 text-sm font-bold text-slate-600">
-                    <Mail className="h-4 w-4" /> {t('auth.email')}
+                <label className="block" htmlFor="reset-email">
+                  <span className="mb-2 block text-base font-bold text-[#0b1c30]">{t('auth.email')}</span>
+                  <span className="relative block">
+                    <Mail className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-[#45464d]" />
+                    <input
+                      id="reset-email"
+                      name="email"
+                      required
+                      type="email"
+                      autoComplete="email"
+                      placeholder="nome@empresa.com"
+                      value={email}
+                      onChange={(event) => setEmail(event.target.value)}
+                      className={iconInputClass}
+                    />
                   </span>
-                  <input
-                    required
-                    type="email"
-                    value={email}
-                    onChange={(event) => setEmail(event.target.value)}
-                    className={sharedInputClass}
-                  />
                 </label>
-                <button
-                  type="submit"
-                  disabled={loadingAction !== null}
-                  className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-teal-600 px-5 font-black text-white transition hover:bg-teal-700 disabled:cursor-not-allowed disabled:opacity-70"
-                >
-                  {loadingAction === 'reset' ? t('auth.resetLoading') : t('auth.resetSubmit')}
-                  <ArrowRight className="h-5 w-5" />
+
+                <button type="submit" disabled={isBusy} className={primaryButtonClass}>
+                  <ButtonStatus
+                    loading={loadingAction === 'reset'}
+                    loadingLabel={t('auth.resetLoading')}
+                    fallback={t('auth.resetSubmit')}
+                  />
+                  {loadingAction === 'reset' ? null : <ArrowRight className="h-5 w-5" aria-hidden="true" />}
                 </button>
               </motion.form>
             )}
           </AnimatePresence>
 
-          <form onSubmit={handleInvite} className="mt-6 rounded-3xl border border-slate-200 bg-slate-50 p-4">
-            <label className="block">
-              <span className="mb-2 flex items-center gap-2 text-sm font-bold text-slate-600">
-                <Ticket className="h-4 w-4" /> {t('auth.inviteLabel')}
+          <div className="pt-8 text-center text-base text-[#45464d]">
+            {mode === 'login' ? (
+              <p>
+                Nao possui uma conta corporativa?
+                <button
+                  type="button"
+                  onClick={() => changeMode('signup')}
+                  className="ml-2 font-extrabold text-[#0b1c30] transition hover:text-[#006b57] hover:underline"
+                >
+                  {t('auth.signup')}
+                </button>
+              </p>
+            ) : (
+              <p>
+                Ja possui uma conta?
+                <button
+                  type="button"
+                  onClick={() => changeMode('login')}
+                  className="ml-2 font-extrabold text-[#0b1c30] transition hover:text-[#006b57] hover:underline"
+                >
+                  {t('auth.login')}
+                </button>
+              </p>
+            )}
+          </div>
+
+          <form onSubmit={handleInvite} className="mt-6 rounded-3xl border border-[#d3e4fe] bg-[#eff4ff]/80 p-4">
+            <label className="block" htmlFor="invite-code">
+              <span className="mb-2 flex items-center gap-2 text-sm font-extrabold text-[#0b1c30]">
+                <Ticket className="h-4 w-4" aria-hidden="true" />
+                {t('auth.inviteLabel')}
               </span>
               <input
+                id="invite-code"
                 value={inviteCode}
                 onChange={(event) => setInviteCode(event.target.value.toUpperCase())}
                 placeholder="EUROPA-7K9X2"
+                autoComplete="off"
                 className={sharedInputClass}
               />
             </label>
             <button
               type="submit"
-              disabled={loadingAction !== null || !normalizedInviteCode}
-              className="mt-3 inline-flex h-11 w-full items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 font-black text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
+              disabled={isBusy || !normalizedInviteCode}
+              className="mt-3 inline-flex h-12 w-full items-center justify-center gap-2 rounded-2xl border border-[#c6c6cd] bg-white px-4 text-sm font-extrabold text-[#0b1c30] transition hover:bg-[#f8f9ff] disabled:cursor-not-allowed disabled:opacity-60"
             >
+              {loadingAction === 'invite' ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : <Route className="h-4 w-4" aria-hidden="true" />}
               {loadingAction === 'invite' ? t('auth.inviteSaving') : t('auth.inviteSubmit')}
             </button>
           </form>
 
-          {message ? (
-            <p className="mt-4 rounded-2xl bg-teal-50 px-4 py-3 text-sm font-bold text-teal-800">{message}</p>
-          ) : null}
-          {error ? (
-            <p className="mt-4 rounded-2xl bg-rose-50 px-4 py-3 text-sm font-bold text-rose-700">{error}</p>
-          ) : null}
-        </motion.section>
-      </div>
+          <div aria-live="polite">
+            {message ? (
+              <p className="mt-4 rounded-2xl border border-[#48fdd3]/40 bg-[#48fdd3]/14 px-4 py-3 text-sm font-bold text-[#005141]">
+                {message}
+              </p>
+            ) : null}
+            {error ? (
+              <p className="mt-4 rounded-2xl border border-[#ffdad6] bg-[#ffdad6]/70 px-4 py-3 text-sm font-bold text-[#93000a]">
+                {error}
+              </p>
+            ) : null}
+          </div>
+
+          <div className="mt-auto pt-10">
+            <div className="h-px bg-[#c6c6cd]/35" />
+            <nav className="flex flex-wrap justify-center gap-x-8 gap-y-3 pt-7 text-sm font-semibold text-[#45464d]">
+              <a className="transition hover:text-[#0b1c30]" href="#privacidade">Privacidade</a>
+              <a className="transition hover:text-[#0b1c30]" href="#termos">Termos de Uso</a>
+              <a className="transition hover:text-[#0b1c30]" href="mailto:suporte@tripflow.online">Suporte</a>
+            </nav>
+          </div>
+        </section>
+      </motion.section>
     </main>
   );
 }
