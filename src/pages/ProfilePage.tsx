@@ -123,6 +123,10 @@ const emptyStats: UserStats = {
 };
 
 const fallbackExpenseAccents = ['#0f766e', '#2563eb', '#7c3aed', '#d97706', '#be123c', '#475569'];
+const profileHeroImage =
+  'https://lh3.googleusercontent.com/aida-public/AB6AXuB1_s6-IXeqdQenr-iqRsq_Ema-qtKVzaxTrM4pZwFj7bUWrvNEpFB5_e9z6LicJ5Rb4dt2GuO9isUOY-usBaHtvXVUbeoGJveWj37td0C6SW8PzOmBmM-5YwOO3HwPoFsJEORL9cBjU2n6RoWF79d1nGgHZmkxoiCXUZ5hmNBYueSVyqbhkYCfjIw3SxeFZRHQo4wcyy6inD37y-jBUspou5r1q0tkJNBQUfwfglmzzprU_YeR1ldc8oyR6NNRcBqnhgePVdRDu3nY';
+const aiSuggestionImage =
+  'https://lh3.googleusercontent.com/aida-public/AB6AXuC-7Phag6GjG3IFUj533wO52y8meAtiFlzu9zVMctKGQFBpF4xJ3oAQk97dc-MBjouuOMpBppsI0qQzgCji1gFh1IWpixj9u_geS2Awb-kBe72BGXoQ5UUUlqZldik1OC5RsoHE4BMM0uhgkKfvyuBJMrEJ7VqAMwoP2yhXHAsp1yejaEa9YR1l9zAgXjOMPXDoAJzXgwhCHR2wryLvxJlgIgoMk7DLnecZ3Dx-7TvhoaSRvEzfJpEM0jSTLKk1WV1EzfpMxSyv27fl';
 
 const sortProfileExpenseCategories = (items: CategoryMeta[]) =>
   [...items].sort((a, b) => {
@@ -187,6 +191,12 @@ const getProfileName = (profile?: UserProfile | null, fallbackEmail?: string | n
 const getProfileEmail = (profile?: UserProfile | null, fallbackEmail?: string | null) =>
   profile?.email?.trim() || fallbackEmail?.trim() || 'Perfil ainda sincronizando';
 
+const getInitials = (value: string) => {
+  const parts = value.trim().split(/\s+/).filter(Boolean);
+  const letters = parts.length > 1 ? `${parts[0][0]}${parts.at(-1)?.[0] ?? ''}` : value.slice(0, 2);
+  return letters.toUpperCase();
+};
+
 const normalizeProfileEditError = (caughtError: unknown) => {
   const message = caughtError instanceof Error ? caughtError.message : 'Nao foi possivel atualizar o perfil.';
 
@@ -235,13 +245,6 @@ const statusClasses: Record<TripStatus, string> = {
   canceled: 'bg-rose-50 text-rose-700',
 };
 
-const statusDotClasses: Record<TripStatus, string> = {
-  planned: 'bg-sky-300',
-  active: 'bg-teal-300',
-  completed: 'bg-emerald-300',
-  canceled: 'bg-rose-300',
-};
-
 const tripTabs = [
   { id: 'planned', label: 'Planejadas' },
   { id: 'active', label: 'Ativas' },
@@ -253,27 +256,34 @@ const tripTabs = [
 type TripTab = typeof tripTabs[number]['id'];
 
 const profileSections = [
-  { id: 'overview', label: 'Visao geral', path: '/perfil', icon: UserRound },
-  { id: 'trip', label: 'Viagem', path: '/perfil/viagem', icon: MapPin },
-  { id: 'create-ai', label: 'Criar viagem / IA', path: '/perfil/criar-viagem', icon: Sparkles },
-  { id: 'checklist', label: 'Checklist', path: '/perfil/checklist', icon: CheckCircle2 },
-  { id: 'notifications', label: 'Notificacoes', path: '/perfil/notificacoes', icon: Bell },
-  { id: 'edit-profile', label: 'Editar perfil', path: '/perfil/editar', icon: Pencil },
+  { id: 'overview', label: 'Visão Geral', path: '/perfil', icon: UserRound, visible: true },
+  { id: 'trip', label: 'Viagens', path: '/perfil/viagem', icon: MapPin, visible: true },
+  { id: 'map', label: 'Mapa', path: '/perfil/mapa', icon: Globe2, visible: true },
+  { id: 'checklist', label: 'Checklist', path: '/perfil/checklist', icon: CheckCircle2, visible: true },
+  { id: 'notifications', label: 'Notificações', path: '/perfil/notificacoes', icon: Bell, visible: true },
+  { id: 'documents', label: 'Documentos', path: '/perfil/documentos', icon: FileText, visible: true },
+  { id: 'create-ai', label: 'Criar viagem / IA', path: '/perfil/criar-viagem', icon: Sparkles, visible: false },
+  { id: 'edit-profile', label: 'Editar perfil', path: '/perfil/editar', icon: Pencil, visible: false },
 ] as const;
 
 type ProfileSectionId = typeof profileSections[number]['id'];
+const visibleProfileSections = profileSections.filter((section) => section.visible);
 
 const sectionByPath: Record<string, ProfileSectionId> = {
   '/perfil': 'overview',
   '/profile': 'overview',
   '/perfil/viagem': 'trip',
   '/profile/viagem': 'trip',
+  '/perfil/mapa': 'map',
+  '/profile/mapa': 'map',
   '/perfil/criar-viagem': 'create-ai',
   '/profile/criar-viagem': 'create-ai',
   '/perfil/checklist': 'checklist',
   '/profile/checklist': 'checklist',
   '/perfil/notificacoes': 'notifications',
   '/profile/notificacoes': 'notifications',
+  '/perfil/documentos': 'documents',
+  '/profile/documentos': 'documents',
   '/perfil/editar': 'edit-profile',
   '/profile/editar': 'edit-profile',
 };
@@ -296,29 +306,6 @@ const createEmptyChecklistDraft = (): TripChecklistItemInput => ({
 
 type ProfileIcon = typeof UserRound;
 
-function HeroMetric({
-  detail,
-  icon: Icon,
-  label,
-  value,
-}: {
-  detail?: string;
-  icon: ProfileIcon;
-  label: string;
-  value: string;
-}) {
-  return (
-    <div className="min-w-0 rounded-2xl border border-white/10 bg-white/10 px-4 py-3 shadow-lg shadow-slate-950/10">
-      <div className="flex items-center gap-2 text-teal-200">
-        <Icon className="h-4 w-4 shrink-0" />
-        <p className="truncate text-[0.68rem] font-black uppercase tracking-[0.16em]">{label}</p>
-      </div>
-      <p className="mt-2 truncate text-sm font-black text-white">{value}</p>
-      {detail ? <p className="mt-1 truncate text-xs font-bold text-slate-300">{detail}</p> : null}
-    </div>
-  );
-}
-
 function DetailTile({
   icon: Icon,
   label,
@@ -336,6 +323,76 @@ function DetailTile({
       </p>
       <p className="mt-2 truncate text-sm font-black text-slate-800">{value}</p>
     </div>
+  );
+}
+
+function ProfileMetricCard({
+  detail,
+  icon: Icon,
+  label,
+  value,
+}: {
+  detail: string;
+  icon: ProfileIcon;
+  label: string;
+  value: string;
+}) {
+  return (
+    <article className="rounded-xl border border-[#e6ebf3] bg-white p-6 shadow-[0_8px_24px_rgba(15,23,42,0.045)]">
+      <div className="mb-5 flex items-start justify-between gap-4">
+        <Icon className="h-6 w-6 text-[#007c68]" />
+      </div>
+      <p className="text-sm font-semibold text-[#45464d]">{label}</p>
+      <p className="mt-2 text-3xl font-bold tracking-tight text-[#0b1326]">{value}</p>
+      <p className="mt-2 text-sm font-medium leading-6 text-[#667085]">{detail}</p>
+    </article>
+  );
+}
+
+function ProgressLine({ label, value }: { label: string; value: number }) {
+  const safeValue = Math.max(0, Math.min(100, Math.round(value)));
+
+  return (
+    <div>
+      <div className="mb-2 flex items-center justify-between gap-3 text-sm font-semibold text-[#45464d]">
+        <span>{label}</span>
+        <span>{safeValue}%</span>
+      </div>
+      <div className="h-2 overflow-hidden rounded-full bg-[#dce9ff]">
+        <div className="h-full rounded-full bg-[#007c68]" style={{ width: `${safeValue}%` }} />
+      </div>
+    </div>
+  );
+}
+
+function SettingsActionRow({
+  description,
+  icon: Icon,
+  onClick,
+  title,
+}: {
+  description: string;
+  icon: ProfileIcon;
+  onClick: () => void;
+  title: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="group flex w-full items-center justify-between gap-4 rounded-xl px-3 py-4 text-left transition hover:bg-[#f4f7fb]"
+    >
+      <span className="flex min-w-0 items-center gap-4">
+        <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-[#eef4ff] text-[#1f2430] transition group-hover:text-[#007c68]">
+          <Icon className="h-5 w-5" />
+        </span>
+        <span className="min-w-0">
+          <span className="block font-semibold text-[#0b1326]">{title}</span>
+          <span className="mt-1 block text-sm font-medium leading-5 text-[#667085]">{description}</span>
+        </span>
+      </span>
+      <ArrowRight className="h-4 w-4 shrink-0 text-[#a4acba] transition group-hover:translate-x-0.5 group-hover:text-[#007c68]" />
+    </button>
   );
 }
 
@@ -751,7 +808,6 @@ export function ProfilePage() {
   const [showCreateTripForm, setShowCreateTripForm] = useState(false);
   const [knownInvites, setKnownInvites] = useState<InviteDetails[]>([]);
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
-  const [showNotificationMenu, setShowNotificationMenu] = useState(false);
   const [tripExpenses, setTripExpenses] = useState<Expense[]>([]);
   const [tripExpenseCategories, setTripExpenseCategories] = useState<CategoryMeta[]>(() => getCachedExpenseCategories());
   const [tripItineraryItems, setTripItineraryItems] = useState<ItineraryItem[]>([]);
@@ -877,6 +933,28 @@ export function ProfilePage() {
     () => tripItineraryItems.filter((item) => item.type === 'document'),
     [tripItineraryItems],
   );
+  const profileDocumentCount = checklistDocumentItems.length || legacyItineraryDocuments.length;
+  const pendingDocumentCount = checklistDocumentItems.length
+    ? checklistDocumentItems.filter((item) => !item.checked).length
+    : 0;
+  const documentsProgress = checklistDocumentItems.length
+    ? Math.round(((checklistDocumentItems.length - pendingDocumentCount) / checklistDocumentItems.length) * 100)
+    : legacyItineraryDocuments.length
+      ? 100
+      : 0;
+  const itineraryProgress = tripItineraryItems.length
+    ? Math.round((tripItineraryItems.filter((item) => item.completed).length / tripItineraryItems.length) * 100)
+    : 0;
+  const tripPlanningProgress = Math.round((itineraryProgress + checklistProgress + documentsProgress) / 3);
+  const countriesSummary = stats.countriesCount
+    ? `${stats.countriesCount} país${stats.countriesCount === 1 ? '' : 'es'} nas suas viagens`
+    : 'Nenhum país registrado ainda';
+  const activeTripMetric = activeGroup?.name ?? 'Sem viagem ativa';
+  const accountPlanLabel = isAiTestUser ? 'Acesso de teste' : 'Gratuito';
+  const aiSuggestionTitle = activeGroup ? `Continue ${activeGroup.name}` : 'Crie sua primeira viagem';
+  const aiSuggestionDescription = activeGroup
+    ? 'Revise roteiro, documentos e checklist da viagem ativa sem disparar a IA automaticamente.'
+    : 'Comece criando uma viagem para liberar roteiro, checklist, documentos e recomendações inteligentes.';
   const profileExchangeRates = useMemo<ExchangeRateMap>(
     () => getCachedExchangeRates(),
     [activeGroupId, tripExpenses],
@@ -1179,7 +1257,6 @@ export function ProfilePage() {
   const navigateProfileSection = (sectionId: ProfileSectionId) => {
     const targetSection = profileSections.find((section) => section.id === sectionId) ?? profileSections[0];
     setActiveProfileSection(targetSection.id);
-    setShowNotificationMenu(false);
     window.history.pushState({}, '', targetSection.path);
     window.dispatchEvent(new PopStateEvent('popstate'));
   };
@@ -2189,138 +2266,41 @@ export function ProfilePage() {
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -12 }}
     >
-      <section className="relative overflow-visible rounded-[2rem] border border-slate-800/70 bg-[linear-gradient(135deg,#07111f_0%,#111827_48%,#0f3d3a_100%)] p-5 text-white shadow-2xl shadow-slate-900/25 md:p-8">
-        <div className="absolute inset-x-6 top-0 h-px bg-gradient-to-r from-transparent via-teal-200/50 to-transparent" />
-        <div className="flex flex-col gap-7 xl:flex-row xl:items-stretch xl:justify-between">
-          <div className="min-w-0 flex-1">
-            <div className="flex flex-col gap-5 sm:flex-row sm:items-center">
-              <div className="relative h-24 w-24 shrink-0">
-                {avatarUrl ? (
-                  <img src={avatarUrl} alt="" className="h-24 w-24 rounded-[1.65rem] border border-white/20 object-cover shadow-2xl shadow-slate-950/35" />
-                ) : (
-                  <span className="flex h-24 w-24 items-center justify-center rounded-[1.65rem] border border-white/20 bg-white text-slate-950 shadow-2xl shadow-slate-950/35">
-                    <UserRound className="h-10 w-10" />
-                  </span>
-                )}
-                <span className={`absolute -right-1 bottom-2 h-5 w-5 rounded-full border-4 border-slate-950 ${activeGroup ? statusDotClasses[activeTripStatus] : 'bg-slate-400'}`} />
-              </div>
-              <div className="min-w-0">
-                <p className="text-sm font-black uppercase tracking-[0.2em] text-teal-200">{t('profile.title')}</p>
-                <h1 className="mt-2 break-words text-3xl font-black tracking-tight md:text-5xl">{displayName}</h1>
-                <p className="mt-2 break-all text-sm font-bold text-slate-300 sm:text-base">{displayEmail}</p>
-                <div className="mt-4 flex flex-wrap gap-2">
-                  <span className={`rounded-full px-3 py-2 text-xs font-black uppercase tracking-[0.12em] ${activeGroup ? statusClasses[activeTripStatus] : 'bg-white/10 text-slate-300'}`}>
-                    {activeGroup ? statusLabels[activeTripStatus] : 'Perfil ativo'}
-                  </span>
-                  <span className="rounded-full bg-white/10 px-3 py-2 text-xs font-black uppercase tracking-[0.12em] text-slate-300">
-                    {t('profile.createdAt')}: {formatDate(profile?.createdAt)}
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            <div className="mt-7 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-              <HeroMetric
-                icon={Globe2}
-                label="Paises"
-                value={String(stats.countriesCount)}
-                detail={t('profile.uniqueCountries')}
+      <section className="relative min-h-[14rem] overflow-hidden rounded-xl bg-[#111827] text-white shadow-[0_18px_45px_rgba(15,23,42,0.12)]">
+        <img src={profileHeroImage} alt="" className="absolute inset-0 h-full w-full object-cover opacity-55" />
+        <div className="absolute inset-0 bg-gradient-to-r from-[#020617]/92 via-[#0f172a]/76 to-[#020617]/70" />
+        <div className="relative flex min-h-[14rem] flex-col gap-6 p-6 md:flex-row md:items-end md:justify-between lg:p-8">
+          <div className="flex min-w-0 flex-col gap-5 sm:flex-row sm:items-end">
+            {avatarUrl ? (
+              <img
+                src={avatarUrl}
+                alt=""
+                className="h-28 w-28 shrink-0 rounded-2xl border-4 border-white/35 object-cover shadow-2xl shadow-slate-950/35"
               />
-              <HeroMetric
-                icon={MapPin}
-                label="Viagem"
-                value={activeGroup?.name ?? t('profile.noActiveTrip')}
-                detail={activeGroup ? statusLabels[activeTripStatus] : 'Crie ou entre por convite'}
-              />
-              <HeroMetric
-                icon={Users}
-                label="Grupo"
-                value={`${userGroups.length} ${userGroups.length === 1 ? t('profile.tripSingular') : t('profile.tripPlural')}`}
-                detail={`${activeTripParticipantCount} participante${activeTripParticipantCount === 1 ? '' : 's'} na ativa`}
-              />
-              <HeroMetric
-                icon={Sparkles}
-                label="IA"
-                value={isAiTestUser ? 'Ilimitada' : `${aiGenerationsUsed}/${aiGenerationsLimit}`}
-                detail={isAiTestUser ? 'IA ativa' : aiUsageMessage}
-              />
+            ) : (
+              <span className="grid h-28 w-28 shrink-0 place-items-center rounded-2xl border-4 border-white/35 bg-white text-3xl font-black text-[#0b1326] shadow-2xl shadow-slate-950/35">
+                {getInitials(displayName)}
+              </span>
+            )}
+            <div className="min-w-0 pb-1">
+              <h1 className="break-words text-4xl font-black tracking-tight md:text-5xl">{displayName}</h1>
+              <p className="mt-2 break-all text-lg font-semibold text-white/82">{displayEmail}</p>
             </div>
           </div>
-
-          <div className="relative flex w-full flex-col justify-between gap-5 rounded-[1.5rem] border border-white/10 bg-white/[0.06] p-4 xl:max-w-sm">
-            <div className="flex items-center justify-between gap-3">
-              <img src="/logo.png" alt="TripFlow" className="h-11 w-11 rounded-2xl bg-white object-contain p-1" />
-              <div className="relative flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => setShowNotificationMenu((current) => !current)}
-                  aria-label="Abrir notificacoes"
-                  className="relative inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-white/10 text-white transition hover:bg-white/20"
-                >
-                  <Bell className="h-5 w-5" />
-                  {unreadNotifications > 0 ? (
-                    <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-rose-600 px-1 text-[0.65rem] font-black text-white">
-                      {unreadNotifications > 9 ? '9+' : unreadNotifications}
-                    </span>
-                  ) : null}
-                </button>
-                {showNotificationMenu ? (
-                  <div className="absolute right-0 top-14 z-40 w-[min(24rem,calc(100vw-2rem))] rounded-[1.5rem] border border-white/80 bg-white p-3 text-slate-900 shadow-2xl shadow-slate-950/25">
-                    <div className="flex items-center justify-between gap-3 px-1 pb-2">
-                      <div>
-                        <p className="text-xs font-black uppercase tracking-[0.16em] text-teal-700">Notificacoes</p>
-                        <p className="text-sm font-bold text-slate-500">
-                          {unreadNotifications ? `${unreadNotifications} nao lida${unreadNotifications === 1 ? '' : 's'}` : 'Tudo em dia'}
-                        </p>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => navigateProfileSection('notifications')}
-                        className="rounded-2xl bg-slate-100 px-3 py-2 text-xs font-black text-slate-700 transition hover:bg-slate-200"
-                      >
-                        Ver todas
-                      </button>
-                    </div>
-                    {notificationRealtimeWarning ? (
-                      <p className="mb-2 rounded-2xl bg-amber-50 px-3 py-2 text-xs font-bold text-amber-700">
-                        {notificationRealtimeWarning}
-                      </p>
-                    ) : null}
-                    <div className="max-h-96 space-y-2 overflow-y-auto pr-1">
-                      {notifications.slice(0, 5).length ? (
-                        notifications.slice(0, 5).map((notification) => renderNotificationCard(notification, true))
-                      ) : (
-                        <p className="rounded-2xl bg-slate-50 px-4 py-5 text-sm font-bold text-slate-500">
-                          Nenhuma notificacao por enquanto.
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                ) : null}
-                <button
-                  type="button"
-                  onClick={() => void handleSignOut()}
-                  className="inline-flex h-12 items-center justify-center gap-2 whitespace-nowrap rounded-2xl bg-white px-4 text-sm font-black text-slate-950 transition hover:bg-rose-50 hover:text-rose-700"
-                >
-                  <LogOut className="h-5 w-5" />
-                  Sair da conta
-                </button>
-              </div>
-            </div>
-            <p className="text-sm font-semibold leading-7 text-slate-300">
-              Cada viagem comeca com um sonho e se transforma em memorias que duram para sempre.
-            </p>
-          </div>
+          <button
+            type="button"
+            onClick={() => navigateProfileSection('edit-profile')}
+            className="inline-flex h-12 items-center justify-center gap-2 rounded-full bg-[#007c68] px-6 text-base font-bold text-white transition hover:bg-[#006b57]"
+          >
+            <Pencil className="h-5 w-5" />
+            Editar Perfil
+          </button>
         </div>
       </section>
 
-      <nav
-        aria-label="Navegacao interna do perfil"
-        className="rounded-[1.5rem] border border-white/80 bg-white/95 p-2 shadow-xl shadow-slate-900/10 backdrop-blur-xl"
-      >
-        <div className="flex gap-2 overflow-x-auto pb-1 sm:pb-0 lg:grid lg:grid-cols-6 lg:overflow-visible">
-          {profileSections.map((section) => {
-            const Icon = section.icon;
+      <nav aria-label="Navegacao interna do perfil" className="border-b border-[#dfe5ee]">
+        <div className="flex gap-8 overflow-x-auto">
+          {visibleProfileSections.map((section) => {
             const isActive = activeProfileSection === section.id;
 
             return (
@@ -2329,21 +2309,17 @@ export function ProfilePage() {
                 type="button"
                 aria-current={isActive ? 'page' : undefined}
                 onClick={() => navigateProfileSection(section.id)}
-                className={`group relative inline-flex h-12 min-w-max shrink-0 items-center justify-center gap-2 rounded-2xl px-4 text-sm font-black transition lg:min-w-0 ${
-                  isActive
-                    ? 'bg-slate-950 text-white shadow-lg shadow-slate-900/15'
-                    : 'text-slate-600 hover:bg-slate-100 hover:text-slate-950'
+                className={`relative inline-flex h-14 shrink-0 items-center text-base font-semibold transition ${
+                  isActive ? 'text-[#006b57]' : 'text-[#2c3242] hover:text-[#006b57]'
                 }`}
               >
-                <Icon className={`h-4 w-4 shrink-0 ${isActive ? 'text-teal-200' : 'text-slate-400 group-hover:text-teal-700'}`} />
-                <span className="whitespace-nowrap">{section.label}</span>
+                <span>{section.label}</span>
                 {section.id === 'notifications' && unreadNotifications > 0 ? (
-                  <span className={`rounded-full px-2 py-1 text-[0.65rem] ${
-                    isActive ? 'bg-rose-500 text-white' : 'bg-rose-600 text-white'
-                  }`}>
+                  <span className="ml-2 rounded-full bg-rose-600 px-2 py-1 text-[0.65rem] font-black text-white">
                     {unreadNotifications > 9 ? '9+' : unreadNotifications}
                   </span>
                 ) : null}
+                {isActive ? <span className="absolute bottom-0 left-0 h-0.5 w-full bg-[#006b57]" /> : null}
               </button>
             );
           })}
@@ -2358,6 +2334,154 @@ export function ProfilePage() {
 
       <div className="min-w-0 space-y-6">
           {activeProfileSection === 'overview' ? (
+            <section className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(19rem,0.42fr)]">
+              <div className="space-y-6">
+                <div className="grid gap-6 md:grid-cols-3">
+                  <ProfileMetricCard
+                    icon={Route}
+                    label="Total de viagens"
+                    value={String(stats.travelCount)}
+                    detail={`${userGroups.length} grupo${userGroups.length === 1 ? '' : 's'} vinculado${userGroups.length === 1 ? '' : 's'} à sua conta`}
+                  />
+                  <ProfileMetricCard
+                    icon={Globe2}
+                    label="Países visitados"
+                    value={String(stats.countriesCount)}
+                    detail={countriesSummary}
+                  />
+                  <ProfileMetricCard
+                    icon={Sparkles}
+                    label="IA usada"
+                    value={isAiTestUser ? 'Ilimitada' : `${aiGenerationsUsed}/${aiGenerationsLimit}`}
+                    detail={isAiTestUser ? 'Conta de teste com IA liberada' : aiUsageMessage}
+                  />
+                </div>
+
+                <article className="grid gap-6 rounded-xl border border-[#00a98b] bg-white p-6 shadow-[0_14px_36px_rgba(15,23,42,0.06)] md:grid-cols-[minmax(0,1fr)_17rem] md:p-8">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2 text-[#007c68]">
+                      <Sparkles className="h-5 w-5 fill-[#48fdd3]" />
+                      <p className="text-sm font-bold uppercase tracking-[0.16em]">Sugestão IA para você</p>
+                    </div>
+                    <h2 className="mt-5 text-3xl font-black tracking-tight text-[#0b1326]">{aiSuggestionTitle}</h2>
+                    <p className="mt-4 max-w-2xl text-base font-medium leading-7 text-[#45464d]">
+                      {aiSuggestionDescription}
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => navigateProfileSection(activeGroup ? 'checklist' : 'create-ai')}
+                      className="mt-7 inline-flex h-12 items-center justify-center rounded-xl bg-black px-7 text-base font-bold text-white transition hover:bg-[#111827]"
+                    >
+                      {activeGroup ? 'Continuar planejamento' : 'Criar viagem'}
+                    </button>
+                  </div>
+                  <div className="relative min-h-48 overflow-hidden rounded-xl">
+                    <img src={aiSuggestionImage} alt="" className="absolute inset-0 h-full w-full object-cover" />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent" />
+                    <div className="absolute bottom-4 left-4 right-4 text-white">
+                      <p className="text-xs font-semibold uppercase tracking-[0.14em] text-white/75">Viagem ativa</p>
+                      <p className="mt-1 text-xl font-black">{activeTripMetric}</p>
+                    </div>
+                  </div>
+                </article>
+
+                <section className="rounded-xl border border-[#e6ebf3] bg-white p-6 shadow-[0_8px_24px_rgba(15,23,42,0.045)] md:p-8">
+                  <h2 className="text-2xl font-black tracking-tight text-[#0b1326]">Configurações da Conta</h2>
+                  <div className="mt-6 divide-y divide-[#edf1f7]">
+                    <SettingsActionRow
+                      icon={ShieldCheck}
+                      title="Segurança & Senha"
+                      description="Atualize sua senha usando o fluxo seguro do Supabase Auth."
+                      onClick={() => navigateProfileSection('edit-profile')}
+                    />
+                    <SettingsActionRow
+                      icon={UserRound}
+                      title="E-mail e dados da conta"
+                      description={displayEmail}
+                      onClick={() => navigateProfileSection('edit-profile')}
+                    />
+                    <SettingsActionRow
+                      icon={Globe2}
+                      title="Idioma e Região"
+                      description={`${languageOptions.find((option) => option.code === language)?.label ?? 'Português (Brasil)'} · Moeda BRL`}
+                      onClick={() => navigateProfileSection('edit-profile')}
+                    />
+                    <SettingsActionRow
+                      icon={WalletCards}
+                      title="Preferências de moeda"
+                      description="Valores reais e moedas originais seguem os dados atuais da viagem."
+                      onClick={() => navigateWorkspaceView('expenses')}
+                    />
+                    <SettingsActionRow
+                      icon={Bell}
+                      title="Notificações"
+                      description={unreadNotifications ? `${unreadNotifications} pendente${unreadNotifications === 1 ? '' : 's'}` : 'Tudo em dia'}
+                      onClick={() => navigateProfileSection('notifications')}
+                    />
+                  </div>
+                </section>
+              </div>
+
+              <aside className="space-y-6">
+                <section className="rounded-xl bg-[#121b2d] p-7 text-white shadow-[0_18px_45px_rgba(15,23,42,0.14)]">
+                  <span className="inline-flex rounded-full bg-[#007c68] px-3 py-1 text-xs font-bold uppercase tracking-[0.1em]">
+                    Plano atual
+                  </span>
+                  <h2 className="mt-5 text-2xl font-black">Status da conta</h2>
+                  <p className="mt-3 text-base font-medium leading-7 text-[#9ca7bd]">
+                    Plano {accountPlanLabel}. Nenhuma cobrança ou assinatura real foi criada nesta fase.
+                  </p>
+                  <div className="mt-7 space-y-4 text-sm font-semibold text-[#cbd5e1]">
+                    <p className="flex items-center gap-3">
+                      <CheckCircle2 className="h-4 w-4 text-[#48fdd3]" />
+                      IA: {isAiTestUser ? 'uso liberado' : `${aiGenerationsUsed} de ${aiGenerationsLimit}`}
+                    </p>
+                    <p className="flex items-center gap-3">
+                      <CheckCircle2 className="h-4 w-4 text-[#48fdd3]" />
+                      Viagem ativa: {activeTripMetric}
+                    </p>
+                    <p className="flex items-center gap-3">
+                      <CheckCircle2 className="h-4 w-4 text-[#48fdd3]" />
+                      Participa de {userGroups.length} grupo{userGroups.length === 1 ? '' : 's'}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => navigateProfileSection('edit-profile')}
+                    className="mt-8 inline-flex h-12 w-full items-center justify-center rounded-xl border border-white/25 px-5 font-bold text-white transition hover:bg-white/10"
+                  >
+                    Gerenciar conta
+                  </button>
+                </section>
+
+                <section className="rounded-xl border border-[#e6ebf3] bg-white p-6 shadow-[0_8px_24px_rgba(15,23,42,0.045)]">
+                  <h2 className="text-lg font-bold text-[#0b1326]">Progresso da viagem</h2>
+                  <div className="mt-6 space-y-5">
+                    <ProgressLine label="Planejamento" value={tripPlanningProgress} />
+                    <ProgressLine label="Checklist" value={checklistProgress} />
+                    <ProgressLine label="Documentos" value={documentsProgress} />
+                  </div>
+                  <p className="mt-5 rounded-xl bg-[#f4f7fb] px-4 py-3 text-sm font-medium leading-6 text-[#45464d]">
+                    {profileDocumentCount
+                      ? `${pendingDocumentCount} documento${pendingDocumentCount === 1 ? '' : 's'} pendente${pendingDocumentCount === 1 ? '' : 's'}.`
+                      : 'Nenhum documento adicionado.'}
+                  </p>
+                </section>
+
+                <button
+                  type="button"
+                  onClick={() => void handleSignOut()}
+                  className="inline-flex h-12 w-full items-center justify-start gap-3 rounded-xl px-4 text-base font-semibold text-[#45464d] transition hover:bg-white hover:text-rose-700"
+                >
+                  <LogOut className="h-5 w-5" />
+                  Sair da conta
+                </button>
+                <p className="px-4 text-xs font-semibold text-[#a4acba]">TripFlow v2.4.1 Build 2024</p>
+              </aside>
+            </section>
+          ) : null}
+
+          {false && activeProfileSection === 'overview' ? (
             <>
               <section className="grid gap-6 xl:grid-cols-3">
                 <article className="flex min-h-full flex-col rounded-[2rem] border border-white/80 bg-white/95 p-6 shadow-xl shadow-slate-900/10 md:p-7">
@@ -2379,7 +2503,7 @@ export function ProfilePage() {
                   {activeGroup ? (
                     <div className="mt-5 grid gap-3">
                       <DetailTile icon={Globe2} label="Paises" value={activeTripCountries} />
-                      <DetailTile icon={CalendarDays} label="Datas" value={`${formatDate(activeGroup.startDate)} - ${formatDate(activeGroup.endDate)}`} />
+                      <DetailTile icon={CalendarDays} label="Datas" value={`${formatDate(activeGroup?.startDate)} - ${formatDate(activeGroup?.endDate)}`} />
                       <DetailTile icon={ShieldCheck} label="Dono" value={ownerName} />
                       <DetailTile icon={Users} label="Participantes" value={String(activeTripParticipantCount)} />
                     </div>
@@ -2908,6 +3032,151 @@ export function ProfilePage() {
                 </section>
               )}
             </>
+          ) : null}
+
+          {activeProfileSection === 'map' ? (
+            <section className="rounded-xl border border-[#e6ebf3] bg-white p-6 shadow-[0_8px_24px_rgba(15,23,42,0.045)] md:p-8">
+              <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+                <div>
+                  <p className="text-sm font-bold uppercase tracking-[0.16em] text-[#007c68]">Mapa da viagem</p>
+                  <h2 className="mt-2 text-3xl font-black tracking-tight text-[#0b1326]">
+                    {activeGroup ? 'Países e pontos da viagem ativa' : 'Nenhuma viagem ativa'}
+                  </h2>
+                  <p className="mt-3 max-w-3xl text-sm font-semibold leading-6 text-[#667085]">
+                    {activeGroup
+                      ? 'Resumo visual usando apenas os dados reais vinculados ao group_id ativo.'
+                      : 'Crie ou abra uma viagem para visualizar países, cidades e pontos turísticos.'}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => activeGroup ? navigateWorkspaceView('attractions') : navigateProfileSection('create-ai')}
+                  className="inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-black px-5 font-bold text-white transition hover:bg-[#111827]"
+                >
+                  {activeGroup ? 'Abrir Turismo' : 'Criar viagem'}
+                  <ArrowRight className="h-4 w-4" />
+                </button>
+              </div>
+
+              <div className="mt-6 grid gap-4 md:grid-cols-3">
+                <ProfileMetricCard
+                  icon={Globe2}
+                  label="Países"
+                  value={String(activeGroup?.countries?.length ?? 0)}
+                  detail={activeGroup ? activeTripCountries : 'Sem países vinculados'}
+                />
+                <ProfileMetricCard
+                  icon={MapPin}
+                  label="Pontos turísticos"
+                  value={String(tripAttractions.length)}
+                  detail={tripAttractions.length ? 'Cadastrados na viagem ativa' : 'Nenhum ponto turístico cadastrado'}
+                />
+                <ProfileMetricCard
+                  icon={Route}
+                  label="Itens de roteiro"
+                  value={String(tripItineraryItems.length)}
+                  detail={tripItineraryItems.length ? 'Atividades reais do roteiro' : 'Roteiro ainda vazio'}
+                />
+              </div>
+
+              <div className="mt-6 rounded-xl bg-[#f4f7fb] p-5">
+                {activeGroup?.countries?.length ? (
+                  <div className="flex flex-wrap gap-3">
+                    {activeGroup.countries?.map((country) => (
+                      <span key={country} className="inline-flex items-center gap-2 rounded-full bg-white px-4 py-2 text-sm font-bold text-[#0b1326] shadow-sm">
+                        <Globe2 className="h-4 w-4 text-[#007c68]" />
+                        {countryLabel(country)}
+                      </span>
+                    ))}
+                  </div>
+                ) : (
+                  <EmptyState
+                    icon={Globe2}
+                    title="Mapa ainda vazio"
+                    description="Os países aparecem aqui assim que houver uma viagem ativa com destinos cadastrados."
+                  />
+                )}
+              </div>
+            </section>
+          ) : null}
+
+          {activeProfileSection === 'documents' ? (
+            <section className="rounded-xl border border-[#e6ebf3] bg-white p-6 shadow-[0_8px_24px_rgba(15,23,42,0.045)] md:p-8">
+              <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+                <div>
+                  <p className="text-sm font-bold uppercase tracking-[0.16em] text-[#007c68]">Documentos</p>
+                  <h2 className="mt-2 text-3xl font-black tracking-tight text-[#0b1326]">
+                    {profileDocumentCount
+                      ? `${profileDocumentCount} documento${profileDocumentCount === 1 ? '' : 's'} da viagem`
+                      : 'Nenhum documento adicionado'}
+                  </h2>
+                  <p className="mt-3 max-w-3xl text-sm font-semibold leading-6 text-[#667085]">
+                    Documentos vêm do checklist da viagem ativa e respeitam o group_id atual.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => navigateProfileSection('checklist')}
+                  className="inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-black px-5 font-bold text-white transition hover:bg-[#111827]"
+                >
+                  Abrir checklist
+                  <ArrowRight className="h-4 w-4" />
+                </button>
+              </div>
+
+              <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                {checklistDocumentItems.length ? (
+                  checklistDocumentItems.map((item) => {
+                    const assignedName = item.assignedTo ? memberNameByUserId.get(item.assignedTo) : null;
+
+                    return (
+                      <article
+                        key={item.id}
+                        className={`rounded-xl border p-5 ${
+                          item.checked ? 'border-emerald-100 bg-emerald-50/70' : 'border-[#e6ebf3] bg-[#f8fafc]'
+                        }`}
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-white text-[#007c68] shadow-sm">
+                            <FileText className="h-5 w-5" />
+                          </span>
+                          <span className={`rounded-full px-3 py-1 text-xs font-bold ${
+                            item.checked ? 'bg-emerald-600 text-white' : 'bg-white text-[#667085]'
+                          }`}>
+                            {item.checked ? 'Concluído' : 'Pendente'}
+                          </span>
+                        </div>
+                        <h3 className={`mt-5 font-black ${item.checked ? 'text-emerald-950 line-through' : 'text-[#0b1326]'}`}>
+                          {item.title}
+                        </h3>
+                        <p className="mt-2 text-sm font-semibold leading-6 text-[#667085]">
+                          Qtd. {item.quantity}
+                          {assignedName ? ` · ${assignedName}` : ''}
+                        </p>
+                      </article>
+                    );
+                  })
+                ) : legacyItineraryDocuments.length ? (
+                  legacyItineraryDocuments.map((item) => (
+                    <article key={item.id} className="rounded-xl border border-[#e6ebf3] bg-[#f8fafc] p-5">
+                      <span className="grid h-11 w-11 place-items-center rounded-full bg-white text-[#007c68] shadow-sm">
+                        <FileText className="h-5 w-5" />
+                      </span>
+                      <h3 className="mt-5 font-black text-[#0b1326]">{item.title}</h3>
+                      <p className="mt-2 text-sm font-semibold text-[#667085]">Documento identificado no roteiro.</p>
+                    </article>
+                  ))
+                ) : (
+                  <div className="md:col-span-2 xl:col-span-3">
+                    <EmptyState
+                      icon={FileText}
+                      title="Nenhum documento adicionado"
+                      description="Adicione documentos no checklist para acompanhar pendências da viagem ativa."
+                    />
+                  </div>
+                )}
+              </div>
+            </section>
           ) : null}
 
           {activeProfileSection === 'checklist' ? (
