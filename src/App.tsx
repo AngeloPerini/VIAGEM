@@ -1,21 +1,26 @@
 import { AnimatePresence, motion } from 'framer-motion';
-import { AlertTriangle, Plus, Trash2 } from 'lucide-react';
+import {
+  AlertTriangle,
+  ArrowRight,
+  Edit3,
+  FileText,
+  Plus,
+  ReceiptText,
+  Sparkles,
+  Trash2,
+  WalletCards,
+} from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
-import { ConversionToggle } from './components/ConversionToggle';
-import { CountryFilter } from './components/CountryFilter';
 import { ExpenseCategoryModal } from './components/ExpenseCategoryModal';
-import { ExpenseChart } from './components/ExpenseChart';
 import { ExpenseFormModal } from './components/ExpenseFormModal';
-import { ExpenseTable } from './components/ExpenseTable';
 import { ItineraryPage } from './components/ItineraryPage';
 import { Navbar, type AppView } from './components/Navbar';
 import { NextActionDashboard } from './components/NextActionDashboard';
 import { QuotePage } from './components/QuotePage';
-import { SummaryCards } from './components/SummaryCards';
 import { useAuth } from './contexts/AuthContext';
 import { useGroup } from './contexts/GroupContext';
 import { useLanguage } from './contexts/LanguageContext';
-import { buildCountryOptions, normalizeCountryId } from './data/countries';
+import { buildCountryOptions, countryNames, normalizeCountryId } from './data/countries';
 import { AuthPage } from './pages/AuthPage';
 import { InvitePage } from './pages/InvitePage';
 import { AttractionsPage } from './pages/AttractionsPage';
@@ -60,9 +65,14 @@ import type {
 import {
   calculateCategoryTotal,
   calculateExpensesTotal,
+  formatOriginalCurrencyBreakdown,
+  formatRange,
+  getExpenseCurrency,
+  getExpenseOriginalRange,
+  getExpenseRealRange,
   type Totals,
 } from './utils/money';
-import { inferExpenseCategoryIconId } from './utils/expenseCategoryIcons';
+import { getExpenseCategoryIcon, inferExpenseCategoryIconId } from './utils/expenseCategoryIcons';
 
 function loadInitialView(): AppView {
   const path = window.location.pathname;
@@ -118,6 +128,53 @@ function StandaloneProfileShell() {
         <ProfilePage />
       </div>
     </main>
+  );
+}
+
+const rangeMidpoint = (range: { min: number; max: number }) => (range.min + range.max) / 2;
+
+const formatExpenseDate = (value?: string) => {
+  if (!value) return 'Sem data';
+
+  return new Intl.DateTimeFormat('pt-BR', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  }).format(new Date(value));
+};
+
+const buildDonutGradient = (items: Array<{ color: string; value: number }>) => {
+  const total = items.reduce((sum, item) => sum + Math.max(0, item.value), 0);
+  if (!total) return '#e7edf7';
+
+  let cursor = 0;
+  return items
+    .map((item) => {
+      const start = cursor;
+      const end = cursor + (Math.max(0, item.value) / total) * 360;
+      cursor = end;
+      return `${item.color} ${start}deg ${end}deg`;
+    })
+    .join(', ');
+};
+
+function ExpensesEmptyState({ onAddExpense }: { onAddExpense: () => void }) {
+  return (
+    <div className="rounded-3xl border border-dashed border-slate-300 bg-white/75 px-5 py-8 text-center">
+      <ReceiptText className="mx-auto h-9 w-9 text-[#007c68]" />
+      <p className="mt-4 text-lg font-black text-[#0b1326]">Nenhum gasto cadastrado ainda.</p>
+      <p className="mx-auto mt-2 max-w-sm text-sm font-semibold leading-6 text-[#667085]">
+        Adicione seu primeiro gasto para começar a acompanhar o orçamento da viagem ativa.
+      </p>
+      <button
+        type="button"
+        onClick={onAddExpense}
+        className="mt-5 inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-black px-5 text-sm font-bold text-white transition hover:bg-[#111827]"
+      >
+        <Plus className="h-4 w-4" />
+        Novo gasto
+      </button>
+    </div>
   );
 }
 
@@ -195,6 +252,7 @@ function TravelWorkspace({ groupId }: { groupId: string }) {
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
   const [activeView, setActiveView] = useState<AppView>(loadInitialView);
   const [realValueMode, setRealValueMode] = useState<RealValueMode>('converted');
+  const [showAllTransactions, setShowAllTransactions] = useState(false);
   const [expenseCountryFilter, setExpenseCountryFilter] = useState<CountryFilterId>('all');
   const [itineraryCountryFilter, setItineraryCountryFilter] = useState<CountryFilterId>('all');
   const [attractionCountryFilter, setAttractionCountryFilter] = useState<CountryFilterId>('all');
@@ -417,6 +475,71 @@ function TravelWorkspace({ groupId }: { groupId: string }) {
     }, {});
   }, [categoriesForDisplay, exchangeRates, expenses]);
   const dashboardGrandTotal = calculateExpensesTotal(expenses, exchangeRates);
+  const expenseCategoryRows = useMemo(() => {
+    const categoryExpenseCounts = filteredExpenses.reduce<Record<string, number>>((counts, expense) => {
+      counts[expense.category] = (counts[expense.category] ?? 0) + 1;
+      return counts;
+    }, {});
+
+    return categoriesForDisplay
+      .map((category) => {
+        const count = categoryExpenseCounts[category.id] ?? 0;
+        const total = count ? (filteredTotalsByCategory[category.id] ?? {
+          euro: { min: 0, max: 0 },
+          real: { min: 0, max: 0 },
+          originalByCurrency: {},
+        }) : {
+          euro: { min: 0, max: 0 },
+          real: { min: 0, max: 0 },
+          originalByCurrency: {},
+        };
+        const totalReal = rangeMidpoint(total.real);
+
+        return {
+          category,
+          count,
+          total,
+          totalReal,
+        };
+      });
+  }, [categoriesForDisplay, filteredExpenses, filteredTotalsByCategory]);
+  const expenseCategoryBreakdown = useMemo(
+    () => expenseCategoryRows.filter((item) => item.count > 0).sort((a, b) => b.totalReal - a.totalReal),
+    [expenseCategoryRows],
+  );
+  const categoriesForManagement = useMemo(
+    () => [...expenseCategoryRows].sort((a, b) => b.count - a.count || b.totalReal - a.totalReal),
+    [expenseCategoryRows],
+  );
+  const donutGradient = buildDonutGradient(
+    expenseCategoryBreakdown.map((item) => ({
+      color: item.category.accent,
+      value: item.totalReal,
+    })),
+  );
+  const recentTransactions = useMemo(
+    () =>
+      [...filteredExpenses].sort((a, b) => {
+        const dateA = a.createdAt ? Date.parse(a.createdAt) : 0;
+        const dateB = b.createdAt ? Date.parse(b.createdAt) : 0;
+        return dateB - dateA;
+      }),
+    [filteredExpenses],
+  );
+  const visibleTransactions = showAllTransactions ? recentTransactions : recentTransactions.slice(0, 4);
+  const selectedTotalLabel = formatRange(filteredGrandTotal.real, 'BRL', true);
+  const originalTotalLabel = formatOriginalCurrencyBreakdown(filteredGrandTotal.originalByCurrency);
+  const eurQuote = exchangeRates.EUR ?? null;
+  const tripDestinations = activeGroup?.countries?.length
+    ? activeGroup.countries.map((country) => countryNames[normalizeCountryId(country)]).join(', ')
+    : 'destinos em planejamento';
+  const topExpenseCategory = expenseCategoryBreakdown[0] ?? null;
+  const topCategoryShare = topExpenseCategory && rangeMidpoint(filteredGrandTotal.real) > 0
+    ? Math.round((topExpenseCategory.totalReal / rangeMidpoint(filteredGrandTotal.real)) * 100)
+    : 0;
+  const tripflowAiInsight = filteredExpenses.length && topExpenseCategory
+    ? `${topExpenseCategory.category.name} concentra ${topCategoryShare}% dos gastos filtrados. Revise os próximos lançamentos dessa categoria antes de assumir novos compromissos.`
+    : 'Adicione gastos reais para o TripFlow destacar oportunidades de economia sem acionar IA automaticamente.';
   const canManageExpenses = activeGroup?.role === 'owner' || activeGroup?.role === 'member';
   const categoryDeleteTargets = useMemo(
     () =>
@@ -491,6 +614,10 @@ function TravelWorkspace({ groupId }: { groupId: string }) {
   const openEditExpenseCategoryModal = (category: CategoryMeta) => {
     setEditingExpenseCategory(category);
     setIsCategoryModalOpen(true);
+  };
+
+  const handleExportPdfFallback = () => {
+    setExpenseSyncWarning('Exportar Relatório PDF ainda não está habilitado. Nenhum dado foi alterado.');
   };
 
   const handleSaveExpenseCategory = async (input: ExpenseCategoryInput) => {
@@ -583,32 +710,6 @@ function TravelWorkspace({ groupId }: { groupId: string }) {
     window.dispatchEvent(new PopStateEvent('popstate'));
   };
 
-  const tables = (
-    <div className="space-y-6">
-      <AnimatePresence initial={false}>
-        {categoriesForDisplay.map((category) => (
-          <ExpenseTable
-            key={category.id}
-            category={category}
-            expenses={filteredExpenses.filter((expense) => expense.category === category.id)}
-            total={filteredTotalsByCategory[category.id]}
-            realValueMode={realValueMode}
-            exchangeRates={exchangeRates}
-            canManage={canManageExpenses}
-            canManageCategory={canManageExpenses}
-            onEdit={openEditExpenseModal}
-            onDelete={(id) => {
-              const expense = expenses.find((item) => item.id === id && item.category === category.id);
-              if (expense) setExpensePendingDelete(expense);
-            }}
-            onEditCategory={openEditExpenseCategoryModal}
-            onDeleteCategory={openDeleteExpenseCategoryDialog}
-          />
-        ))}
-      </AnimatePresence>
-    </div>
-  );
-
   return (
     <main className="min-h-screen bg-[#f7f8fd] text-[#0b1326]">
       <Navbar
@@ -656,48 +757,51 @@ function TravelWorkspace({ groupId }: { groupId: string }) {
           ) : activeView === 'expenses' ? (
             <motion.div
               key="expenses"
-              className="space-y-6"
+              className="space-y-8"
               initial={{ opacity: 0, y: 16 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -12 }}
             >
-              <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-                <div>
-                  <p className="text-sm font-bold uppercase tracking-[0.2em] text-slate-500">
-                    {t('dashboard.expensesKicker')}
-                  </p>
-                  <h1 className="mt-1 text-3xl font-black text-slate-950 md:text-4xl">
-                    {t('dashboard.tripItems')}
+              <header className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+                <div className="min-w-0">
+                  <h1 className="text-3xl font-black tracking-tight text-[#0b1326] md:text-4xl">
+                    Visão Geral de Gastos
                   </h1>
+                  <p className="mt-2 text-base font-semibold text-[#45464d] md:text-lg">
+                    Viagem: {activeGroup?.name ?? 'Viagem ativa'} ({tripDestinations})
+                  </p>
+                  <div className="mt-5 flex flex-wrap gap-2">
+                    {expenseCountryOptions.map((country) => {
+                      const isActive = expenseCountryFilter === country.id;
+
+                      return (
+                        <button
+                          key={country.id}
+                          type="button"
+                          onClick={() => setExpenseCountryFilter(country.id)}
+                          className={`inline-flex h-9 items-center rounded-full border px-4 text-sm font-bold transition ${
+                            isActive
+                              ? 'border-[#007c68] bg-[#007c68] text-white'
+                              : 'border-[#dfe5ee] bg-white text-[#45464d] hover:border-[#007c68] hover:text-[#007c68]'
+                          }`}
+                        >
+                          {country.shortName}
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
-                <div className="flex flex-col gap-3 sm:flex-row">
-                  <button
-                    type="button"
-                    onClick={openNewExpenseCategoryModal}
-                    disabled={!canManageExpenses}
-                    className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-5 font-bold text-slate-700 shadow-lg shadow-slate-900/5 transition hover:border-teal-200 hover:bg-teal-50 hover:text-teal-700 disabled:cursor-not-allowed disabled:opacity-60"
-                  >
-                    <Plus className="h-5 w-5" />
-                    Adicionar categoria
-                  </button>
-                  <button
-                    type="button"
-                    onClick={openNewExpenseModal}
-                    className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl bg-slate-950 px-5 font-bold text-white shadow-xl shadow-slate-900/20 transition hover:bg-teal-700"
-                  >
-                    <Plus className="h-5 w-5" />
-                    {t('dashboard.newExpense')}
-                  </button>
+                <div className="inline-flex w-fit items-center gap-3 rounded-full border border-[#dfe5ee] bg-white px-5 py-3 text-sm font-bold text-[#45464d] shadow-[0_8px_24px_rgba(15,23,42,0.04)]">
+                  <WalletCards className="h-4 w-4 text-[#007c68]" />
+                  <span>Cotação do dia:</span>
+                  <strong className="text-[#0b1326]">
+                    1 EUR = {eurQuote ? formatRange({ min: eurQuote.rate, max: eurQuote.rate }, 'BRL') : 'indisponível'}
+                  </strong>
                 </div>
-              </div>
-              <CountryFilter
-                value={expenseCountryFilter}
-                onChange={setExpenseCountryFilter}
-                label={t('dashboard.filterExpenses')}
-                options={expenseCountryOptions}
-              />
+              </header>
+
               {expenseSyncWarning || categorySyncWarning || isExpenseLoading || isExpenseSaving || isCategorySaving ? (
-                <p className="rounded-2xl border border-white/70 bg-white/75 px-4 py-3 text-sm font-semibold text-slate-600 shadow-lg shadow-slate-900/5 backdrop-blur-xl">
+                <p className="rounded-2xl border border-[#dfe5ee] bg-white px-4 py-3 text-sm font-semibold text-[#45464d] shadow-[0_8px_24px_rgba(15,23,42,0.04)]">
                   {isExpenseSaving || isCategorySaving
                     ? t('dashboard.savingExpenses')
                     : isExpenseLoading
@@ -705,18 +809,336 @@ function TravelWorkspace({ groupId }: { groupId: string }) {
                       : expenseSyncWarning ?? categorySyncWarning}
                 </p>
               ) : null}
-              <ConversionToggle mode={realValueMode} quote={exchangeRates.EUR ?? null} onChange={setRealValueMode} />
-              <SummaryCards
-                categories={categoriesForDisplay}
-                totalsByCategory={filteredTotalsByCategory}
-                grandTotal={filteredGrandTotal}
-                realValueMode={realValueMode}
-              />
-              <ExpenseChart
-                categories={categoriesForDisplay}
-                totalsByCategory={filteredTotalsByCategory}
-              />
-              {tables}
+
+              <section className="grid gap-6 lg:grid-cols-[minmax(0,2.1fr)_minmax(20rem,1fr)]">
+                <article className="rounded-[1.5rem] border border-[#dfe5ee] bg-white p-7 shadow-[0_18px_45px_rgba(15,23,42,0.06)] md:p-8">
+                  <p className="text-sm font-bold uppercase tracking-[0.16em] text-[#45464d]">Investimento total</p>
+                  <div className="mt-5 flex flex-col gap-2 sm:flex-row sm:items-end">
+                    <h2 className="text-5xl font-black tracking-tight text-black md:text-6xl">
+                      {selectedTotalLabel}
+                    </h2>
+                    <span className="pb-2 text-base font-semibold text-[#8c8f9a]">/ orçamento não definido</span>
+                  </div>
+                  <p className="mt-3 text-2xl font-black text-[#007c68]">{originalTotalLabel}</p>
+                  <div className="mt-11">
+                    <div className="mb-3 flex items-center justify-between gap-4 text-sm font-bold text-[#45464d]">
+                      <span>Progresso do Orçamento</span>
+                      <span>--</span>
+                    </div>
+                    <div className="h-2 overflow-hidden rounded-full bg-[#e7edf7]">
+                      <div className="h-full w-0 rounded-full bg-[#007c68]" />
+                    </div>
+                    <p className="mt-3 text-sm font-semibold text-[#8c8f9a]">
+                      Nenhum orçamento previsto foi encontrado; exibindo apenas gastos reais cadastrados.
+                    </p>
+                  </div>
+                </article>
+
+                <div className="grid gap-6">
+                  <button
+                    type="button"
+                    onClick={openNewExpenseModal}
+                    disabled={!canManageExpenses}
+                    className="group flex min-h-40 flex-col items-center justify-center rounded-[1.5rem] bg-black p-6 text-white shadow-[0_18px_45px_rgba(15,23,42,0.12)] transition hover:-translate-y-0.5 hover:bg-[#111827] disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    <span className="grid h-14 w-14 place-items-center rounded-full bg-white/10 transition group-hover:bg-white/15">
+                      <Plus className="h-8 w-8" />
+                    </span>
+                    <span className="mt-4 text-2xl font-black">Novo Gasto</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleExportPdfFallback}
+                    className="flex min-h-24 items-center justify-between gap-4 rounded-[1.5rem] border border-[#cfd6e2] bg-white p-6 text-left shadow-[0_12px_28px_rgba(15,23,42,0.04)] transition hover:border-[#007c68]"
+                  >
+                    <span className="flex items-center gap-4">
+                      <span className="grid h-11 w-11 place-items-center rounded-full bg-[#eef8f6] text-[#007c68]">
+                        <FileText className="h-5 w-5" />
+                      </span>
+                      <span className="text-lg font-black leading-tight text-[#0b1326]">
+                        Exportar<br />Relatório PDF
+                      </span>
+                    </span>
+                    <ArrowRight className="h-5 w-5 text-[#45464d]" />
+                  </button>
+                </div>
+              </section>
+
+              <section className="grid gap-6 lg:grid-cols-[minmax(18rem,0.9fr)_minmax(0,1.9fr)]">
+                <article className="rounded-[1.5rem] border border-[#dfe5ee] bg-white p-7 shadow-[0_18px_45px_rgba(15,23,42,0.06)]">
+                  <div className="flex items-center justify-between gap-4">
+                    <h2 className="text-2xl font-black text-[#0b1326]">Categorias</h2>
+                    <button
+                      type="button"
+                      onClick={openNewExpenseCategoryModal}
+                      disabled={!canManageExpenses}
+                      className="inline-flex h-10 items-center justify-center gap-2 rounded-full border border-[#dfe5ee] px-4 text-sm font-bold text-[#45464d] transition hover:border-[#007c68] hover:text-[#007c68] disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      <Plus className="h-4 w-4" />
+                      Nova
+                    </button>
+                  </div>
+
+                  <div className="mt-7 flex justify-center">
+                    <div
+                      className="relative h-44 w-44 rounded-full"
+                      style={{ background: expenseCategoryBreakdown.length ? `conic-gradient(${donutGradient})` : donutGradient }}
+                    >
+                      <div className="absolute inset-6 grid place-items-center rounded-full bg-white text-center shadow-inner">
+                        <p className="text-sm font-semibold text-[#45464d]">Total</p>
+                        <p className="text-xl font-black text-[#0b1326]">
+                          {filteredExpenses.length} {filteredExpenses.length === 1 ? 'item' : 'itens'}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="mt-8 max-h-52 space-y-3 overflow-y-auto pr-1">
+                    {categoriesForManagement.map(({ category, count, total }) => (
+                      <div key={category.id} className="group flex items-center justify-between gap-3 rounded-2xl px-1 py-2">
+                        <div className="flex min-w-0 items-center gap-3">
+                          <span className="h-3 w-3 shrink-0 rounded-full" style={{ backgroundColor: category.accent }} />
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-bold text-[#45464d]">{category.name}</p>
+                            <p className="text-xs font-semibold text-[#8c8f9a]">
+                              {count} {count === 1 ? 'item' : 'itens'}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex shrink-0 items-center gap-2">
+                          <span className="text-sm font-black text-[#0b1326]">{formatRange(total.real, 'BRL', true)}</span>
+                          {canManageExpenses ? (
+                            <span className="flex opacity-100 md:opacity-0 md:transition md:group-hover:opacity-100">
+                              <button
+                                type="button"
+                                aria-label={`Editar categoria ${category.name}`}
+                                onClick={() => openEditExpenseCategoryModal(category)}
+                                className="grid h-8 w-8 place-items-center rounded-full text-[#667085] transition hover:bg-[#eef8f6] hover:text-[#007c68]"
+                              >
+                                <Edit3 className="h-4 w-4" />
+                              </button>
+                              <button
+                                type="button"
+                                aria-label={`Excluir categoria ${category.name}`}
+                                onClick={() => openDeleteExpenseCategoryDialog(category)}
+                                className="grid h-8 w-8 place-items-center rounded-full text-[#667085] transition hover:bg-rose-50 hover:text-rose-700"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </button>
+                            </span>
+                          ) : null}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </article>
+
+                <article className="overflow-hidden rounded-[1.5rem] border border-[#dfe5ee] bg-white shadow-[0_18px_45px_rgba(15,23,42,0.06)]">
+                  <div className="flex flex-col gap-4 border-b border-[#e8ecf4] p-6 md:flex-row md:items-center md:justify-between">
+                    <h2 className="text-2xl font-black text-[#0b1326]">Transações Recentes</h2>
+                    <div className="grid w-full grid-cols-2 rounded-full border border-[#dfe5ee] bg-[#f7f8fd] p-1 md:w-auto">
+                      <button
+                        type="button"
+                        onClick={() => setRealValueMode('converted')}
+                        className={`h-10 rounded-full px-5 text-sm font-bold transition ${
+                          realValueMode === 'converted' ? 'bg-white text-black shadow-sm' : 'text-[#667085] hover:text-black'
+                        }`}
+                      >
+                        BRL
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setRealValueMode('original')}
+                        className={`h-10 rounded-full px-5 text-sm font-bold transition ${
+                          realValueMode === 'original' ? 'bg-white text-black shadow-sm' : 'text-[#667085] hover:text-black'
+                        }`}
+                      >
+                        Moeda Original
+                      </button>
+                    </div>
+                  </div>
+
+                  {visibleTransactions.length ? (
+                    <>
+                      <div className="hidden md:block">
+                        <table className="w-full border-collapse text-left">
+                          <thead>
+                            <tr className="text-sm font-black text-[#45464d]">
+                              <th className="px-6 py-5">Gasto</th>
+                              <th className="px-6 py-5">Categoria</th>
+                              <th className="px-6 py-5">Data</th>
+                              <th className="px-6 py-5 text-right">Valor</th>
+                              {canManageExpenses ? <th className="px-6 py-5 text-right">Ações</th> : null}
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {visibleTransactions.map((expense) => {
+                              const category = categoriesForDisplay.find((item) => item.id === expense.category)
+                                ?? {
+                                  id: expense.category,
+                                  name: expense.category,
+                                  label: 'Gasto',
+                                  accent: '#475569',
+                                  icon: inferExpenseCategoryIconId({ id: expense.category, name: expense.category, icon: undefined }),
+                                };
+                              const CategoryIcon = getExpenseCategoryIcon(category);
+                              const value = realValueMode === 'converted'
+                                ? formatRange(getExpenseRealRange(expense, exchangeRates), 'BRL')
+                                : formatRange(getExpenseOriginalRange(expense), getExpenseCurrency(expense));
+
+                              return (
+                                <tr key={expense.id} className="border-t border-[#eef2f7]">
+                                  <td className="px-6 py-5">
+                                    <div className="flex min-w-0 items-center gap-4">
+                                      <span
+                                        className="grid h-11 w-11 shrink-0 place-items-center rounded-xl"
+                                        style={{ backgroundColor: `${category.accent}20`, color: category.accent }}
+                                      >
+                                        <CategoryIcon className="h-5 w-5" />
+                                      </span>
+                                      <div className="min-w-0">
+                                        <p className="truncate font-black text-[#0b1326]">{expense.title}</p>
+                                        <p className="truncate text-sm font-semibold text-[#667085]">
+                                          {expense.detail || countryNames[expense.country ?? 'international']}
+                                        </p>
+                                      </div>
+                                    </div>
+                                  </td>
+                                  <td className="px-6 py-5">
+                                    <span
+                                      className="inline-flex rounded-full px-3 py-1 text-xs font-black uppercase"
+                                      style={{ backgroundColor: `${category.accent}18`, color: category.accent }}
+                                    >
+                                      {category.name}
+                                    </span>
+                                  </td>
+                                  <td className="px-6 py-5 font-semibold text-[#45464d]">{formatExpenseDate(expense.createdAt)}</td>
+                                  <td className="px-6 py-5 text-right font-black text-[#0b1326]">{value}</td>
+                                  {canManageExpenses ? (
+                                    <td className="px-6 py-5">
+                                      <div className="flex justify-end gap-2">
+                                        <button
+                                          type="button"
+                                          aria-label={`Editar ${expense.title}`}
+                                          onClick={() => openEditExpenseModal(expense)}
+                                          className="grid h-9 w-9 place-items-center rounded-full border border-[#dfe5ee] text-[#667085] transition hover:border-[#007c68] hover:text-[#007c68]"
+                                        >
+                                          <Edit3 className="h-4 w-4" />
+                                        </button>
+                                        <button
+                                          type="button"
+                                          aria-label={`Excluir ${expense.title}`}
+                                          onClick={() => setExpensePendingDelete(expense)}
+                                          className="grid h-9 w-9 place-items-center rounded-full border border-[#dfe5ee] text-[#667085] transition hover:border-rose-200 hover:bg-rose-50 hover:text-rose-700"
+                                        >
+                                          <Trash2 className="h-4 w-4" />
+                                        </button>
+                                      </div>
+                                    </td>
+                                  ) : null}
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+
+                      <div className="space-y-3 p-4 md:hidden">
+                        {visibleTransactions.map((expense) => {
+                          const category = categoriesForDisplay.find((item) => item.id === expense.category)
+                            ?? {
+                              id: expense.category,
+                              name: expense.category,
+                              label: 'Gasto',
+                              accent: '#475569',
+                              icon: inferExpenseCategoryIconId({ id: expense.category, name: expense.category, icon: undefined }),
+                            };
+                          const CategoryIcon = getExpenseCategoryIcon(category);
+                          const value = realValueMode === 'converted'
+                            ? formatRange(getExpenseRealRange(expense, exchangeRates), 'BRL')
+                            : formatRange(getExpenseOriginalRange(expense), getExpenseCurrency(expense));
+
+                          return (
+                            <article key={expense.id} className="rounded-2xl border border-[#e8ecf4] bg-[#f8fafc] p-4">
+                              <div className="flex items-start gap-3">
+                                <span
+                                  className="grid h-11 w-11 shrink-0 place-items-center rounded-xl"
+                                  style={{ backgroundColor: `${category.accent}20`, color: category.accent }}
+                                >
+                                  <CategoryIcon className="h-5 w-5" />
+                                </span>
+                                <div className="min-w-0 flex-1">
+                                  <p className="font-black text-[#0b1326]">{expense.title}</p>
+                                  <p className="mt-1 text-sm font-semibold text-[#667085]">{category.name} · {formatExpenseDate(expense.createdAt)}</p>
+                                  <p className="mt-3 text-xl font-black text-[#0b1326]">{value}</p>
+                                </div>
+                              </div>
+                              {canManageExpenses ? (
+                                <div className="mt-4 grid grid-cols-2 gap-2">
+                                  <button
+                                    type="button"
+                                    onClick={() => openEditExpenseModal(expense)}
+                                    className="h-10 rounded-xl border border-[#dfe5ee] text-sm font-bold text-[#45464d]"
+                                  >
+                                    Editar
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => setExpensePendingDelete(expense)}
+                                    className="h-10 rounded-xl border border-rose-200 text-sm font-bold text-rose-700"
+                                  >
+                                    Excluir
+                                  </button>
+                                </div>
+                              ) : null}
+                            </article>
+                          );
+                        })}
+                      </div>
+                    </>
+                  ) : (
+                    <div className="p-6">
+                      <ExpensesEmptyState onAddExpense={openNewExpenseModal} />
+                    </div>
+                  )}
+
+                  {recentTransactions.length > 4 ? (
+                    <button
+                      type="button"
+                      onClick={() => setShowAllTransactions((current) => !current)}
+                      className="flex h-16 w-full items-center justify-center border-t border-[#eef2f7] bg-[#f7f8fd] text-sm font-black text-[#007c68] transition hover:bg-[#eef8f6]"
+                    >
+                      {showAllTransactions ? 'Mostrar menos transações' : 'Ver todas as transações'}
+                    </button>
+                  ) : null}
+                </article>
+              </section>
+
+              <section className="relative overflow-hidden rounded-[1.5rem] bg-[#121b2d] p-6 text-white shadow-[0_18px_45px_rgba(15,23,42,0.12)] md:p-8">
+                <div className="pointer-events-none absolute -right-20 -top-16 h-72 w-72 rounded-full border border-white/10" />
+                <div className="pointer-events-none absolute -right-8 top-8 h-44 w-44 rounded-full border border-white/10" />
+                <div className="relative flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
+                  <div className="flex min-w-0 gap-5">
+                    <span className="grid h-16 w-16 shrink-0 place-items-center rounded-full bg-[#007c68] text-white">
+                      <Sparkles className="h-7 w-7" />
+                    </span>
+                    <div className="min-w-0">
+                      <h2 className="text-2xl font-black">Insight do TripFlow AI</h2>
+                      <p className="mt-2 max-w-4xl text-base font-semibold leading-7 text-[#9ca7bd]">
+                        {tripflowAiInsight}
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setExpenseSyncWarning('Insight calculado localmente. Nenhuma IA ou Edge Function foi acionada automaticamente.')}
+                    className="inline-flex h-14 shrink-0 items-center justify-center rounded-full bg-white px-8 text-base font-bold text-black transition hover:bg-[#eef8f6]"
+                  >
+                    Otimizar Agora
+                  </button>
+                </div>
+              </section>
             </motion.div>
           ) : (
             <NextActionDashboard
