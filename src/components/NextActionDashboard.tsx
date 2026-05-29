@@ -185,10 +185,10 @@ function BottomCard({
   title: string;
 }) {
   return (
-    <section className="relative min-h-[420px] rounded-[18px] border border-[#e0e5ee] bg-white p-7 shadow-[0_12px_36px_rgba(15,23,42,0.06)]">
-      <div className="mb-8 flex items-center justify-between gap-4">
-        <h2 className="text-[1.55rem] font-black leading-tight text-[#070d1f]">{title}</h2>
-        {action ?? (Icon ? <Icon className="h-7 w-7 text-[#171a26]" /> : null)}
+    <section className="relative min-h-[360px] rounded-xl border border-[#e0e5ee] bg-white p-6 shadow-[0_10px_28px_rgba(15,23,42,0.055)]">
+      <div className="mb-6 flex items-center justify-between gap-4">
+        <h2 className="text-xl font-bold leading-tight text-[#070d1f]">{title}</h2>
+        {action ?? (Icon ? <Icon className="h-6 w-6 text-[#171a26]" /> : null)}
       </div>
       {children}
     </section>
@@ -218,8 +218,8 @@ function CostProgress({
   return (
     <div>
       <div className="mb-3 flex items-center justify-between gap-3">
-        <span className="text-xl font-medium text-[#9ca7bd]">{label}</span>
-        <span className="text-xl font-semibold text-white">{formatRange(range, 'BRL', true)}</span>
+        <span className="text-base font-medium text-[#9ca7bd]">{label}</span>
+        <span className="text-base font-semibold text-white">{formatRange(range, 'BRL', true)}</span>
       </div>
       <div className="h-1.5 overflow-hidden rounded-full bg-[#263247]">
         <div
@@ -237,14 +237,14 @@ function CircularMetric({ label, value, detail }: { label: string; value: number
   return (
     <div className="flex flex-col items-center text-center">
       <div
-        className="grid h-24 w-24 place-items-center rounded-full"
+        className="grid h-16 w-16 place-items-center rounded-full"
         style={{ background: `conic-gradient(#007c68 ${roundedValue * 3.6}deg, #e7edf6 0deg)` }}
       >
-        <div className="grid h-[4.7rem] w-[4.7rem] place-items-center rounded-full bg-white text-2xl font-semibold text-[#0b1326]">
+        <div className="grid h-12 w-12 place-items-center rounded-full bg-white text-base font-semibold text-[#0b1326]">
           {detail}
         </div>
       </div>
-      <p className="mt-4 text-xl font-medium text-[#2c3242]">{label}</p>
+      <p className="mt-3 text-base font-medium text-[#2c3242]">{label}</p>
     </div>
   );
 }
@@ -453,47 +453,46 @@ export function NextActionDashboard({
   return (
     <motion.div
       key="dashboard"
-      className="space-y-8"
+      className="space-y-6"
       initial={{ opacity: 0, y: 14 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -10 }}
     >
-      <header className="pt-2">
-        <h1 className="text-[2.6rem] font-black leading-tight text-[#0b1326] md:text-[3.15rem]">
+      <header className="pt-1">
+        <h1 className="text-[2.1rem] font-black leading-tight text-[#0b1326] md:text-[2.55rem]">
           Olá, {firstName}
         </h1>
-        <p className="mt-3 max-w-3xl text-xl font-medium leading-8 text-[#202431]">
+        <p className="mt-2 max-w-3xl text-base font-medium leading-7 text-[#202431] md:text-lg">
           {activeGroup
             ? `Bem-vindo de volta. Seu roteiro para ${tripCountries} está ${Math.round(travelReadiness)}% concluído.`
             : 'Bem-vindo de volta. Crie sua primeira viagem para começar o planejamento.'}
         </p>
         {planningStatusMessage ? (
-          <p className="mt-4 inline-flex items-center gap-2 rounded-full bg-white px-4 py-2 text-sm font-semibold text-[#667085] shadow-sm">
+          <p className="mt-3 inline-flex items-center gap-2 rounded-full bg-white px-4 py-2 text-sm font-semibold text-[#667085] shadow-sm">
             {isPlanningLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
             {planningStatusMessage}
           </p>
         ) : null}
       </header>
 
-      <section className="grid gap-7 lg:grid-cols-[minmax(0,1fr)_480px]">
-        <article className="relative min-h-[400px] overflow-hidden rounded-[18px] bg-[#101827] shadow-[0_18px_44px_rgba(15,23,42,0.14)] md:min-h-[395px]">
+      <section className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_480px]">
+        <article className="relative min-h-[16rem] overflow-hidden rounded-xl bg-[#101827] shadow-[0_14px_34px_rgba(15,23,42,0.13)] md:min-h-[19rem]">
           <img src={dashboardHeroImage} alt="" className="absolute inset-0 h-full w-full object-cover" />
           <div className="absolute inset-0 bg-black/28" />
-          <div className="relative flex min-h-[400px] flex-col justify-end p-7 md:min-h-[395px] md:p-10">
-            <span className="absolute left-8 top-8 inline-flex items-center rounded-full bg-[#56f5d0] px-4 py-2 text-base font-medium uppercase text-[#006b57]">
+          <div className="relative flex min-h-[16rem] flex-col justify-center p-6 md:min-h-[19rem] md:p-8">
+            <span className="mb-5 inline-flex w-fit items-center rounded-full bg-[#56f5d0] px-4 py-2 text-sm font-medium uppercase text-[#006b57]">
               Próxima ação
             </span>
             <div className="max-w-2xl">
-              <h2 className="text-[3.25rem] font-black leading-[1.05] text-white md:text-[4rem]">
-                Continue seu planejamento
+              <h2 className="text-[2.55rem] font-black leading-[1.05] text-white md:text-[3rem]">
+                Continue seu
+                <br />
+                planejamento
               </h2>
-              <p className="mt-4 max-w-2xl text-base font-semibold leading-7 text-white/90">
-                {nextAction.description}
-              </p>
               <button
                 type="button"
                 onClick={() => handleTarget(nextAction.target)}
-                className="mt-7 inline-flex h-14 min-w-72 items-center justify-center rounded-[10px] bg-black px-8 text-lg font-black text-white shadow-[0_14px_28px_rgba(0,0,0,0.22)] transition hover:bg-[#111827]"
+                className="mt-5 inline-flex h-12 min-w-64 items-center justify-center rounded-lg bg-black px-8 text-base font-black text-white shadow-[0_12px_24px_rgba(0,0,0,0.2)] transition hover:bg-[#111827]"
               >
                 {nextAction.cta}
               </button>
@@ -501,20 +500,20 @@ export function NextActionDashboard({
           </div>
         </article>
 
-        <article className="min-h-[400px] rounded-[18px] bg-[#121b2d] p-10 text-white shadow-[0_18px_44px_rgba(15,23,42,0.16)] md:min-h-[395px]">
+        <article className="min-h-[16rem] rounded-xl bg-[#121b2d] p-8 text-white shadow-[0_14px_34px_rgba(15,23,42,0.15)] md:min-h-[19rem]">
           <div className="flex items-start justify-between gap-4">
             <div>
-              <p className="text-xl font-medium uppercase text-[#8c96ab]">Custo estimado</p>
-              <h2 className="mt-4 text-[2.7rem] font-black leading-tight text-white">
+              <p className="text-base font-medium uppercase text-[#8c96ab]">Custo estimado</p>
+              <h2 className="mt-3 whitespace-nowrap text-[clamp(1.75rem,2.4vw,2.2rem)] font-black leading-tight text-white">
                 {formatRange(grandTotal.real, 'BRL', true)}
               </h2>
             </div>
-            <span className="inline-flex h-14 w-14 items-center justify-center rounded-[12px] text-[#56f5d0]">
-              <WalletCards className="h-10 w-10" />
+            <span className="inline-flex h-12 w-12 items-center justify-center rounded-[12px] text-[#56f5d0]">
+              <WalletCards className="h-8 w-8" />
             </span>
           </div>
 
-          <div className="mt-12 space-y-7">
+          <div className="mt-10 space-y-6">
             <CostProgress
               label="Voo & Hospedagem"
               range={primaryCostRange}
@@ -530,9 +529,9 @@ export function NextActionDashboard({
         </article>
       </section>
 
-      <section className="grid items-center gap-6 rounded-[16px] border border-[#dfe5ee] bg-white p-7 shadow-[0_10px_30px_rgba(15,23,42,0.05)] lg:grid-cols-[auto_minmax(0,1fr)_180px_160px_auto]">
-        <span className="grid h-20 w-20 place-items-center rounded-full bg-[#dbe8ff] text-[#0b1326]">
-          <PlaneTakeoff className="h-10 w-10" />
+      <section className="grid items-center gap-6 rounded-xl border border-[#dfe5ee] bg-white p-6 shadow-[0_10px_26px_rgba(15,23,42,0.05)] lg:grid-cols-[auto_minmax(0,1fr)_170px_140px_auto]">
+        <span className="grid h-16 w-16 place-items-center rounded-full bg-[#dbe8ff] text-[#0b1326]">
+          <PlaneTakeoff className="h-8 w-8" />
         </span>
         <div className="min-w-0">
           {userGroups.length > 1 && activeGroup ? (
@@ -542,7 +541,7 @@ export function NextActionDashboard({
                 const group = userGroups.find((item) => item.id === event.target.value);
                 if (group) setActiveGroup(group);
               }}
-              className="max-w-full bg-transparent text-2xl font-black text-[#070d1f] outline-none"
+              className="max-w-full bg-transparent text-xl font-black text-[#070d1f] outline-none"
             >
               {userGroups.map((group) => (
                 <option key={group.id} value={group.id}>
@@ -551,22 +550,22 @@ export function NextActionDashboard({
               ))}
             </select>
           ) : (
-            <h2 className="truncate text-2xl font-black text-[#070d1f]">
+            <h2 className="truncate text-xl font-black text-[#070d1f]">
               {activeGroup?.name ?? 'Sem viagem ativa'}
             </h2>
           )}
-          <p className="mt-2 flex items-center gap-2 text-xl font-medium text-[#2c3242]">
-            <MapPin className="h-5 w-5 text-[#007c68]" />
+          <p className="mt-1 flex items-center gap-2 text-base font-medium text-[#2c3242]">
+            <MapPin className="h-4 w-4 text-[#007c68]" />
             <span>{tripCountries}</span>
           </p>
         </div>
         <div className="border-[#e4e8f0] lg:border-l lg:pl-10">
-          <p className="text-xl font-medium uppercase text-[#2c3242]">Período</p>
-          <p className="mt-2 text-lg font-medium text-[#0b1326]">{formatTripPeriod(activeGroup?.startDate, activeGroup?.endDate)}</p>
+          <p className="text-base font-medium uppercase text-[#2c3242]">Período</p>
+          <p className="mt-2 text-base font-medium text-[#0b1326]">{formatTripPeriod(activeGroup?.startDate, activeGroup?.endDate)}</p>
         </div>
         <div>
-          <p className="text-xl font-medium uppercase text-[#2c3242]">Duração</p>
-          <p className="mt-2 text-lg font-medium text-[#0b1326]">
+          <p className="text-base font-medium uppercase text-[#2c3242]">Duração</p>
+          <p className="mt-2 text-base font-medium text-[#0b1326]">
             {tripDayCount ? `${tripDayCount} dias` : 'A definir'}
           </p>
         </div>
@@ -575,36 +574,36 @@ export function NextActionDashboard({
             type="button"
             aria-label="Editar viagem"
             onClick={() => onNavigateToProfilePath('/perfil/viagem')}
-            className="inline-flex h-16 w-16 items-center justify-center rounded-[14px] border border-[#0b1326]/40 bg-white text-[#0b1326] transition hover:bg-[#f3f6fb]"
+            className="inline-flex h-14 w-14 items-center justify-center rounded-xl border border-[#0b1326]/40 bg-white text-[#0b1326] transition hover:bg-[#f3f6fb]"
           >
-            <Edit3 className="h-7 w-7" />
+            <Edit3 className="h-6 w-6" />
           </button>
           <button
             type="button"
             onClick={() => onNavigate('itinerary')}
-            className="inline-flex h-16 items-center justify-center gap-4 rounded-[12px] bg-black px-8 text-xl font-semibold text-white transition hover:bg-[#111827]"
+            className="inline-flex h-14 items-center justify-center gap-3 rounded-xl bg-black px-7 text-base font-semibold text-white transition hover:bg-[#111827]"
           >
             Ver Roteiro
-            <ArrowRight className="h-6 w-6" />
+            <ArrowRight className="h-5 w-5" />
           </button>
         </div>
       </section>
 
-      <section className="grid gap-7 xl:grid-cols-4">
+      <section className="grid gap-6 md:grid-cols-2 xl:grid-cols-4">
         <BottomCard title="Próximas Atividades" icon={Clock3}>
           {activityHighlights.length ? (
             <div className="space-y-0">
               {activityHighlights.slice(0, 3).map((item, index) => (
-                <div key={item.id} className="grid grid-cols-[28px_minmax(0,1fr)] gap-5">
+                <div key={item.id} className="grid grid-cols-[24px_minmax(0,1fr)] gap-4">
                   <div className="flex flex-col items-center">
-                    <span className={`mt-1 h-5 w-5 rounded-full ${index === 0 ? 'bg-[#007c68]' : 'bg-[#dce8ff]'}`} />
+                    <span className={`mt-1 h-4 w-4 rounded-full ${index === 0 ? 'bg-[#007c68]' : 'bg-[#dce8ff]'}`} />
                     {index < Math.min(activityHighlights.length, 3) - 1 ? (
-                      <span className="h-16 w-px bg-[#dfe5ee]" />
+                      <span className="h-14 w-px bg-[#dfe5ee]" />
                     ) : null}
                   </div>
-                  <div className="pb-8">
-                    <p className="text-xl font-medium leading-7 text-[#1f2430]">{item.title}</p>
-                    <p className="mt-1 text-base font-medium leading-6 text-[#2c3242]">
+                  <div className="pb-7">
+                    <p className="text-base font-medium leading-6 text-[#1f2430]">{item.title}</p>
+                    <p className="mt-1 text-sm font-medium leading-5 text-[#2c3242]">
                       {getLocationLabel(item)} {item.time ? `• ${item.time}` : ''}
                     </p>
                   </div>
@@ -620,7 +619,7 @@ export function NextActionDashboard({
         </BottomCard>
 
         <BottomCard title="Status dos Preparativos">
-          <div className="flex justify-center gap-12">
+          <div className="flex justify-center gap-10">
             <CircularMetric
               label="Checklist"
               value={checklistProgress}
@@ -632,9 +631,9 @@ export function NextActionDashboard({
               detail={`${completedDocumentsCount}/${documentItems.length}`}
             />
           </div>
-          <div className="mt-9 rounded-[14px] bg-[#eef4ff] p-5">
-            <div className="flex items-center gap-3 text-xl font-medium text-[#d31919]">
-              <FileWarning className="h-6 w-6" />
+          <div className="mt-7 rounded-xl bg-[#eef4ff] p-4">
+            <div className="flex items-center gap-3 text-base font-medium text-[#d31919]">
+              <FileWarning className="h-5 w-5" />
               <span>
                 {pendingPreparationCount} pendência{pendingPreparationCount === 1 ? '' : 's'}
               </span>
@@ -673,21 +672,21 @@ export function NextActionDashboard({
             </button>
           }
         >
-          <div className="space-y-5">
+          <div className="space-y-4">
             {members.length ? (
               members.slice(0, 3).map((member, index) => {
                 const name = getMemberName(member, index);
                 return (
-                  <div key={member.id} className="flex items-center gap-4">
+                  <div key={member.id} className="flex items-center gap-3">
                     {member.profile?.avatarUrl ? (
-                      <img src={member.profile.avatarUrl} alt="" className="h-14 w-14 rounded-full object-cover" />
+                      <img src={member.profile.avatarUrl} alt="" className="h-11 w-11 rounded-full object-cover" />
                     ) : (
-                      <span className="grid h-14 w-14 place-items-center rounded-full bg-[#dce8ff] text-xl font-semibold text-[#7a879d]">
+                      <span className="grid h-11 w-11 place-items-center rounded-full bg-[#dce8ff] text-base font-semibold text-[#7a879d]">
                         {getInitials(name)}
                       </span>
                     )}
                     <div className="min-w-0">
-                      <p className="truncate text-xl font-medium text-[#1f2430]">{name}</p>
+                      <p className="truncate text-base font-medium text-[#1f2430]">{name}</p>
                       <p className="text-sm font-medium text-[#007c68]">{roleLabel(member.role)}</p>
                     </div>
                   </div>
@@ -700,7 +699,7 @@ export function NextActionDashboard({
           <button
             type="button"
             onClick={() => onNavigateToProfilePath('/perfil/viagem')}
-            className="mt-8 inline-flex h-12 w-full items-center justify-center rounded-[8px] border border-[#c6cedc] bg-white text-base font-semibold text-[#0b1326] transition hover:bg-[#f3f6fb]"
+            className="mt-7 inline-flex h-10 w-full items-center justify-center rounded-lg border border-[#c6cedc] bg-white text-sm font-semibold text-[#0b1326] transition hover:bg-[#f3f6fb]"
           >
             Convidar Membro
           </button>
@@ -715,27 +714,27 @@ export function NextActionDashboard({
                 event.preventDefault();
                 onNavigate('expenses');
               }}
-              className="whitespace-nowrap text-lg font-medium text-[#006b57]"
+              className="whitespace-nowrap text-base font-medium text-[#006b57]"
             >
               Ver tudo
             </a>
           }
         >
-          <div className="space-y-5">
+          <div className="space-y-4">
             {recentExpenses.length ? (
               recentExpenses.slice(0, 3).map((expense) => (
-                <div key={expense.id} className="grid grid-cols-[52px_minmax(0,1fr)_auto] items-center gap-4">
-                  <span className="grid h-[3.25rem] w-[3.25rem] place-items-center rounded-full bg-[#dce8ff] text-[#0b1326]">
-                    <Plane className="h-6 w-6" />
+                <div key={expense.id} className="grid grid-cols-[44px_minmax(0,1fr)_auto] items-center gap-3">
+                  <span className="grid h-11 w-11 place-items-center rounded-full bg-[#dce8ff] text-[#0b1326]">
+                    <Plane className="h-5 w-5" />
                   </span>
                   <div className="min-w-0">
-                    <p className="truncate text-xl font-medium text-[#1f2430]">{expense.title}</p>
+                    <p className="truncate text-base font-medium text-[#1f2430]">{expense.title}</p>
                     <p className="text-sm font-medium text-[#2c3242]">
                       {getCategoryLabel(categories, expense.category)} • {countryLabel(expense.country)}
                     </p>
                     <p className="text-xs font-medium text-[#6b7285]">{formatExpenseDate(expense.createdAt)}</p>
                   </div>
-                  <p className="text-right text-xl font-medium text-[#1f2430]">
+                  <p className="text-right text-base font-medium text-[#1f2430]">
                     {formatRange(getExpenseRealRange(expense), 'BRL', true)}
                   </p>
                 </div>
@@ -747,16 +746,16 @@ export function NextActionDashboard({
               />
             )}
           </div>
-          <div className="mt-8 border-t border-[#e2e7f0] pt-5">
-            <p className="text-sm font-medium uppercase text-[#2c3242]">Total gasto até agora</p>
-            <p className="mt-2 text-[1.85rem] font-black text-[#0b1326]">{formatRange(grandTotal.real, 'BRL', true)}</p>
+          <div className="mt-7 border-t border-[#e2e7f0] pt-4">
+            <p className="text-xs font-medium uppercase text-[#2c3242]">Total gasto até agora</p>
+            <p className="mt-2 text-2xl font-black text-[#0b1326]">{formatRange(grandTotal.real, 'BRL', true)}</p>
           </div>
           <button
             type="button"
             onClick={onAddExpense}
-            className="absolute bottom-8 right-4 inline-flex h-[4.5rem] w-[4.5rem] items-center justify-center rounded-full bg-black text-white shadow-[0_20px_45px_rgba(15,23,42,0.22)] transition hover:bg-[#111827] sm:right-[-1.25rem]"
+            className="absolute bottom-7 right-4 inline-flex h-14 w-14 items-center justify-center rounded-full bg-black text-white shadow-[0_18px_36px_rgba(15,23,42,0.2)] transition hover:bg-[#111827]"
           >
-            <Plus className="h-9 w-9" />
+            <Plus className="h-7 w-7" />
           </button>
         </BottomCard>
       </section>

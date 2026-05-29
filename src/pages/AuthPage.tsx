@@ -29,13 +29,13 @@ const travelHeroImage =
   'https://lh3.googleusercontent.com/aida-public/AB6AXuCM6rhDSvqhuD-HpbmgtmEiUAKiTDS1QIKN8krmV7IqkXSWD3ZcNdbS2zNCYsDpEjmqdew1DTSzH4QkSBSk264Kv6K2P4dITmxa8imu0ZS2dAaMbJSaQR1LFBqF9AMEwwki4JWl7hMPBxanunISEng3Jo6rk0WOmGdVSx3N_7VgBvraAsb7T0ifRCAaBUVsqXiGPGnjwUeeO3PqOpo9-pNOyhzhovCcW7tvI6MkWT7yE5abchq9tVG2edFkf23WEfRxP75n5WhDGkV4';
 
 const sharedInputClass =
-  'h-12 w-full rounded-2xl border border-[#c6c6cd] bg-[#f8f9ff] px-4 text-base font-medium text-[#0b1c30] outline-none transition placeholder:text-[#45464d]/45 focus:border-[#131b2e] focus:bg-white focus:ring-4 focus:ring-[#131b2e]/10 disabled:cursor-not-allowed disabled:opacity-70 sm:h-[3.25rem] lg:h-12';
+  'h-11 w-full rounded-xl border border-[#c6c6cd] bg-[#f8f9ff] px-4 text-sm font-medium text-[#0b1c30] outline-none transition placeholder:text-[#45464d]/45 focus:border-[#131b2e] focus:bg-white focus:ring-4 focus:ring-[#131b2e]/10 disabled:cursor-not-allowed disabled:opacity-70 sm:h-12 lg:h-11 xl:h-12';
 const iconInputClass = `${sharedInputClass} pl-12`;
 const passwordInputClass = `${iconInputClass} pr-12`;
 const primaryButtonClass =
-  'inline-flex h-[3.25rem] w-full items-center justify-center gap-3 rounded-2xl bg-black px-6 text-base font-extrabold text-white shadow-[0_18px_36px_rgba(15,23,42,0.18)] transition hover:-translate-y-0.5 hover:bg-[#131b2e] hover:shadow-[0_22px_42px_rgba(15,23,42,0.22)] active:translate-y-0 disabled:cursor-not-allowed disabled:opacity-70 disabled:hover:translate-y-0';
+  'inline-flex h-12 w-full items-center justify-center gap-3 rounded-xl bg-black px-6 text-sm font-extrabold text-white shadow-[0_14px_28px_rgba(15,23,42,0.16)] transition hover:-translate-y-0.5 hover:bg-[#131b2e] hover:shadow-[0_18px_34px_rgba(15,23,42,0.2)] active:translate-y-0 disabled:cursor-not-allowed disabled:opacity-70 disabled:hover:translate-y-0';
 const secondaryButtonClass =
-  'inline-flex h-12 w-full items-center justify-center gap-3 rounded-2xl border border-[#c6c6cd] bg-white px-6 text-base font-bold text-[#0b1c30] transition hover:border-[#131b2e]/35 hover:bg-[#eff4ff] disabled:cursor-not-allowed disabled:opacity-70';
+  'inline-flex h-11 w-full items-center justify-center gap-3 rounded-xl border border-[#c6c6cd] bg-white px-6 text-sm font-bold text-[#0b1c30] transition hover:border-[#131b2e]/35 hover:bg-[#eff4ff] disabled:cursor-not-allowed disabled:opacity-70 sm:h-12 lg:h-11 xl:h-12';
 
 const friendlyAuthError = (message: string) => {
   const normalized = message.toLowerCase();
@@ -256,11 +256,11 @@ export function AuthPage({ initialInviteCode }: AuthPageProps) {
 
   return (
     <main
-      className="flex min-h-svh items-start justify-center overflow-x-hidden px-4 py-4 text-[#0b1c30] sm:px-6 md:items-center lg:px-10 lg:py-4"
+      className="flex min-h-svh items-start justify-center overflow-x-hidden px-4 py-3 text-[#0b1c30] sm:px-6 md:items-center lg:px-8 lg:py-3"
       style={{ background: 'radial-gradient(circle at top left, #f8f9ff 0%, #e5eeff 46%, #dce9ff 100%)' }}
     >
       <motion.section
-        className="grid w-full max-w-[1080px] grid-cols-1 overflow-hidden rounded-[2rem] border border-white/70 bg-white shadow-[0_28px_90px_rgba(15,23,42,0.12)] lg:h-[min(720px,calc(100svh-2rem))] lg:grid-cols-[0.95fr_1.05fr]"
+        className="grid w-full max-w-[1060px] grid-cols-1 overflow-hidden rounded-[1.75rem] border border-white/70 bg-white shadow-[0_24px_70px_rgba(15,23,42,0.12)] lg:h-[min(660px,calc(100svh-1.5rem))] lg:grid-cols-[0.95fr_1.05fr]"
         initial={{ opacity: 0, y: 18 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
@@ -274,31 +274,30 @@ export function AuthPage({ initialInviteCode }: AuthPageProps) {
             transition={{ duration: 6, ease: 'easeOut' }}
           />
           <div className="absolute inset-0 bg-gradient-to-b from-[#020617]/10 via-[#131b2e]/20 to-[#020617]/35" />
-          <div className="absolute bottom-8 left-8 right-8 rounded-3xl border border-white/25 bg-white/82 p-6 text-[#0b1c30] shadow-[0_22px_55px_rgba(2,6,23,0.2)] backdrop-blur-xl xl:p-7">
-            <div className="mb-3 flex items-center gap-3">
+          <div className="absolute left-8 top-8 z-10 flex items-center gap-3 text-white">
+            <span className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-xl bg-[#131b2e]/85 text-[#48fdd3] shadow-lg shadow-slate-950/20 ring-1 ring-white/20">
+              <img src="/logo.png" alt="" className="h-full w-full object-contain p-1.5" />
+            </span>
+            <span className="text-2xl font-extrabold tracking-tight">{t('app.name')}</span>
+          </div>
+          <div className="absolute bottom-6 left-8 right-8 rounded-2xl border border-white/25 bg-white/82 p-5 text-[#0b1c30] shadow-[0_18px_44px_rgba(2,6,23,0.2)] backdrop-blur-xl xl:p-6">
+            <div className="mb-2 flex items-center gap-3">
               <Sparkles className="h-5 w-5 fill-[#006b57] text-[#006b57]" aria-hidden="true" />
-              <span className="text-sm font-bold uppercase tracking-[0.2em]">AI Prediction</span>
+              <span className="text-xs font-bold uppercase tracking-[0.2em]">AI Prediction</span>
             </div>
-            <h2 className="text-2xl font-bold leading-tight">Seu proximo destino esta esperando.</h2>
-            <p className="mt-2 text-sm leading-6 text-[#45464d] xl:text-base xl:leading-7">
+            <h2 className="text-xl font-bold leading-tight xl:text-2xl">Seu proximo destino esta esperando.</h2>
+            <p className="mt-2 text-sm leading-6 text-[#45464d]">
               Otimize sua logistica e reduza custos em ate 22% com o gerenciamento inteligente da TripFlow.
             </p>
           </div>
         </aside>
 
-        <section className="flex min-h-0 flex-col bg-white px-5 py-6 sm:px-8 md:px-10 lg:h-full lg:overflow-y-auto lg:px-12 lg:py-8 xl:px-14">
-          <div className="mb-6 flex items-center gap-3 lg:mb-5">
-            <span className="flex h-11 w-11 items-center justify-center overflow-hidden rounded-2xl bg-[#131b2e] text-[#48fdd3] shadow-lg shadow-slate-900/10">
-              <img src="/logo.png" alt="" className="h-full w-full object-contain p-1.5" />
-            </span>
-            <span className="text-2xl font-extrabold tracking-tight text-[#0b1c30]">{t('app.name')}</span>
-          </div>
-
-          <div className="mb-5">
-            <h1 className="text-3xl font-extrabold tracking-normal text-[#0b1c30] sm:text-4xl lg:text-3xl xl:text-4xl">
+        <section className="flex min-h-0 flex-col justify-center bg-white px-5 py-6 sm:px-8 md:px-10 lg:h-full lg:overflow-y-auto lg:px-10 lg:py-5 xl:px-12">
+          <div className="mb-4">
+            <h1 className="text-3xl font-extrabold tracking-normal text-[#0b1c30] lg:text-[2rem] xl:text-4xl">
               {currentModeContent.title}
             </h1>
-            <p className="mt-2 text-base leading-6 text-[#45464d]">{currentModeContent.description}</p>
+            <p className="mt-1.5 text-sm leading-6 text-[#45464d] sm:text-base">{currentModeContent.description}</p>
           </div>
 
           <button
@@ -311,7 +310,7 @@ export function AuthPage({ initialInviteCode }: AuthPageProps) {
             <span>{loadingAction === 'google' ? t('auth.googleLoading') : t('auth.google')}</span>
           </button>
 
-          <div className="my-5 flex items-center gap-5">
+          <div className="my-3 flex items-center gap-5">
             <span className="h-px flex-1 bg-[#c6c6cd]/55" />
             <span className="text-sm font-bold uppercase tracking-[0.18em] text-[#45464d]">ou e-mail</span>
             <span className="h-px flex-1 bg-[#c6c6cd]/55" />
@@ -322,7 +321,7 @@ export function AuthPage({ initialInviteCode }: AuthPageProps) {
               <motion.form
                 key="login"
                 onSubmit={handleEmailLogin}
-                className="space-y-4"
+                className="space-y-3"
                 initial={{ opacity: 0, x: 16 }}
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: -16 }}
@@ -393,7 +392,7 @@ export function AuthPage({ initialInviteCode }: AuthPageProps) {
               <motion.form
                 key="signup"
                 onSubmit={handleSignUp}
-                className="space-y-4"
+                className="space-y-3"
                 initial={{ opacity: 0, x: 16 }}
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: -16 }}
@@ -416,7 +415,7 @@ export function AuthPage({ initialInviteCode }: AuthPageProps) {
                   </span>
                 </label>
 
-                <div className="grid gap-4 sm:grid-cols-2">
+                <div className="grid gap-3 sm:grid-cols-2">
                   <label className="block" htmlFor="signup-password">
                     <span className="mb-1.5 block text-sm font-bold text-[#0b1c30]">{t('auth.password')}</span>
                     <span className="relative block">
@@ -485,7 +484,7 @@ export function AuthPage({ initialInviteCode }: AuthPageProps) {
               <motion.form
                 key="reset"
                 onSubmit={handleReset}
-                className="space-y-4"
+                className="space-y-3"
                 initial={{ opacity: 0, x: 16 }}
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: -16 }}
@@ -520,7 +519,7 @@ export function AuthPage({ initialInviteCode }: AuthPageProps) {
             )}
           </AnimatePresence>
 
-          <div className="pt-5 text-center text-sm text-[#45464d]">
+          <div className="pt-4 text-center text-sm text-[#45464d]">
             {mode === 'login' ? (
               <p>
                 Nao possui uma conta corporativa?
@@ -546,7 +545,7 @@ export function AuthPage({ initialInviteCode }: AuthPageProps) {
             )}
           </div>
 
-          <form onSubmit={handleInvite} className="mt-4 rounded-3xl border border-[#d3e4fe] bg-[#eff4ff]/80 p-3.5">
+          <form onSubmit={handleInvite} className="mt-2 rounded-2xl border border-[#d3e4fe] bg-[#eff4ff]/80 p-3">
             <label className="block" htmlFor="invite-code">
               <span className="mb-1.5 flex items-center gap-2 text-sm font-extrabold text-[#0b1c30]">
                 <Ticket className="h-4 w-4" aria-hidden="true" />
@@ -564,7 +563,7 @@ export function AuthPage({ initialInviteCode }: AuthPageProps) {
             <button
               type="submit"
               disabled={isBusy || !normalizedInviteCode}
-              className="mt-2.5 inline-flex h-11 w-full items-center justify-center gap-2 rounded-2xl border border-[#c6c6cd] bg-white px-4 text-sm font-extrabold text-[#0b1c30] transition hover:bg-[#f8f9ff] disabled:cursor-not-allowed disabled:opacity-60"
+              className="mt-2 inline-flex h-10 w-full items-center justify-center gap-2 rounded-xl border border-[#c6c6cd] bg-white px-4 text-sm font-extrabold text-[#0b1c30] transition hover:bg-[#f8f9ff] disabled:cursor-not-allowed disabled:opacity-60"
             >
               {loadingAction === 'invite' ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : <Route className="h-4 w-4" aria-hidden="true" />}
               {loadingAction === 'invite' ? t('auth.inviteSaving') : t('auth.inviteSubmit')}
@@ -584,9 +583,9 @@ export function AuthPage({ initialInviteCode }: AuthPageProps) {
             ) : null}
           </div>
 
-          <div className="mt-auto pt-5">
+          <div className="mt-auto pt-3">
             <div className="h-px bg-[#c6c6cd]/35" />
-            <nav className="flex flex-wrap justify-center gap-x-6 gap-y-2 pt-4 text-xs font-semibold text-[#45464d] sm:text-sm">
+            <nav className="flex flex-wrap justify-center gap-x-5 gap-y-2 pt-2 text-xs font-semibold text-[#45464d]">
               <a className="transition hover:text-[#0b1c30]" href="#privacidade">Privacidade</a>
               <a className="transition hover:text-[#0b1c30]" href="#termos">Termos de Uso</a>
               <a className="transition hover:text-[#0b1c30]" href="mailto:suporte@tripflow.online">Suporte</a>

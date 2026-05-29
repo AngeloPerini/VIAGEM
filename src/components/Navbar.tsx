@@ -84,17 +84,17 @@ export function Navbar({ activeView, onNavigate, onNavigateToProfilePath }: Navb
       initial={{ opacity: 0, y: -12 }}
       animate={{ opacity: 1, y: 0 }}
     >
-      <div className="mx-auto flex h-20 w-full max-w-[1500px] items-center justify-between gap-5 px-4 sm:px-6 lg:px-8 2xl:px-0">
+      <div className="mx-auto flex h-16 w-full max-w-[1500px] items-center justify-between gap-5 px-4 sm:px-6 lg:px-8 2xl:px-0">
         <button
           type="button"
           onClick={() => onNavigate('dashboard')}
-          className="flex shrink-0 items-center gap-3 text-left text-[1.75rem] font-black text-[#0b1326]"
+          className="flex shrink-0 items-center gap-3 text-left text-[1.5rem] font-black text-[#0b1326]"
         >
-          <img src="/logo.png" alt="" className="hidden h-8 w-8 object-contain sm:block" />
+          <img src="/logo.png" alt="" className="h-7 w-7 object-contain sm:h-8 sm:w-8" />
           <span>{t('app.name')}</span>
         </button>
 
-        <div className="hidden min-w-0 flex-1 items-center gap-8 md:flex">
+        <div className="hidden min-w-0 flex-1 items-center gap-7 md:flex">
           {navItems.map((item) => {
             const active = activeView === item.id;
 
@@ -106,7 +106,7 @@ export function Navbar({ activeView, onNavigate, onNavigateToProfilePath }: Navb
                   onNavigate(item.id);
                 }}
                 href={item.id === 'dashboard' ? '/dashboard' : `/#${item.id}`}
-                className={`relative inline-flex h-20 items-center text-lg font-semibold transition ${
+                className={`relative inline-flex h-16 items-center text-base font-semibold transition ${
                   active ? 'text-[#006b57]' : 'text-[#171a26] hover:text-[#006b57]'
                 }`}
               >
@@ -114,7 +114,7 @@ export function Navbar({ activeView, onNavigate, onNavigateToProfilePath }: Navb
                 {active ? (
                   <motion.span
                     layoutId="active-nav-underline"
-                    className="absolute bottom-5 left-0 h-0.5 w-full bg-[#006b57]"
+                    className="absolute bottom-3 left-0 h-0.5 w-full bg-[#006b57]"
                     transition={{ type: 'spring', stiffness: 420, damping: 34 }}
                   />
                 ) : null}
@@ -123,14 +123,14 @@ export function Navbar({ activeView, onNavigate, onNavigateToProfilePath }: Navb
           })}
         </div>
 
-        <div className="flex shrink-0 items-center gap-4">
+        <div className="flex shrink-0 items-center gap-3">
           <button
             type="button"
             aria-label="Notificações"
             onClick={() => onNavigateToProfilePath('/perfil/notificacoes')}
-            className="relative inline-flex h-11 w-11 items-center justify-center rounded-full text-[#171a26] transition hover:bg-white hover:shadow-sm"
+            className="relative inline-flex h-10 w-10 items-center justify-center rounded-full text-[#171a26] transition hover:bg-white hover:shadow-sm"
           >
-            <Bell className="h-6 w-6" />
+            <Bell className="h-5 w-5" />
             {unreadNotifications > 0 ? (
               <span className="absolute right-1.5 top-1.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-[#006b57] px-1 text-[0.65rem] font-black text-white">
                 {unreadNotifications > 9 ? '9+' : unreadNotifications}
@@ -141,15 +141,15 @@ export function Navbar({ activeView, onNavigate, onNavigateToProfilePath }: Navb
             type="button"
             aria-label="Configurações"
             onClick={() => onNavigateToProfilePath('/perfil')}
-            className="hidden h-11 w-11 items-center justify-center rounded-full text-[#171a26] transition hover:bg-white hover:shadow-sm sm:inline-flex"
+            className="inline-flex h-10 w-10 items-center justify-center rounded-full text-[#171a26] transition hover:bg-white hover:shadow-sm"
           >
-            <Settings className="h-7 w-7" />
+            <Settings className="h-6 w-6" />
           </button>
           <button
             type="button"
             aria-label="Abrir perfil"
             onClick={() => onNavigateToProfilePath('/perfil')}
-            className="inline-flex h-12 w-12 items-center justify-center overflow-hidden rounded-full border border-[#cbd7ea] bg-[#dce9ff] text-[#0b1326] shadow-sm transition hover:shadow-md"
+            className="inline-flex h-10 w-10 items-center justify-center overflow-hidden rounded-full border border-[#cbd7ea] bg-[#dce9ff] text-[#0b1326] shadow-sm transition hover:shadow-md"
             title={displayName}
           >
             {avatarUrl ? (

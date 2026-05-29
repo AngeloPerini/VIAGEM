@@ -617,7 +617,7 @@ function TravelWorkspace({ groupId }: { groupId: string }) {
         onNavigateToProfilePath={handleNavigateToProfilePath}
       />
 
-      <div className="mx-auto flex w-full max-w-[1500px] flex-col gap-8 px-4 py-10 sm:px-6 lg:px-8 2xl:px-0">
+      <div className="mx-auto flex w-full max-w-[1500px] flex-col gap-6 px-4 py-8 sm:px-6 lg:px-8 2xl:px-0">
         <AnimatePresence mode="wait">
           {activeView === 'profile' ? (
             <ProfilePage key="profile" />
