@@ -15,7 +15,6 @@ import { SummaryCards } from './components/SummaryCards';
 import { useAuth } from './contexts/AuthContext';
 import { useGroup } from './contexts/GroupContext';
 import { useLanguage } from './contexts/LanguageContext';
-import { initialExpenses } from './data/initialExpenses';
 import { buildCountryOptions, normalizeCountryId } from './data/countries';
 import { AuthPage } from './pages/AuthPage';
 import { InvitePage } from './pages/InvitePage';
@@ -35,7 +34,6 @@ import {
   deleteExpense,
   getCachedExpenses,
   getExpenses,
-  resetExpensesToDefault,
   subscribeExpenses,
   updateExpense,
 } from './services/expensesService';
@@ -458,22 +456,6 @@ function TravelWorkspace({ groupId }: { groupId: string }) {
     }
   };
 
-  const handleReset = async () => {
-    setIsExpenseSaving(true);
-
-    try {
-      setExpenses(await resetExpensesToDefault(groupId));
-      setExpenseSyncWarning(null);
-    } catch {
-      setExpenses(initialExpenses);
-      setExpenseSyncWarning('Nao foi possivel restaurar no Supabase. Restauracao aplicada apenas localmente.');
-    } finally {
-      setEditingExpense(null);
-      setIsModalOpen(false);
-      setIsExpenseSaving(false);
-    }
-  };
-
   const handleDeleteExpense = async (expense: Expense) => {
     const previousExpenses = expenses;
     setIsExpenseSaving(true);
@@ -628,16 +610,14 @@ function TravelWorkspace({ groupId }: { groupId: string }) {
   );
 
   return (
-    <main className="min-h-screen overflow-hidden bg-[#edf4f2] text-slate-900">
-      <div className="pointer-events-none fixed inset-0">
-        <div className="absolute -left-24 top-0 h-96 w-96 rounded-full bg-teal-200/50 blur-3xl" />
-        <div className="absolute right-0 top-24 h-[30rem] w-[30rem] rounded-full bg-sky-200/50 blur-3xl" />
-        <div className="absolute bottom-0 left-1/3 h-96 w-96 rounded-full bg-rose-100/70 blur-3xl" />
-      </div>
+    <main className="min-h-screen bg-[#f7f8fd] text-[#0b1326]">
+      <Navbar
+        activeView={activeView}
+        onNavigate={handleNavigate}
+        onNavigateToProfilePath={handleNavigateToProfilePath}
+      />
 
-      <div className="relative mx-auto flex w-full max-w-7xl flex-col gap-6 px-4 py-5 sm:px-6 md:gap-8 md:py-8 lg:px-8">
-        <Navbar activeView={activeView} onNavigate={handleNavigate} />
-
+      <div className="mx-auto flex w-full max-w-[1500px] flex-col gap-8 px-4 py-10 sm:px-6 lg:px-8 2xl:px-0">
         <AnimatePresence mode="wait">
           {activeView === 'profile' ? (
             <ProfilePage key="profile" />
@@ -741,9 +721,7 @@ function TravelWorkspace({ groupId }: { groupId: string }) {
           ) : (
             <NextActionDashboard
               activeGroup={activeGroup}
-              canUseEuropeDefaults={canUseEuropeDefaults}
               categories={categoriesForDisplay}
-              exchangeRates={exchangeRates}
               expenseStatusMessage={
                 isExpenseSaving || isCategorySaving
                   ? t('dashboard.savingExpenses')
@@ -753,15 +731,9 @@ function TravelWorkspace({ groupId }: { groupId: string }) {
               }
               expenses={expenses}
               grandTotal={dashboardGrandTotal}
-              isQuoteLoading={isQuoteLoading}
               onAddExpense={openNewExpenseModal}
               onNavigate={handleNavigate}
               onNavigateToProfilePath={handleNavigateToProfilePath}
-              onRefreshQuote={() => void refreshQuote()}
-              onResetExpenses={() => void handleReset()}
-              onValueModeChange={setRealValueMode}
-              quoteWarning={quoteWarning}
-              realValueMode={realValueMode}
               totalsByCategory={dashboardTotalsByCategory}
             />
           )}

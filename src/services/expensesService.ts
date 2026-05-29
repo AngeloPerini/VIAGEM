@@ -72,6 +72,7 @@ const toExpense = (row: ExpenseRow): Expense => ({
   euro: { min: Number(row.euro_min ?? 0), max: Number(row.euro_max ?? row.euro_min ?? 0) },
   real: { min: Number(row.brl_min ?? 0), max: Number(row.brl_max ?? row.brl_min ?? 0) },
   links: Array.isArray(row.links) ? row.links : [],
+  createdAt: row.created_at,
 });
 
 const toExpensePayload = (expense: Expense) => ({

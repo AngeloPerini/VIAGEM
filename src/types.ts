@@ -37,6 +37,7 @@ export type Expense = {
   euro: CurrencyRange;
   real: CurrencyRange;
   links?: LinkItem[];
+  createdAt?: string;
 };
 
 export type CategoryMeta = {

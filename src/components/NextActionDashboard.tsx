@@ -1,47 +1,37 @@
-import { AnimatePresence, motion } from 'framer-motion';
+import { motion } from 'framer-motion';
 import {
   ArrowRight,
-  CalendarDays,
-  CheckCircle2,
-  ClipboardCheck,
-  FileText,
-  Gauge,
+  Clock3,
+  Edit3,
+  FileWarning,
   Loader2,
   MapPin,
+  Plane,
   PlaneTakeoff,
-  RefreshCw,
-  Route,
-  Sparkles,
-  UsersRound,
+  Plus,
+  UserPlus,
   WalletCards,
 } from 'lucide-react';
 import { useEffect, useMemo, useState, type ComponentType, type ReactNode } from 'react';
-import { ConversionToggle } from './ConversionToggle';
-import { ExpenseChart } from './ExpenseChart';
-import { QuoteStatusCard } from './QuoteStatusCard';
-import { SummaryCards } from './SummaryCards';
 import type { AppView } from './Navbar';
 import { useAuth } from '../contexts/AuthContext';
+import { useGroup } from '../contexts/GroupContext';
 import { countryLabel } from '../data/countries';
-import { getGroupMembers } from '../services/groupsService';
 import { getCachedItineraryItems, getItineraryItems } from '../services/itineraryService';
 import { getTripChecklistItems } from '../services/checklistService';
+import { getGroupMembers as getGroupMembersWithProfiles } from '../services/profileService';
 import type {
   CategoryMeta,
-  ExchangeRateMap,
+  CurrencyRange,
   Expense,
-  GroupMember,
+  GroupMemberProfile,
   ItineraryItem,
-  RealValueMode,
   TripChecklistItem,
-  TripStatus,
   UserTravelGroup,
 } from '../types';
 import {
-  formatOriginalCurrencyBreakdown,
   formatRange,
-  getExpenseCurrency,
-  getExpenseOriginalRange,
+  getExpenseRealRange,
   type Totals,
 } from '../utils/money';
 
@@ -56,46 +46,32 @@ type NextActionTarget =
 
 type NextActionDashboardProps = {
   activeGroup: UserTravelGroup | null;
-  canUseEuropeDefaults: boolean;
   categories: CategoryMeta[];
-  exchangeRates: ExchangeRateMap;
   expenseStatusMessage?: string | null;
   expenses: Expense[];
   grandTotal: Totals;
-  isQuoteLoading: boolean;
   onAddExpense: () => void;
   onNavigate: (view: AppView) => void;
   onNavigateToProfilePath: (path: string) => void;
-  onRefreshQuote: () => void;
-  onResetExpenses: () => void;
-  onValueModeChange: (mode: RealValueMode) => void;
-  quoteWarning: string | null;
-  realValueMode: RealValueMode;
   totalsByCategory: Record<string, Totals>;
 };
 
 type NextAction = {
-  title: string;
-  description: string;
   cta: string;
+  description: string;
   target: NextActionTarget;
-  icon: ComponentType<{ className?: string }>;
-  detail?: string;
 };
 
-const statusLabels: Record<TripStatus, string> = {
-  planned: 'Planejada',
-  active: 'Ativa',
-  completed: 'Concluida',
-  canceled: 'Cancelada',
-};
+const dashboardHeroImage =
+  'https://lh3.googleusercontent.com/aida-public/AB6AXuB1_s6-IXeqdQenr-iqRsq_Ema-qtKVzaxTrM4pZwFj7bUWrvNEpFB5_e9z6LicJ5Rb4dt2GuO9isUOY-usBaHtvXVUbeoGJveWj37td0C6SW8PzOmBmM-5YwOO3HwPoFsJEORL9cBjU2n6RoWF79d1nGgHZmkxoiCXUZ5hmNBYueSVyqbhkYCfjIw3SxeFZRHQo4wcyy6inD37y-jBUspou5r1q0tkJNBQUfwfglmzzprU_YeR1ldc8oyR6NNRcBqnhgePVdRDu3nY';
 
-const statusClasses: Record<TripStatus, string> = {
-  planned: 'bg-sky-100 text-sky-800',
-  active: 'bg-teal-100 text-teal-800',
-  completed: 'bg-emerald-100 text-emerald-800',
-  canceled: 'bg-rose-100 text-rose-800',
-};
+const emptyRange = (): CurrencyRange => ({ min: 0, max: 0 });
+
+const normalizeSearchText = (value?: string) =>
+  String(value ?? '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase();
 
 const formatDate = (value?: string) => {
   if (!value) return 'Sem data';
@@ -104,10 +80,25 @@ const formatDate = (value?: string) => {
   return new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' }).format(date);
 };
 
-const formatShortDate = (value?: string) => {
-  if (!value) return null;
-  const date = new Date(`${value}T00:00:00`);
-  if (Number.isNaN(date.getTime())) return null;
+const formatTripPeriod = (startDate?: string, endDate?: string) => {
+  if (!startDate && !endDate) return 'Periodo a definir';
+  if (!startDate || !endDate) return `${formatDate(startDate)} - ${formatDate(endDate)}`;
+
+  const start = new Date(`${startDate}T00:00:00`);
+  const end = new Date(`${endDate}T00:00:00`);
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
+    return `${formatDate(startDate)} - ${formatDate(endDate)}`;
+  }
+
+  const startLabel = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'short' }).format(start);
+  const endLabel = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' }).format(end);
+  return `${startLabel} - ${endLabel}`;
+};
+
+const formatExpenseDate = (value?: string) => {
+  if (!value) return 'Recente';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return 'Recente';
   return new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'short' }).format(date);
 };
 
@@ -132,7 +123,7 @@ const getItemDateLabel = (item: ItineraryItem, group: UserTravelGroup | null) =>
   if (Number.isNaN(start.getTime())) return item.day;
   start.setDate(start.getDate() + dayNumber - 1);
 
-  return `${item.day} - ${formatShortDate(start.toISOString().slice(0, 10)) ?? item.day}`;
+  return `${item.day} - ${formatDate(start.toISOString().slice(0, 10))}`;
 };
 
 const getLocationLabel = (item: ItineraryItem) => {
@@ -143,188 +134,137 @@ const getLocationLabel = (item: ItineraryItem) => {
 const getCategoryLabel = (categories: CategoryMeta[], categoryId: string) =>
   categories.find((category) => category.id === categoryId)?.name ?? categoryId;
 
-const normalizeSearchText = (value?: string) =>
-  String(value ?? '')
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .toLowerCase();
-
 const isDocumentChecklistItem = (item: TripChecklistItem) => {
   const searchable = normalizeSearchText(`${item.category} ${item.title} ${item.notes ?? ''}`);
   return /document|passaporte|visto|reserva|comprovante|voucher|seguro/.test(searchable);
 };
 
-const dashboardHeroImage =
-  'https://lh3.googleusercontent.com/aida-public/AB6AXuB1_s6-IXeqdQenr-iqRsq_Ema-qtKVzaxTrM4pZwFj7bUWrvNEpFB5_e9z6LicJ5Rb4dt2GuO9isUOY-usBaHtvXVUbeoGJveWj37td0C6SW8PzOmBmM-5YwOO3HwPoFsJEORL9cBjU2n6RoWF79d1nGgHZmkxoiCXUZ5hmNBYueSVyqbhkYCfjIw3SxeFZRHQo4wcyy6inD37y-jBUspou5r1q0tkJNBQUfwfglmzzprU_YeR1ldc8oyR6NNRcBqnhgePVdRDu3nY';
+const addRange = (left: CurrencyRange, right?: CurrencyRange): CurrencyRange => ({
+  min: left.min + Number(right?.min ?? 0),
+  max: left.max + Number(right?.max ?? right?.min ?? 0),
+});
 
-const getDaysUntilStart = (startDate?: string) => {
-  if (!startDate) return null;
-  const today = new Date();
-  const start = new Date(`${startDate}T00:00:00`);
-  if (Number.isNaN(start.getTime())) return null;
+const subtractRange = (left: CurrencyRange, right: CurrencyRange): CurrencyRange => ({
+  min: Math.max(0, left.min - right.min),
+  max: Math.max(0, left.max - right.max),
+});
 
-  const todayUtc = Date.UTC(today.getFullYear(), today.getMonth(), today.getDate());
-  const startUtc = Date.UTC(start.getFullYear(), start.getMonth(), start.getDate());
-  return Math.ceil((startUtc - todayUtc) / 86400000);
+const rangeMidpoint = (range: CurrencyRange) => (Number(range.min) + Number(range.max || range.min)) / 2;
+
+const percentFromRange = (part: CurrencyRange, total: CurrencyRange) => {
+  const totalMid = rangeMidpoint(total);
+  if (totalMid <= 0) return 0;
+  return Math.max(0, Math.min(100, Math.round((rangeMidpoint(part) / totalMid) * 100)));
 };
 
-const formatDaysUntil = (daysUntil: number | null) => {
-  if (daysUntil === null) return 'A definir';
-  if (daysUntil > 1) return `${daysUntil} dias`;
-  if (daysUntil === 1) return 'Amanha';
-  if (daysUntil === 0) return 'Hoje';
-  return 'Em andamento';
+const getMemberName = (member: GroupMemberProfile, index: number) =>
+  member.profile?.fullName ?? member.profile?.email ?? `Membro ${index + 1}`;
+
+const getInitials = (value: string) => {
+  const parts = value.trim().split(/\s+/).filter(Boolean);
+  const letters = parts.length > 1 ? `${parts[0][0]}${parts.at(-1)?.[0] ?? ''}` : value.slice(0, 2);
+  return letters.toUpperCase();
 };
+
+const roleLabel = (role: string) => (role === 'owner' ? 'Proprietario' : 'Editor');
 
 const getDisplayName = (userEmail?: string, fullName?: string, metadataName?: string) =>
   fullName || metadataName || userEmail || 'viajante';
 
 const getFirstName = (displayName: string) => displayName.trim().split(/\s+/)[0] || 'viajante';
 
-const getMemberInitial = (member: GroupMember) =>
-  member.userId.replace(/[^a-zA-Z0-9]/g, '').slice(0, 1).toUpperCase() || 'T';
-
-function ProgressBar({ value, tone = 'teal' }: { value: number; tone?: 'teal' | 'slate' }) {
-  const width = `${Math.max(0, Math.min(100, Math.round(value)))}%`;
-  return (
-    <div className="h-2 overflow-hidden rounded-full bg-slate-100">
-      <div
-        className={`h-full rounded-full ${tone === 'teal' ? 'bg-[#006b57]' : 'bg-slate-950'}`}
-        style={{ width }}
-      />
-    </div>
-  );
-}
-
-function CircularProgress({
-  detail,
-  label,
-  value,
+function BottomCard({
+  action,
+  children,
+  icon: Icon,
+  title,
 }: {
-  detail: string;
-  label: string;
-  value: number;
+  action?: ReactNode;
+  children: ReactNode;
+  icon?: ComponentType<{ className?: string }>;
+  title: string;
 }) {
-  const roundedValue = Math.max(0, Math.min(100, Math.round(value)));
-
   return (
-    <div className="flex items-center gap-3">
-      <div
-        className="grid h-16 w-16 shrink-0 place-items-center rounded-full"
-        style={{
-          background: `conic-gradient(#006b57 ${roundedValue * 3.6}deg, #e8edf4 0deg)`,
-        }}
-      >
-        <div className="grid h-12 w-12 place-items-center rounded-full bg-white text-sm font-black text-slate-950">
-          {roundedValue}%
-        </div>
+    <section className="relative min-h-[420px] rounded-[18px] border border-[#e0e5ee] bg-white p-7 shadow-[0_12px_36px_rgba(15,23,42,0.06)]">
+      <div className="mb-8 flex items-center justify-between gap-4">
+        <h2 className="text-[1.55rem] font-black leading-tight text-[#070d1f]">{title}</h2>
+        {action ?? (Icon ? <Icon className="h-7 w-7 text-[#171a26]" /> : null)}
       </div>
-      <div className="min-w-0">
-        <p className="text-sm font-black text-slate-950">{label}</p>
-        <p className="mt-1 text-xs font-bold leading-5 text-slate-500">{detail}</p>
-      </div>
-    </div>
+      {children}
+    </section>
   );
 }
 
 function EmptyState({ title, description }: { title: string; description: string }) {
   return (
-    <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50/80 px-4 py-5">
-      <p className="text-sm font-black text-slate-800">{title}</p>
-      <p className="mt-1 text-sm font-bold leading-6 text-slate-500">{description}</p>
+    <div className="rounded-[14px] border border-dashed border-[#d8e0ec] bg-[#f7f9fe] px-4 py-5">
+      <p className="text-sm font-black text-[#0b1326]">{title}</p>
+      <p className="mt-1 text-sm font-medium leading-6 text-[#6b7285]">{description}</p>
     </div>
   );
 }
 
-function DashboardCard({
-  actionLabel,
-  children,
-  icon: Icon,
-  onAction,
-  title,
+function CostProgress({
+  label,
+  range,
+  percent,
+  tone = 'teal',
 }: {
-  actionLabel?: string;
-  children: ReactNode;
-  icon: ComponentType<{ className?: string }>;
-  onAction?: () => void;
-  title: string;
+  label: string;
+  range: CurrencyRange;
+  percent: number;
+  tone?: 'teal' | 'light';
 }) {
   return (
-    <section className="rounded-[1.5rem] border border-[#e6ebf2] bg-white p-5 shadow-[0_18px_50px_rgba(15,23,42,0.07)] md:p-6">
-      <div className="flex items-start justify-between gap-4">
-        <div className="flex min-w-0 items-center gap-3">
-          <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-[#eef8f5] text-[#006b57]">
-            <Icon className="h-5 w-5" />
-          </span>
-          <div className="min-w-0">
-            <h2 className="truncate text-lg font-black text-slate-950">{title}</h2>
-          </div>
-        </div>
-        {actionLabel && onAction ? (
-          <button
-            type="button"
-            onClick={onAction}
-            className="shrink-0 rounded-full border border-slate-200 bg-white px-3 py-2 text-xs font-black text-slate-700 transition hover:border-[#006b57]/30 hover:bg-[#eef8f5] hover:text-[#006b57]"
-          >
-            {actionLabel}
-          </button>
-        ) : null}
+    <div>
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <span className="text-xl font-medium text-[#9ca7bd]">{label}</span>
+        <span className="text-xl font-semibold text-white">{formatRange(range, 'BRL', true)}</span>
       </div>
-      <div className="mt-5">{children}</div>
-    </section>
+      <div className="h-1.5 overflow-hidden rounded-full bg-[#263247]">
+        <div
+          className={`h-full rounded-full ${tone === 'teal' ? 'bg-[#56f5d0]' : 'bg-[#e7eef8]'}`}
+          style={{ width: `${percent}%` }}
+        />
+      </div>
+    </div>
   );
 }
 
-function ItemRow({
-  meta,
-  status,
-  title,
-}: {
-  meta: string;
-  status?: string;
-  title: string;
-}) {
+function CircularMetric({ label, value, detail }: { label: string; value: number; detail: string }) {
+  const roundedValue = Math.max(0, Math.min(100, Math.round(value)));
+
   return (
-    <div className="border-b border-slate-100 py-3 last:border-b-0">
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <p className="truncate text-sm font-black text-slate-950">{title}</p>
-          <p className="mt-1 text-xs font-bold leading-5 text-slate-500">{meta}</p>
+    <div className="flex flex-col items-center text-center">
+      <div
+        className="grid h-24 w-24 place-items-center rounded-full"
+        style={{ background: `conic-gradient(#007c68 ${roundedValue * 3.6}deg, #e7edf6 0deg)` }}
+      >
+        <div className="grid h-[4.7rem] w-[4.7rem] place-items-center rounded-full bg-white text-2xl font-semibold text-[#0b1326]">
+          {detail}
         </div>
-        {status ? (
-          <span className="shrink-0 rounded-full bg-white px-2 py-1 text-[0.65rem] font-black uppercase tracking-[0.08em] text-slate-500">
-            {status}
-          </span>
-        ) : null}
       </div>
+      <p className="mt-4 text-xl font-medium text-[#2c3242]">{label}</p>
     </div>
   );
 }
 
 export function NextActionDashboard({
   activeGroup,
-  canUseEuropeDefaults,
   categories,
-  exchangeRates,
   expenseStatusMessage,
   expenses,
   grandTotal,
-  isQuoteLoading,
   onAddExpense,
   onNavigate,
   onNavigateToProfilePath,
-  onRefreshQuote,
-  onResetExpenses,
-  onValueModeChange,
-  quoteWarning,
-  realValueMode,
   totalsByCategory,
 }: NextActionDashboardProps) {
   const { user } = useAuth();
+  const { setActiveGroup, userGroups } = useGroup();
   const [itineraryItems, setItineraryItems] = useState<ItineraryItem[]>(() => getCachedItineraryItems(activeGroup?.id));
   const [checklistItems, setChecklistItems] = useState<TripChecklistItem[]>([]);
-  const [members, setMembers] = useState<GroupMember[]>([]);
-  const [membersCount, setMembersCount] = useState<number | null>(null);
+  const [members, setMembers] = useState<GroupMemberProfile[]>([]);
   const [isPlanningLoading, setIsPlanningLoading] = useState(false);
   const [planningWarning, setPlanningWarning] = useState<string | null>(null);
 
@@ -333,7 +273,6 @@ export function NextActionDashboard({
       setItineraryItems([]);
       setChecklistItems([]);
       setMembers([]);
-      setMembersCount(null);
       return undefined;
     }
 
@@ -345,20 +284,19 @@ export function NextActionDashboard({
         const [nextItineraryItems, nextChecklistItems, nextMembers] = await Promise.all([
           getItineraryItems(activeGroup.id),
           getTripChecklistItems(activeGroup.id),
-          getGroupMembers(activeGroup.id),
+          getGroupMembersWithProfiles(activeGroup.id),
         ]);
 
         if (active) {
           setItineraryItems(nextItineraryItems);
           setChecklistItems(nextChecklistItems);
           setMembers(nextMembers);
-          setMembersCount(nextMembers.length);
           setPlanningWarning(null);
         }
       } catch {
         if (active) {
           setItineraryItems(getCachedItineraryItems(activeGroup.id));
-          setPlanningWarning('Nao foi possivel atualizar todos os proximos passos agora. Mostrando dados disponiveis.');
+          setPlanningWarning('Nao foi possivel atualizar todos os dados do dashboard agora.');
         }
       } finally {
         if (active) setIsPlanningLoading(false);
@@ -368,7 +306,6 @@ export function NextActionDashboard({
     setItineraryItems(getCachedItineraryItems(activeGroup.id));
     setChecklistItems([]);
     setMembers([]);
-    setMembersCount(null);
     void loadPlanningData();
 
     const refreshWhenVisible = () => {
@@ -391,7 +328,6 @@ export function NextActionDashboard({
   );
   const activityHighlights = pendingItineraryItems.length ? pendingItineraryItems.slice(0, 3) : itineraryItems.slice(0, 3);
   const nextPendingActivity = pendingItineraryItems[0] ?? null;
-
   const documentItems = useMemo(() => checklistItems.filter(isDocumentChecklistItem), [checklistItems]);
   const pendingDocuments = documentItems.filter((item) => !item.checked);
   const pendingChecklist = checklistItems.filter((item) => !item.checked);
@@ -401,18 +337,9 @@ export function NextActionDashboard({
   const checklistProgress = checklistItems.length ? (completedChecklistCount / checklistItems.length) * 100 : 0;
   const documentsProgress = documentItems.length ? (completedDocumentsCount / documentItems.length) * 100 : 0;
   const itineraryProgress = itineraryItems.length ? (completedItineraryCount / itineraryItems.length) * 100 : 0;
-  const recentExpenses = useMemo(() => [...expenses].slice(-5).reverse(), [expenses]);
+  const travelReadiness = Math.round((itineraryProgress + checklistProgress + documentsProgress) / 3);
+  const recentExpenses = useMemo(() => [...expenses].slice(-3).reverse(), [expenses]);
   const tripDayCount = getTripDayCount(activeGroup?.startDate, activeGroup?.endDate);
-  const daysUntilStart = getDaysUntilStart(activeGroup?.startDate);
-  const memberTotal = membersCount ?? (activeGroup ? 1 : 0);
-  const ownerCount = members.filter((member) => member.role === 'owner').length;
-  const travelProgressParts = documentItems.length
-    ? [itineraryProgress, checklistProgress, documentsProgress]
-    : [itineraryProgress, checklistProgress];
-  const travelReadiness = activeGroup
-    ? Math.round(travelProgressParts.reduce((sum, value) => sum + value, 0) / travelProgressParts.length)
-    : 0;
-  const tripStatus = activeGroup?.status ?? 'planned';
   const tripCountries = activeGroup?.countries?.length
     ? activeGroup.countries.map((country) => countryLabel(country)).join(', ')
     : 'Paises a definir';
@@ -422,102 +349,77 @@ export function NextActionDashboard({
     user?.user_metadata?.name as string | undefined,
   );
   const firstName = getFirstName(userDisplayName);
-  const tripPeriodLabel = activeGroup
-    ? `${formatDate(activeGroup.startDate)} - ${formatDate(activeGroup.endDate)}`
-    : 'Periodo a definir';
-  const statusMessage = !activeGroup
-    ? 'Crie uma viagem para conectar roteiro, checklist e gastos em um unico painel.'
-    : pendingDocuments.length
-      ? 'Documentos pendentes sao o principal ponto de atencao agora.'
-      : pendingChecklist.length
-        ? 'Checklist ainda tem pendencias antes da viagem.'
-        : nextPendingActivity
-          ? 'Roteiro pronto para acompanhar a proxima atividade.'
-          : recentExpenses.length
-            ? 'Planejamento organizado. Vale revisar os gastos recentes.'
-            : 'Tudo pronto no essencial para esta viagem.';
+  const primaryCostCategoryIds = categories
+    .filter((category) => {
+      const text = normalizeSearchText(`${category.id} ${category.name} ${category.label}`);
+      return /voo|passagem|hotel|hosped|transport|transfer|flight|lodg/.test(text);
+    })
+    .map((category) => category.id);
+  const primaryCostRange = primaryCostCategoryIds.reduce(
+    (total, id) => addRange(total, totalsByCategory[id]?.real),
+    emptyRange(),
+  );
+  const secondaryCostRange = subtractRange(grandTotal.real, primaryCostRange);
+  const pendingPreparationItems = [...pendingDocuments, ...pendingChecklist].slice(0, 3);
+  const pendingPreparationCount = pendingDocuments.length + pendingChecklist.length;
 
   const nextAction = useMemo<NextAction>(() => {
     if (!activeGroup) {
       return {
-        title: 'Crie sua primeira viagem',
-        description: 'Comece cadastrando sua viagem para organizar roteiro, gastos e checklist.',
         cta: 'Criar viagem',
+        description: 'Crie sua primeira viagem para organizar roteiro, gastos e documentos.',
         target: 'create-trip',
-        icon: PlaneTakeoff,
-        detail: 'Primeiro passo',
       };
     }
 
     if (!itineraryItems.length) {
       return {
-        title: 'Gere o roteiro da sua viagem',
-        description: 'Use a IA para criar uma previa do roteiro antes de aplicar.',
         cta: 'Gerar roteiro com IA',
+        description: 'O roteiro ainda nao foi criado para esta viagem.',
         target: 'generate-ai',
-        icon: Sparkles,
-        detail: activeGroup.name,
       };
     }
 
     if (pendingDocuments.length) {
       return {
-        title: 'Complete seus documentos',
-        description: `${pendingDocuments.length} documento${pendingDocuments.length === 1 ? '' : 's'} importante${pendingDocuments.length === 1 ? '' : 's'} ainda precisa${pendingDocuments.length === 1 ? '' : 'm'} de atencao.`,
-        cta: 'Ver documentos',
+        cta: 'Finalizar documentação',
+        description: `${pendingDocuments.length} documento${pendingDocuments.length === 1 ? '' : 's'} pendente${pendingDocuments.length === 1 ? '' : 's'}.`,
         target: 'documents',
-        icon: FileText,
-        detail: `${documentItems.length - pendingDocuments.length}/${documentItems.length} concluidos`,
       };
     }
 
     if (pendingChecklist.length) {
       return {
-        title: 'Finalize seu checklist',
-        description: `Ainda existem ${pendingChecklist.length} item${pendingChecklist.length === 1 ? '' : 's'} pendente${pendingChecklist.length === 1 ? '' : 's'} para preparar antes da viagem.`,
         cta: 'Abrir checklist',
+        description: `${pendingChecklist.length} item${pendingChecklist.length === 1 ? '' : 's'} do checklist em aberto.`,
         target: 'checklist',
-        icon: ClipboardCheck,
-        detail: `${Math.round(checklistProgress)}% concluido`,
       };
     }
 
     if (nextPendingActivity) {
       return {
-        title: 'Proxima atividade',
-        description: `${nextPendingActivity.title} - ${getItemDateLabel(nextPendingActivity, activeGroup)}, ${getLocationLabel(nextPendingActivity)}${nextPendingActivity.time ? `, ${nextPendingActivity.time}` : ''}.`,
         cta: 'Ver roteiro',
+        description: `${nextPendingActivity.title} - ${getItemDateLabel(nextPendingActivity, activeGroup)}.`,
         target: 'itinerary',
-        icon: Route,
-        detail: `${completedItineraryCount}/${itineraryItems.length} atividades concluidas`,
       };
     }
 
     if (recentExpenses.length) {
       return {
-        title: 'Revise os gastos recentes',
-        description: 'Confira os ultimos gastos adicionados a viagem e mantenha o orcamento alinhado.',
-        cta: 'Ver gastos',
+        cta: 'Revisar gastos',
+        description: 'Confira os ultimos gastos cadastrados na viagem.',
         target: 'expenses',
-        icon: WalletCards,
-        detail: `${recentExpenses.length} lancamento${recentExpenses.length === 1 ? '' : 's'} recente${recentExpenses.length === 1 ? '' : 's'}`,
       };
     }
 
     return {
-      title: 'Tudo pronto para sua viagem',
-      description: 'Seu planejamento esta organizado. Acompanhe roteiro, gastos e checklist quando precisar.',
       cta: 'Ver viagem',
+      description: 'Seu planejamento principal esta organizado.',
       target: 'trip',
-      icon: CheckCircle2,
-      detail: activeGroup.name,
     };
   }, [
     activeGroup,
-    checklistProgress,
-    completedItineraryCount,
-    documentItems.length,
-    itineraryItems,
+    itineraryItems.length,
     nextPendingActivity,
     pendingChecklist.length,
     pendingDocuments.length,
@@ -544,482 +446,323 @@ export function NextActionDashboard({
     onNavigateToProfilePath('/perfil/criar-viagem');
   };
 
-  const NextActionIcon = nextAction.icon;
   const planningStatusMessage = isPlanningLoading
-    ? 'Atualizando proximos passos...'
-    : planningWarning;
+    ? 'Atualizando dashboard...'
+    : planningWarning ?? expenseStatusMessage;
 
   return (
     <motion.div
       key="dashboard"
-      className="space-y-6"
-      initial={{ opacity: 0, y: 16 }}
+      className="space-y-8"
+      initial={{ opacity: 0, y: 14 }}
       animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -12 }}
+      exit={{ opacity: 0, y: -10 }}
     >
-      <section className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-        <div>
-          <p className="text-sm font-black uppercase tracking-[0.2em] text-[#006b57]">Dashboard TripFlow</p>
-          <h1 className="mt-2 text-3xl font-black tracking-normal text-slate-950 md:text-4xl">
-            Ola, {firstName}
-          </h1>
-          <p className="mt-2 max-w-2xl text-sm font-bold leading-6 text-slate-500 md:text-base">
-            {activeGroup
-              ? `${activeGroup.name} esta ${travelReadiness}% organizada. ${statusMessage}`
-              : statusMessage}
-          </p>
-        </div>
-        <button
-          type="button"
-          onClick={() => onNavigateToProfilePath(activeGroup ? '/perfil/viagem' : '/perfil/criar-viagem')}
-          className="inline-flex h-12 items-center justify-center gap-2 rounded-full bg-white px-5 text-sm font-black text-slate-950 shadow-[0_12px_32px_rgba(15,23,42,0.08)] transition hover:bg-[#eef8f5] hover:text-[#006b57]"
-        >
-          {activeGroup ? 'Ver viagem ativa' : 'Criar viagem'}
-          <ArrowRight className="h-4 w-4" />
-        </button>
-      </section>
-
-      {expenseStatusMessage || planningStatusMessage ? (
-        <p className="rounded-2xl border border-white/70 bg-white/75 px-4 py-3 text-sm font-semibold text-slate-600 shadow-lg shadow-slate-900/5 backdrop-blur-xl">
-          {expenseStatusMessage ?? planningStatusMessage}
+      <header className="pt-2">
+        <h1 className="text-[2.6rem] font-black leading-tight text-[#0b1326] md:text-[3.15rem]">
+          Olá, {firstName}
+        </h1>
+        <p className="mt-3 max-w-3xl text-xl font-medium leading-8 text-[#202431]">
+          {activeGroup
+            ? `Bem-vindo de volta. Seu roteiro para ${tripCountries} está ${Math.round(travelReadiness)}% concluído.`
+            : 'Bem-vindo de volta. Crie sua primeira viagem para começar o planejamento.'}
         </p>
-      ) : null}
+        {planningStatusMessage ? (
+          <p className="mt-4 inline-flex items-center gap-2 rounded-full bg-white px-4 py-2 text-sm font-semibold text-[#667085] shadow-sm">
+            {isPlanningLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+            {planningStatusMessage}
+          </p>
+        ) : null}
+      </header>
 
-      <div className="grid gap-5 xl:grid-cols-12">
-        <section className="relative min-h-[360px] overflow-hidden rounded-[1.75rem] bg-slate-950 text-white shadow-[0_24px_70px_rgba(15,23,42,0.18)] md:min-h-[420px] xl:col-span-8">
-          <img
-            src={dashboardHeroImage}
-            alt=""
-            className="absolute inset-0 h-full w-full object-cover opacity-80"
-          />
-          <div className="absolute inset-0 bg-gradient-to-br from-slate-950/72 via-slate-950/24 to-[#006b57]/44" />
-          <div className="relative flex min-h-[360px] flex-col justify-between p-6 md:min-h-[420px] md:p-8">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <span className="inline-flex items-center gap-2 rounded-full bg-white/90 px-4 py-2 text-xs font-black uppercase tracking-[0.16em] text-slate-950 shadow-lg shadow-slate-950/15">
-                <NextActionIcon className="h-4 w-4 text-[#006b57]" />
-                Proxima acao
-              </span>
-              <span className="rounded-full border border-white/20 bg-white/10 px-4 py-2 text-xs font-black uppercase tracking-[0.12em] text-white backdrop-blur">
-                {nextAction.detail ?? 'Planejamento'}
-              </span>
-            </div>
-
+      <section className="grid gap-7 lg:grid-cols-[minmax(0,1fr)_480px]">
+        <article className="relative min-h-[400px] overflow-hidden rounded-[18px] bg-[#101827] shadow-[0_18px_44px_rgba(15,23,42,0.14)] md:min-h-[395px]">
+          <img src={dashboardHeroImage} alt="" className="absolute inset-0 h-full w-full object-cover" />
+          <div className="absolute inset-0 bg-black/28" />
+          <div className="relative flex min-h-[400px] flex-col justify-end p-7 md:min-h-[395px] md:p-10">
+            <span className="absolute left-8 top-8 inline-flex items-center rounded-full bg-[#56f5d0] px-4 py-2 text-base font-medium uppercase text-[#006b57]">
+              Próxima ação
+            </span>
             <div className="max-w-2xl">
-              <h2 className="text-3xl font-black tracking-normal md:text-5xl">{nextAction.title}</h2>
-              <p className="mt-4 text-sm font-bold leading-6 text-white/80 md:text-base md:leading-7">
+              <h2 className="text-[3.25rem] font-black leading-[1.05] text-white md:text-[4rem]">
+                Continue seu planejamento
+              </h2>
+              <p className="mt-4 max-w-2xl text-base font-semibold leading-7 text-white/90">
                 {nextAction.description}
               </p>
-              <div className="mt-6 flex flex-col gap-3 sm:flex-row">
-                <button
-                  type="button"
-                  onClick={() => handleTarget(nextAction.target)}
-                  className="inline-flex h-12 items-center justify-center gap-2 rounded-full bg-white px-5 font-black text-slate-950 shadow-xl shadow-slate-950/20 transition hover:bg-[#48fdd3] focus:outline-none focus:ring-4 focus:ring-white/30"
-                >
-                  {nextAction.cta}
-                  <ArrowRight className="h-5 w-5" />
-                </button>
-                {activeGroup ? (
-                  <button
-                    type="button"
-                    onClick={onAddExpense}
-                    className="inline-flex h-12 items-center justify-center gap-2 rounded-full border border-white/25 bg-white/10 px-5 font-black text-white backdrop-blur transition hover:bg-white/20 focus:outline-none focus:ring-4 focus:ring-white/25"
-                  >
-                    <WalletCards className="h-5 w-5" />
-                    Adicionar gasto
-                  </button>
-                ) : null}
-              </div>
+              <button
+                type="button"
+                onClick={() => handleTarget(nextAction.target)}
+                className="mt-7 inline-flex h-14 min-w-72 items-center justify-center rounded-[10px] bg-black px-8 text-lg font-black text-white shadow-[0_14px_28px_rgba(0,0,0,0.22)] transition hover:bg-[#111827]"
+              >
+                {nextAction.cta}
+              </button>
             </div>
           </div>
-        </section>
+        </article>
 
-        <section className="rounded-[1.75rem] bg-[#101827] p-6 text-white shadow-[0_24px_70px_rgba(15,23,42,0.16)] xl:col-span-4">
+        <article className="min-h-[400px] rounded-[18px] bg-[#121b2d] p-10 text-white shadow-[0_18px_44px_rgba(15,23,42,0.16)] md:min-h-[395px]">
           <div className="flex items-start justify-between gap-4">
             <div>
-              <p className="text-xs font-black uppercase tracking-[0.18em] text-[#48fdd3]">Custo estimado</p>
-              <h2 className="mt-3 text-3xl font-black">{formatRange(grandTotal.real, 'BRL', true)}</h2>
+              <p className="text-xl font-medium uppercase text-[#8c96ab]">Custo estimado</p>
+              <h2 className="mt-4 text-[2.7rem] font-black leading-tight text-white">
+                {formatRange(grandTotal.real, 'BRL', true)}
+              </h2>
             </div>
-            <span className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-white/10 text-[#48fdd3]">
-              <WalletCards className="h-5 w-5" />
+            <span className="inline-flex h-14 w-14 items-center justify-center rounded-[12px] text-[#56f5d0]">
+              <WalletCards className="h-10 w-10" />
             </span>
           </div>
-          <p className="mt-2 text-sm font-bold text-slate-300">
-            {expenses.length} gasto{expenses.length === 1 ? '' : 's'} cadastrado{expenses.length === 1 ? '' : 's'} na viagem ativa.
-          </p>
-          <div className="mt-7 space-y-5">
-            <div>
-              <div className="mb-2 flex items-center justify-between text-xs font-black uppercase tracking-[0.12em] text-slate-300">
-                <span>Roteiro</span>
-                <span>{Math.round(itineraryProgress)}%</span>
-              </div>
-              <ProgressBar value={itineraryProgress} />
-            </div>
-            <div>
-              <div className="mb-2 flex items-center justify-between text-xs font-black uppercase tracking-[0.12em] text-slate-300">
-                <span>Documentos</span>
-                <span>{documentItems.length ? `${completedDocumentsCount}/${documentItems.length}` : '0/0'}</span>
-              </div>
-              <ProgressBar value={documentsProgress} />
-            </div>
-            <div>
-              <div className="mb-2 flex items-center justify-between text-xs font-black uppercase tracking-[0.12em] text-slate-300">
-                <span>Checklist</span>
-                <span>{Math.round(checklistProgress)}%</span>
-              </div>
-              <ProgressBar value={checklistProgress} />
-            </div>
-          </div>
-          <button
-            type="button"
-            onClick={() => onNavigate('expenses')}
-            className="mt-7 inline-flex h-11 w-full items-center justify-center gap-2 rounded-full bg-white px-5 text-sm font-black text-slate-950 transition hover:bg-[#48fdd3]"
-          >
-            Ver gastos
-            <ArrowRight className="h-4 w-4" />
-          </button>
-        </section>
 
-        <section className="grid gap-5 rounded-[1.75rem] border border-[#e6ebf2] bg-white p-5 shadow-[0_18px_50px_rgba(15,23,42,0.07)] md:grid-cols-[minmax(0,1.4fr)_repeat(4,minmax(110px,1fr))] md:items-center xl:col-span-12">
-          <div className="min-w-0">
-            <div className="flex flex-wrap items-center gap-2">
-              <span className={`rounded-full px-3 py-1 text-xs font-black ${statusClasses[tripStatus]}`}>
-                {statusLabels[tripStatus]}
-              </span>
-              <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-black text-slate-500">
-                Viagem ativa
-              </span>
-            </div>
-            <h2 className="mt-3 truncate text-2xl font-black text-slate-950">
+          <div className="mt-12 space-y-7">
+            <CostProgress
+              label="Voo & Hospedagem"
+              range={primaryCostRange}
+              percent={percentFromRange(primaryCostRange, grandTotal.real)}
+            />
+            <CostProgress
+              label="Alimentação & Outros"
+              range={secondaryCostRange}
+              percent={percentFromRange(secondaryCostRange, grandTotal.real)}
+              tone="light"
+            />
+          </div>
+        </article>
+      </section>
+
+      <section className="grid items-center gap-6 rounded-[16px] border border-[#dfe5ee] bg-white p-7 shadow-[0_10px_30px_rgba(15,23,42,0.05)] lg:grid-cols-[auto_minmax(0,1fr)_180px_160px_auto]">
+        <span className="grid h-20 w-20 place-items-center rounded-full bg-[#dbe8ff] text-[#0b1326]">
+          <PlaneTakeoff className="h-10 w-10" />
+        </span>
+        <div className="min-w-0">
+          {userGroups.length > 1 && activeGroup ? (
+            <select
+              value={activeGroup.id}
+              onChange={(event) => {
+                const group = userGroups.find((item) => item.id === event.target.value);
+                if (group) setActiveGroup(group);
+              }}
+              className="max-w-full bg-transparent text-2xl font-black text-[#070d1f] outline-none"
+            >
+              {userGroups.map((group) => (
+                <option key={group.id} value={group.id}>
+                  {group.name}
+                </option>
+              ))}
+            </select>
+          ) : (
+            <h2 className="truncate text-2xl font-black text-[#070d1f]">
               {activeGroup?.name ?? 'Sem viagem ativa'}
             </h2>
-            <p className="mt-2 flex items-center gap-2 text-sm font-bold text-slate-500">
-              <MapPin className="h-4 w-4 text-[#006b57]" />
-              <span className="truncate">{tripCountries}</span>
-            </p>
-          </div>
+          )}
+          <p className="mt-2 flex items-center gap-2 text-xl font-medium text-[#2c3242]">
+            <MapPin className="h-5 w-5 text-[#007c68]" />
+            <span>{tripCountries}</span>
+          </p>
+        </div>
+        <div className="border-[#e4e8f0] lg:border-l lg:pl-10">
+          <p className="text-xl font-medium uppercase text-[#2c3242]">Período</p>
+          <p className="mt-2 text-lg font-medium text-[#0b1326]">{formatTripPeriod(activeGroup?.startDate, activeGroup?.endDate)}</p>
+        </div>
+        <div>
+          <p className="text-xl font-medium uppercase text-[#2c3242]">Duração</p>
+          <p className="mt-2 text-lg font-medium text-[#0b1326]">
+            {tripDayCount ? `${tripDayCount} dias` : 'A definir'}
+          </p>
+        </div>
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            aria-label="Editar viagem"
+            onClick={() => onNavigateToProfilePath('/perfil/viagem')}
+            className="inline-flex h-16 w-16 items-center justify-center rounded-[14px] border border-[#0b1326]/40 bg-white text-[#0b1326] transition hover:bg-[#f3f6fb]"
+          >
+            <Edit3 className="h-7 w-7" />
+          </button>
+          <button
+            type="button"
+            onClick={() => onNavigate('itinerary')}
+            className="inline-flex h-16 items-center justify-center gap-4 rounded-[12px] bg-black px-8 text-xl font-semibold text-white transition hover:bg-[#111827]"
+          >
+            Ver Roteiro
+            <ArrowRight className="h-6 w-6" />
+          </button>
+        </div>
+      </section>
 
-          <div className="rounded-2xl bg-slate-50 px-4 py-3">
-            <p className="text-xs font-black uppercase tracking-[0.12em] text-slate-400">Periodo</p>
-            <p className="mt-2 text-sm font-black leading-5 text-slate-950">{tripPeriodLabel}</p>
-          </div>
-          <div className="rounded-2xl bg-slate-50 px-4 py-3">
-            <p className="text-xs font-black uppercase tracking-[0.12em] text-slate-400">Faltam</p>
-            <p className="mt-2 text-lg font-black text-slate-950">{formatDaysUntil(daysUntilStart)}</p>
-          </div>
-          <div className="rounded-2xl bg-slate-50 px-4 py-3">
-            <p className="text-xs font-black uppercase tracking-[0.12em] text-slate-400">Atividades</p>
-            <p className="mt-2 text-lg font-black text-slate-950">{itineraryItems.length}</p>
-          </div>
-          <div className="rounded-2xl bg-slate-50 px-4 py-3">
-            <p className="text-xs font-black uppercase tracking-[0.12em] text-slate-400">Membros</p>
-            <p className="mt-2 text-lg font-black text-slate-950">{memberTotal || 1}</p>
-          </div>
-        </section>
-      </div>
-
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1.1fr)_minmax(330px,0.9fr)]">
-        <DashboardCard
-          icon={Route}
-          title="Proximas atividades"
-          actionLabel="Ver roteiro"
-          onAction={() => onNavigate('itinerary')}
-        >
+      <section className="grid gap-7 xl:grid-cols-4">
+        <BottomCard title="Próximas Atividades" icon={Clock3}>
           {activityHighlights.length ? (
-            <div>
-              {activityHighlights.map((item, index) => (
-                <div key={item.id} className="grid grid-cols-[auto_minmax(0,1fr)] gap-4 border-b border-slate-100 py-4 last:border-b-0">
+            <div className="space-y-0">
+              {activityHighlights.slice(0, 3).map((item, index) => (
+                <div key={item.id} className="grid grid-cols-[28px_minmax(0,1fr)] gap-5">
                   <div className="flex flex-col items-center">
-                    <span className="grid h-9 w-9 place-items-center rounded-full bg-[#eef8f5] text-sm font-black text-[#006b57]">
-                      {index + 1}
-                    </span>
-                    {index < activityHighlights.length - 1 ? <span className="mt-2 h-full w-px bg-slate-100" /> : null}
+                    <span className={`mt-1 h-5 w-5 rounded-full ${index === 0 ? 'bg-[#007c68]' : 'bg-[#dce8ff]'}`} />
+                    {index < Math.min(activityHighlights.length, 3) - 1 ? (
+                      <span className="h-16 w-px bg-[#dfe5ee]" />
+                    ) : null}
                   </div>
-                  <div className="min-w-0">
-                    <div className="flex flex-wrap items-center gap-2 text-xs font-black uppercase tracking-[0.12em] text-slate-400">
-                      <span>{getItemDateLabel(item, activeGroup)}</span>
-                      {item.time ? <span>{item.time}</span> : null}
-                    </div>
-                    <p className="mt-1 truncate text-base font-black text-slate-950">{item.title}</p>
-                    <p className="mt-1 flex items-center gap-2 text-sm font-bold text-slate-500">
-                      <MapPin className="h-4 w-4 text-[#006b57]" />
-                      <span className="truncate">{getLocationLabel(item)}</span>
+                  <div className="pb-8">
+                    <p className="text-xl font-medium leading-7 text-[#1f2430]">{item.title}</p>
+                    <p className="mt-1 text-base font-medium leading-6 text-[#2c3242]">
+                      {getLocationLabel(item)} {item.time ? `• ${item.time}` : ''}
                     </p>
                   </div>
                 </div>
               ))}
-              {!pendingItineraryItems.length ? (
-                <p className="rounded-2xl bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-800">
-                  Todos os itens do roteiro estao marcados como concluidos.
-                </p>
-              ) : null}
             </div>
           ) : (
             <EmptyState
               title="Roteiro ainda vazio"
-              description="Gere um roteiro com IA ou adicione atividades manualmente para acompanhar os proximos passos."
+              description="Gere um roteiro com IA ou adicione atividades para acompanhar os próximos passos."
             />
           )}
-        </DashboardCard>
+        </BottomCard>
 
-        <DashboardCard
-          icon={Gauge}
-          title="Status da viagem"
-          actionLabel="Ver viagem"
-          onAction={() => onNavigateToProfilePath('/perfil/viagem')}
-        >
-          <div className="grid gap-3 sm:grid-cols-2">
-            <CircularProgress
-              value={itineraryProgress}
-              label="Roteiro"
-              detail={`${completedItineraryCount} de ${itineraryItems.length} atividades`}
-            />
-            <CircularProgress
-              value={documentsProgress}
-              label="Documentos"
-              detail={`${completedDocumentsCount} de ${documentItems.length} concluidos`}
-            />
-            <CircularProgress
-              value={checklistProgress}
+        <BottomCard title="Status dos Preparativos">
+          <div className="flex justify-center gap-12">
+            <CircularMetric
               label="Checklist"
-              detail={`${completedChecklistCount} de ${checklistItems.length} itens`}
+              value={checklistProgress}
+              detail={`${Math.round(checklistProgress)}%`}
             />
-            <div className="rounded-2xl bg-slate-50 px-4 py-4">
-              <p className="text-xs font-black uppercase tracking-[0.12em] text-slate-400">Resumo</p>
-              <p className="mt-2 text-sm font-bold leading-6 text-slate-600">{statusMessage}</p>
-            </div>
+            <CircularMetric
+              label="Docs"
+              value={documentsProgress}
+              detail={`${completedDocumentsCount}/${documentItems.length}`}
+            />
           </div>
-        </DashboardCard>
-      </div>
-
-      <div className="grid gap-6 lg:grid-cols-3">
-        <DashboardCard
-          icon={FileText}
-          title="Documentos pendentes"
-          actionLabel="Ver documentos"
-          onAction={() => onNavigateToProfilePath('/perfil/checklist')}
-        >
-          {documentItems.length ? (
-            <div className="space-y-4">
-              <div>
-                <div className="mb-2 flex items-center justify-between text-xs font-black uppercase tracking-[0.12em] text-slate-400">
-                  <span>{completedDocumentsCount} de {documentItems.length} concluidos</span>
-                  <span>{Math.round(documentsProgress)}%</span>
-                </div>
-                <ProgressBar value={documentsProgress} tone="slate" />
-              </div>
-              {pendingDocuments.slice(0, 3).map((item) => (
-                <ItemRow key={item.id} title={item.title} meta={item.notes ?? `${item.quantity} item(ns)`} status="Pendente" />
-              ))}
-              {!pendingDocuments.length ? (
-                <p className="rounded-2xl bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-800">
-                  Documentos do checklist concluidos.
-                </p>
-              ) : null}
+          <div className="mt-9 rounded-[14px] bg-[#eef4ff] p-5">
+            <div className="flex items-center gap-3 text-xl font-medium text-[#d31919]">
+              <FileWarning className="h-6 w-6" />
+              <span>
+                {pendingPreparationCount} pendência{pendingPreparationCount === 1 ? '' : 's'}
+              </span>
             </div>
-          ) : (
-            <EmptyState
-              title="Nenhum documento adicionado ainda"
-              description="Use a categoria Documentos no checklist para acompanhar passaporte, reservas e comprovantes."
-            />
-          )}
-        </DashboardCard>
-
-        <DashboardCard
-          icon={ClipboardCheck}
-          title="Checklist"
-          actionLabel="Abrir checklist"
-          onAction={() => onNavigateToProfilePath('/perfil/checklist')}
-        >
-          {checklistItems.length ? (
-            <div className="space-y-4">
-              <div>
-                <div className="mb-2 flex items-center justify-between text-xs font-black uppercase tracking-[0.12em] text-slate-400">
-                  <span>{completedChecklistCount} de {checklistItems.length} concluidos</span>
-                  <span>{Math.round(checklistProgress)}%</span>
-                </div>
-                <ProgressBar value={checklistProgress} tone="slate" />
-              </div>
-              {pendingChecklist.slice(0, 3).map((item) => (
-                <ItemRow key={item.id} title={item.title} meta={`${item.category} - ${item.quantity} item(ns)`} status="Pendente" />
-              ))}
-              {!pendingChecklist.length ? (
-                <p className="rounded-2xl bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-800">
-                  Checklist concluido para esta viagem.
-                </p>
-              ) : null}
-            </div>
-          ) : (
-            <EmptyState
-              title="Checklist ainda vazio"
-              description="Adicione itens essenciais para preparar a mala, documentos e cuidados antes da viagem."
-            />
-          )}
-        </DashboardCard>
-
-        <DashboardCard
-          icon={WalletCards}
-          title="Gastos recentes"
-          actionLabel="Ver gastos"
-          onAction={() => onNavigate('expenses')}
-        >
-          {recentExpenses.length ? (
-            <div className="space-y-4">
-              <div className="rounded-2xl bg-slate-950 px-4 py-4 text-white">
-                <p className="text-xs font-black uppercase tracking-[0.12em] text-teal-200">Total estimado</p>
-                <p className="mt-2 text-2xl font-black">{formatRange(grandTotal.real, 'BRL', true)}</p>
-                <p className="mt-1 text-xs font-bold text-slate-300">{expenses.length} gasto{expenses.length === 1 ? '' : 's'} cadastrado{expenses.length === 1 ? '' : 's'}</p>
-              </div>
-              {recentExpenses.slice(0, 4).map((expense) => (
-                <ItemRow
-                  key={expense.id}
-                  title={expense.title}
-                  meta={`${getCategoryLabel(categories, expense.category)} - ${countryLabel(expense.country)} - ${formatRange(getExpenseOriginalRange(expense), getExpenseCurrency(expense), true)}`}
-                />
-              ))}
-            </div>
-          ) : (
-            <EmptyState
-              title="Nenhum gasto registrado"
-              description="Cadastre passagens, hospedagem e reservas para acompanhar o orcamento da viagem."
-            />
-          )}
-        </DashboardCard>
-      </div>
-
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)]">
-        <DashboardCard
-          icon={UsersRound}
-          title="Membros do grupo"
-          actionLabel="Ver perfil"
-          onAction={() => onNavigateToProfilePath('/perfil/viagem')}
-        >
-          <div className="space-y-4">
-            <div className="flex flex-wrap gap-2">
-              {members.length ? (
-                members.slice(0, 6).map((member) => (
-                  <span
-                    key={member.id}
-                    className="inline-flex h-11 w-11 items-center justify-center rounded-full bg-slate-950 text-sm font-black text-white"
-                    title={member.role === 'owner' ? 'Owner' : 'Member'}
+            <div className="mt-4 flex flex-wrap gap-2">
+              {pendingPreparationItems.length ? (
+                pendingPreparationItems.map((item) => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => onNavigateToProfilePath('/perfil/checklist')}
+                    className="rounded-[6px] border border-[#cfd8e7] bg-white px-3 py-2 text-sm font-medium text-[#2c3242]"
                   >
-                    {getMemberInitial(member)}
-                  </span>
+                    {item.title}
+                  </button>
                 ))
               ) : (
-                <span className="inline-flex h-11 w-11 items-center justify-center rounded-full bg-slate-950 text-sm font-black text-white">
-                  {firstName.slice(0, 1).toUpperCase()}
+                <span className="rounded-[6px] border border-[#cfd8e7] bg-white px-3 py-2 text-sm font-medium text-[#2c3242]">
+                  Tudo em dia
                 </span>
               )}
             </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <p className="text-2xl font-black text-slate-950">{memberTotal || 1}</p>
-                <p className="mt-1 text-xs font-black uppercase tracking-[0.12em] text-slate-400">Participantes</p>
-              </div>
-              <div>
-                <p className="text-2xl font-black text-slate-950">{ownerCount || 1}</p>
-                <p className="mt-1 text-xs font-black uppercase tracking-[0.12em] text-slate-400">Responsavel</p>
-              </div>
-            </div>
           </div>
-        </DashboardCard>
+        </BottomCard>
 
-        <DashboardCard
-          icon={CalendarDays}
-          title="Resumo da viagem"
-          actionLabel="Continuar planejamento"
-          onAction={() => handleTarget(nextAction.target)}
+        <BottomCard
+          title="Membros do Grupo"
+          action={
+            <button
+              type="button"
+              aria-label="Convidar membro"
+              onClick={() => onNavigateToProfilePath('/perfil/viagem')}
+              className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-[#c6cedc] text-[#171a26]"
+            >
+              <UserPlus className="h-6 w-6" />
+            </button>
+          }
         >
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-            <div>
-              <p className="text-xs font-black uppercase tracking-[0.12em] text-slate-400">Duracao</p>
-              <p className="mt-2 text-xl font-black text-slate-950">{tripDayCount ? `${tripDayCount} dias` : 'A definir'}</p>
-            </div>
-            <div>
-              <p className="text-xs font-black uppercase tracking-[0.12em] text-slate-400">Dias restantes</p>
-              <p className="mt-2 text-xl font-black text-slate-950">{formatDaysUntil(daysUntilStart)}</p>
-            </div>
-            <div>
-              <p className="text-xs font-black uppercase tracking-[0.12em] text-slate-400">Atividades</p>
-              <p className="mt-2 text-xl font-black text-slate-950">{itineraryItems.length}</p>
-            </div>
-            <div>
-              <p className="text-xs font-black uppercase tracking-[0.12em] text-slate-400">Total</p>
-              <p className="mt-2 text-xl font-black text-slate-950">{formatRange(grandTotal.real, 'BRL', true)}</p>
-            </div>
+          <div className="space-y-5">
+            {members.length ? (
+              members.slice(0, 3).map((member, index) => {
+                const name = getMemberName(member, index);
+                return (
+                  <div key={member.id} className="flex items-center gap-4">
+                    {member.profile?.avatarUrl ? (
+                      <img src={member.profile.avatarUrl} alt="" className="h-14 w-14 rounded-full object-cover" />
+                    ) : (
+                      <span className="grid h-14 w-14 place-items-center rounded-full bg-[#dce8ff] text-xl font-semibold text-[#7a879d]">
+                        {getInitials(name)}
+                      </span>
+                    )}
+                    <div className="min-w-0">
+                      <p className="truncate text-xl font-medium text-[#1f2430]">{name}</p>
+                      <p className="text-sm font-medium text-[#007c68]">{roleLabel(member.role)}</p>
+                    </div>
+                  </div>
+                );
+              })
+            ) : (
+              <EmptyState title="Nenhum membro listado" description="Os membros aparecem aqui quando o grupo é carregado." />
+            )}
           </div>
-        </DashboardCard>
-      </div>
-
-      <ConversionToggle mode={realValueMode} quote={exchangeRates.EUR ?? null} onChange={onValueModeChange} />
-
-      <SummaryCards
-        categories={categories}
-        totalsByCategory={totalsByCategory}
-        grandTotal={grandTotal}
-        realValueMode={realValueMode}
-      />
-
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_380px]">
-        <ExpenseChart categories={categories} totalsByCategory={totalsByCategory} />
-
-        <div className="space-y-6 xl:sticky xl:top-28 xl:self-start">
-          <motion.section
-            className="rounded-[2rem] border border-slate-950 bg-slate-950 p-6 text-white shadow-2xl shadow-slate-950/20"
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
+          <button
+            type="button"
+            onClick={() => onNavigateToProfilePath('/perfil/viagem')}
+            className="mt-8 inline-flex h-12 w-full items-center justify-center rounded-[8px] border border-[#c6cedc] bg-white text-base font-semibold text-[#0b1326] transition hover:bg-[#f3f6fb]"
           >
-            <p className="text-sm font-bold uppercase tracking-[0.22em] text-teal-200">Fechamento</p>
-            <h2 className="mt-3 text-3xl font-black">Total da viagem</h2>
-            <div className="mt-6 space-y-4">
-              <AnimatePresence mode="wait">
-                <motion.div
-                  key={`${realValueMode}-${grandTotal.euro.min}-${grandTotal.real.min}`}
-                  initial={{ opacity: 0, y: 8 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -8 }}
-                  transition={{ duration: 0.22 }}
-                  className="space-y-4"
-                >
-                  <div>
-                    <p className="text-sm font-semibold text-slate-400">Convertido em real</p>
-                    <p className="text-3xl font-black">{formatRange(grandTotal.real, 'BRL', true)}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm font-semibold text-slate-400">Valores originais</p>
-                    <p className="text-3xl font-black">{formatOriginalCurrencyBreakdown(grandTotal.originalByCurrency)}</p>
-                  </div>
-                </motion.div>
-              </AnimatePresence>
-            </div>
-            {canUseEuropeDefaults ? (
-              <button
-                type="button"
-                onClick={onResetExpenses}
-                className="mt-7 inline-flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-white px-5 font-bold text-slate-950 transition hover:bg-teal-100 focus:outline-none focus:ring-4 focus:ring-teal-300"
-              >
-                <RefreshCw className="h-5 w-5" />
-                Restaurar dados iniciais
-              </button>
-            ) : null}
-          </motion.section>
+            Convidar Membro
+          </button>
+        </BottomCard>
 
-          <QuoteStatusCard
-            rate={exchangeRates.EUR ?? null}
-            isLoading={isQuoteLoading}
-            warning={quoteWarning}
-            onRefresh={onRefreshQuote}
-            compact
-          />
-        </div>
-      </div>
+        <BottomCard
+          title="Gastos Recentes"
+          action={
+            <a
+              href="/#expenses"
+              onClick={(event) => {
+                event.preventDefault();
+                onNavigate('expenses');
+              }}
+              className="whitespace-nowrap text-lg font-medium text-[#006b57]"
+            >
+              Ver tudo
+            </a>
+          }
+        >
+          <div className="space-y-5">
+            {recentExpenses.length ? (
+              recentExpenses.slice(0, 3).map((expense) => (
+                <div key={expense.id} className="grid grid-cols-[52px_minmax(0,1fr)_auto] items-center gap-4">
+                  <span className="grid h-[3.25rem] w-[3.25rem] place-items-center rounded-full bg-[#dce8ff] text-[#0b1326]">
+                    <Plane className="h-6 w-6" />
+                  </span>
+                  <div className="min-w-0">
+                    <p className="truncate text-xl font-medium text-[#1f2430]">{expense.title}</p>
+                    <p className="text-sm font-medium text-[#2c3242]">
+                      {getCategoryLabel(categories, expense.category)} • {countryLabel(expense.country)}
+                    </p>
+                    <p className="text-xs font-medium text-[#6b7285]">{formatExpenseDate(expense.createdAt)}</p>
+                  </div>
+                  <p className="text-right text-xl font-medium text-[#1f2430]">
+                    {formatRange(getExpenseRealRange(expense), 'BRL', true)}
+                  </p>
+                </div>
+              ))
+            ) : (
+              <EmptyState
+                title="Nenhum gasto registrado"
+                description="Cadastre passagens, hospedagem e reservas para acompanhar o orçamento."
+              />
+            )}
+          </div>
+          <div className="mt-8 border-t border-[#e2e7f0] pt-5">
+            <p className="text-sm font-medium uppercase text-[#2c3242]">Total gasto até agora</p>
+            <p className="mt-2 text-[1.85rem] font-black text-[#0b1326]">{formatRange(grandTotal.real, 'BRL', true)}</p>
+          </div>
+          <button
+            type="button"
+            onClick={onAddExpense}
+            className="absolute bottom-8 right-4 inline-flex h-[4.5rem] w-[4.5rem] items-center justify-center rounded-full bg-black text-white shadow-[0_20px_45px_rgba(15,23,42,0.22)] transition hover:bg-[#111827] sm:right-[-1.25rem]"
+          >
+            <Plus className="h-9 w-9" />
+          </button>
+        </BottomCard>
+      </section>
 
-      {isPlanningLoading ? (
-        <div className="fixed bottom-5 right-5 z-20 inline-flex items-center gap-2 rounded-2xl bg-slate-950 px-4 py-3 text-sm font-black text-white shadow-2xl shadow-slate-900/25">
-          <Loader2 className="h-4 w-4 animate-spin" />
-          Atualizando dashboard
-        </div>
+      {planningWarning ? (
+        <p className="text-sm font-medium text-[#667085]">{planningWarning}</p>
       ) : null}
     </motion.div>
   );
