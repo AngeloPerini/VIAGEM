@@ -138,7 +138,7 @@ const formatExpenseDate = (value?: string) => {
 
   return new Intl.DateTimeFormat('pt-BR', {
     day: '2-digit',
-    month: 'short',
+    month: '2-digit',
     year: 'numeric',
   }).format(new Date(value));
 };
@@ -526,7 +526,7 @@ function TravelWorkspace({ groupId }: { groupId: string }) {
       }),
     [filteredExpenses],
   );
-  const visibleTransactions = showAllTransactions ? recentTransactions : recentTransactions.slice(0, 4);
+  const visibleTransactions = showAllTransactions ? recentTransactions : recentTransactions.slice(0, 5);
   const selectedTotalLabel = formatRange(filteredGrandTotal.real, 'BRL', true);
   const originalTotalLabel = formatOriginalCurrencyBreakdown(filteredGrandTotal.originalByCurrency);
   const eurQuote = exchangeRates.EUR ?? null;
@@ -757,20 +757,20 @@ function TravelWorkspace({ groupId }: { groupId: string }) {
           ) : activeView === 'expenses' ? (
             <motion.div
               key="expenses"
-              className="space-y-8"
+              className="mx-auto w-full max-w-[1280px] space-y-5"
               initial={{ opacity: 0, y: 16 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -12 }}
             >
-              <header className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+              <header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
                 <div className="min-w-0">
-                  <h1 className="text-3xl font-black tracking-tight text-[#0b1326] md:text-4xl">
+                  <h1 className="text-3xl font-black tracking-tight text-[#0b1326] md:text-[2.35rem]">
                     Visão Geral de Gastos
                   </h1>
-                  <p className="mt-2 text-base font-semibold text-[#45464d] md:text-lg">
+                  <p className="mt-1.5 text-base font-semibold text-[#45464d]">
                     Viagem: {activeGroup?.name ?? 'Viagem ativa'} ({tripDestinations})
                   </p>
-                  <div className="mt-5 flex flex-wrap gap-2">
+                  <div className="mt-4 flex flex-wrap gap-2">
                     {expenseCountryOptions.map((country) => {
                       const isActive = expenseCountryFilter === country.id;
 
@@ -779,7 +779,7 @@ function TravelWorkspace({ groupId }: { groupId: string }) {
                           key={country.id}
                           type="button"
                           onClick={() => setExpenseCountryFilter(country.id)}
-                          className={`inline-flex h-9 items-center rounded-full border px-4 text-sm font-bold transition ${
+                          className={`inline-flex h-8 items-center rounded-full border px-3.5 text-sm font-bold transition ${
                             isActive
                               ? 'border-[#007c68] bg-[#007c68] text-white'
                               : 'border-[#dfe5ee] bg-white text-[#45464d] hover:border-[#007c68] hover:text-[#007c68]'
@@ -791,7 +791,7 @@ function TravelWorkspace({ groupId }: { groupId: string }) {
                     })}
                   </div>
                 </div>
-                <div className="inline-flex w-fit items-center gap-3 rounded-full border border-[#dfe5ee] bg-white px-5 py-3 text-sm font-bold text-[#45464d] shadow-[0_8px_24px_rgba(15,23,42,0.04)]">
+                <div className="inline-flex w-fit items-center gap-2.5 rounded-full border border-[#dfe5ee] bg-white px-4 py-2.5 text-sm font-bold text-[#45464d] shadow-[0_8px_24px_rgba(15,23,42,0.04)]">
                   <WalletCards className="h-4 w-4 text-[#007c68]" />
                   <span>Cotação do dia:</span>
                   <strong className="text-[#0b1326]">
@@ -810,18 +810,18 @@ function TravelWorkspace({ groupId }: { groupId: string }) {
                 </p>
               ) : null}
 
-              <section className="grid gap-6 lg:grid-cols-[minmax(0,2.1fr)_minmax(20rem,1fr)]">
-                <article className="rounded-[1.5rem] border border-[#dfe5ee] bg-white p-7 shadow-[0_18px_45px_rgba(15,23,42,0.06)] md:p-8">
+              <section className="grid gap-5 lg:grid-cols-[minmax(0,2.1fr)_minmax(19rem,1fr)]">
+                <article className="rounded-[1.35rem] border border-[#dfe5ee] bg-white p-6 shadow-[0_18px_45px_rgba(15,23,42,0.06)] md:p-7">
                   <p className="text-sm font-bold uppercase tracking-[0.16em] text-[#45464d]">Investimento total</p>
-                  <div className="mt-5 flex flex-col gap-2 sm:flex-row sm:items-end">
-                    <h2 className="text-5xl font-black tracking-tight text-black md:text-6xl">
+                  <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-end">
+                    <h2 className="text-4xl font-black tracking-tight text-black md:text-5xl">
                       {selectedTotalLabel}
                     </h2>
-                    <span className="pb-2 text-base font-semibold text-[#8c8f9a]">/ orçamento não definido</span>
+                    <span className="pb-1.5 text-sm font-semibold text-[#8c8f9a]">/ orçamento não definido</span>
                   </div>
-                  <p className="mt-3 text-2xl font-black text-[#007c68]">{originalTotalLabel}</p>
-                  <div className="mt-11">
-                    <div className="mb-3 flex items-center justify-between gap-4 text-sm font-bold text-[#45464d]">
+                  <p className="mt-2.5 text-xl font-black text-[#007c68]">{originalTotalLabel}</p>
+                  <div className="mt-8">
+                    <div className="mb-2.5 flex items-center justify-between gap-4 text-sm font-bold text-[#45464d]">
                       <span>Progresso do Orçamento</span>
                       <span>--</span>
                     </div>
@@ -834,29 +834,29 @@ function TravelWorkspace({ groupId }: { groupId: string }) {
                   </div>
                 </article>
 
-                <div className="grid gap-6">
+                <div className="grid gap-4">
                   <button
                     type="button"
                     onClick={openNewExpenseModal}
                     disabled={!canManageExpenses}
-                    className="group flex min-h-40 flex-col items-center justify-center rounded-[1.5rem] bg-black p-6 text-white shadow-[0_18px_45px_rgba(15,23,42,0.12)] transition hover:-translate-y-0.5 hover:bg-[#111827] disabled:cursor-not-allowed disabled:opacity-60"
+                    className="group flex min-h-32 flex-col items-center justify-center rounded-[1.35rem] bg-black p-5 text-white shadow-[0_18px_45px_rgba(15,23,42,0.12)] transition hover:-translate-y-0.5 hover:bg-[#111827] disabled:cursor-not-allowed disabled:opacity-60"
                   >
-                    <span className="grid h-14 w-14 place-items-center rounded-full bg-white/10 transition group-hover:bg-white/15">
-                      <Plus className="h-8 w-8" />
+                    <span className="grid h-12 w-12 place-items-center rounded-full bg-white/10 transition group-hover:bg-white/15">
+                      <Plus className="h-7 w-7" />
                     </span>
-                    <span className="mt-4 text-2xl font-black">Novo Gasto</span>
+                    <span className="mt-3 text-xl font-black">Novo Gasto</span>
                   </button>
 
                   <button
                     type="button"
                     onClick={handleExportPdfFallback}
-                    className="flex min-h-24 items-center justify-between gap-4 rounded-[1.5rem] border border-[#cfd6e2] bg-white p-6 text-left shadow-[0_12px_28px_rgba(15,23,42,0.04)] transition hover:border-[#007c68]"
+                    className="flex min-h-20 items-center justify-between gap-4 rounded-[1.35rem] border border-[#cfd6e2] bg-white p-5 text-left shadow-[0_12px_28px_rgba(15,23,42,0.04)] transition hover:border-[#007c68]"
                   >
                     <span className="flex items-center gap-4">
                       <span className="grid h-11 w-11 place-items-center rounded-full bg-[#eef8f6] text-[#007c68]">
                         <FileText className="h-5 w-5" />
                       </span>
-                      <span className="text-lg font-black leading-tight text-[#0b1326]">
+                      <span className="text-base font-black leading-tight text-[#0b1326]">
                         Exportar<br />Relatório PDF
                       </span>
                     </span>
@@ -865,38 +865,38 @@ function TravelWorkspace({ groupId }: { groupId: string }) {
                 </div>
               </section>
 
-              <section className="grid gap-6 lg:grid-cols-[minmax(18rem,0.9fr)_minmax(0,1.9fr)]">
-                <article className="rounded-[1.5rem] border border-[#dfe5ee] bg-white p-7 shadow-[0_18px_45px_rgba(15,23,42,0.06)]">
+              <section className="grid gap-5 lg:grid-cols-[minmax(17rem,0.72fr)_minmax(0,1.8fr)] lg:items-start">
+                <article className="self-start rounded-[1.35rem] border border-[#dfe5ee] bg-white p-5 shadow-[0_18px_45px_rgba(15,23,42,0.06)] md:p-6">
                   <div className="flex items-center justify-between gap-4">
-                    <h2 className="text-2xl font-black text-[#0b1326]">Categorias</h2>
+                    <h2 className="text-xl font-black text-[#0b1326]">Categorias</h2>
                     <button
                       type="button"
                       onClick={openNewExpenseCategoryModal}
                       disabled={!canManageExpenses}
-                      className="inline-flex h-10 items-center justify-center gap-2 rounded-full border border-[#dfe5ee] px-4 text-sm font-bold text-[#45464d] transition hover:border-[#007c68] hover:text-[#007c68] disabled:cursor-not-allowed disabled:opacity-60"
+                      className="inline-flex h-9 items-center justify-center gap-2 rounded-full border border-[#dfe5ee] px-3.5 text-sm font-bold text-[#45464d] transition hover:border-[#007c68] hover:text-[#007c68] disabled:cursor-not-allowed disabled:opacity-60"
                     >
                       <Plus className="h-4 w-4" />
                       Nova
                     </button>
                   </div>
 
-                  <div className="mt-7 flex justify-center">
+                  <div className="mt-6 flex justify-center">
                     <div
-                      className="relative h-44 w-44 rounded-full"
+                      className="relative h-36 w-36 rounded-full md:h-40 md:w-40"
                       style={{ background: expenseCategoryBreakdown.length ? `conic-gradient(${donutGradient})` : donutGradient }}
                     >
                       <div className="absolute inset-6 grid place-items-center rounded-full bg-white text-center shadow-inner">
-                        <p className="text-sm font-semibold text-[#45464d]">Total</p>
-                        <p className="text-xl font-black text-[#0b1326]">
+                        <p className="text-xs font-semibold text-[#45464d]">Total</p>
+                        <p className="text-lg font-black text-[#0b1326]">
                           {filteredExpenses.length} {filteredExpenses.length === 1 ? 'item' : 'itens'}
                         </p>
                       </div>
                     </div>
                   </div>
 
-                  <div className="mt-8 max-h-52 space-y-3 overflow-y-auto pr-1">
+                  <div className="mt-6 space-y-2.5">
                     {categoriesForManagement.map(({ category, count, total }) => (
-                      <div key={category.id} className="group flex items-center justify-between gap-3 rounded-2xl px-1 py-2">
+                      <div key={category.id} className="group flex items-center justify-between gap-3 rounded-2xl px-1 py-1.5">
                         <div className="flex min-w-0 items-center gap-3">
                           <span className="h-3 w-3 shrink-0 rounded-full" style={{ backgroundColor: category.accent }} />
                           <div className="min-w-0">
@@ -907,14 +907,14 @@ function TravelWorkspace({ groupId }: { groupId: string }) {
                           </div>
                         </div>
                         <div className="flex shrink-0 items-center gap-2">
-                          <span className="text-sm font-black text-[#0b1326]">{formatRange(total.real, 'BRL', true)}</span>
+                          <span className="text-xs font-black text-[#0b1326] sm:text-sm">{formatRange(total.real, 'BRL', true)}</span>
                           {canManageExpenses ? (
                             <span className="flex opacity-100 md:opacity-0 md:transition md:group-hover:opacity-100">
                               <button
                                 type="button"
                                 aria-label={`Editar categoria ${category.name}`}
                                 onClick={() => openEditExpenseCategoryModal(category)}
-                                className="grid h-8 w-8 place-items-center rounded-full text-[#667085] transition hover:bg-[#eef8f6] hover:text-[#007c68]"
+                                className="grid h-7 w-7 place-items-center rounded-full text-[#667085] transition hover:bg-[#eef8f6] hover:text-[#007c68]"
                               >
                                 <Edit3 className="h-4 w-4" />
                               </button>
@@ -922,7 +922,7 @@ function TravelWorkspace({ groupId }: { groupId: string }) {
                                 type="button"
                                 aria-label={`Excluir categoria ${category.name}`}
                                 onClick={() => openDeleteExpenseCategoryDialog(category)}
-                                className="grid h-8 w-8 place-items-center rounded-full text-[#667085] transition hover:bg-rose-50 hover:text-rose-700"
+                                className="grid h-7 w-7 place-items-center rounded-full text-[#667085] transition hover:bg-rose-50 hover:text-rose-700"
                               >
                                 <Trash2 className="h-4 w-4" />
                               </button>
@@ -934,14 +934,14 @@ function TravelWorkspace({ groupId }: { groupId: string }) {
                   </div>
                 </article>
 
-                <article className="overflow-hidden rounded-[1.5rem] border border-[#dfe5ee] bg-white shadow-[0_18px_45px_rgba(15,23,42,0.06)]">
-                  <div className="flex flex-col gap-4 border-b border-[#e8ecf4] p-6 md:flex-row md:items-center md:justify-between">
-                    <h2 className="text-2xl font-black text-[#0b1326]">Transações Recentes</h2>
+                <article className="overflow-hidden rounded-[1.35rem] border border-[#dfe5ee] bg-white shadow-[0_18px_45px_rgba(15,23,42,0.06)]">
+                  <div className="flex flex-col gap-4 border-b border-[#e8ecf4] p-5 md:flex-row md:items-center md:justify-between">
+                    <h2 className="text-xl font-black text-[#0b1326] md:text-2xl">Transações Recentes</h2>
                     <div className="grid w-full grid-cols-2 rounded-full border border-[#dfe5ee] bg-[#f7f8fd] p-1 md:w-auto">
                       <button
                         type="button"
                         onClick={() => setRealValueMode('converted')}
-                        className={`h-10 rounded-full px-5 text-sm font-bold transition ${
+                        className={`h-9 rounded-full px-4 text-sm font-bold transition ${
                           realValueMode === 'converted' ? 'bg-white text-black shadow-sm' : 'text-[#667085] hover:text-black'
                         }`}
                       >
@@ -950,7 +950,7 @@ function TravelWorkspace({ groupId }: { groupId: string }) {
                       <button
                         type="button"
                         onClick={() => setRealValueMode('original')}
-                        className={`h-10 rounded-full px-5 text-sm font-bold transition ${
+                        className={`h-9 rounded-full px-4 text-sm font-bold transition ${
                           realValueMode === 'original' ? 'bg-white text-black shadow-sm' : 'text-[#667085] hover:text-black'
                         }`}
                       >
@@ -961,15 +961,22 @@ function TravelWorkspace({ groupId }: { groupId: string }) {
 
                   {visibleTransactions.length ? (
                     <>
-                      <div className="hidden md:block">
-                        <table className="w-full border-collapse text-left">
-                          <thead>
+                      <div className={`hidden md:block ${showAllTransactions ? 'max-h-[28rem] overflow-y-auto' : ''}`}>
+                        <table className="w-full table-fixed border-collapse text-left">
+                          <colgroup>
+                            <col className="w-[38%]" />
+                            <col className="w-[18%]" />
+                            <col className="w-[14%]" />
+                            <col className="w-[17%]" />
+                            {canManageExpenses ? <col className="w-[13%]" /> : null}
+                          </colgroup>
+                          <thead className={showAllTransactions ? 'sticky top-0 z-10 bg-white shadow-[0_1px_0_#eef2f7]' : undefined}>
                             <tr className="text-sm font-black text-[#45464d]">
-                              <th className="px-6 py-5">Gasto</th>
-                              <th className="px-6 py-5">Categoria</th>
-                              <th className="px-6 py-5">Data</th>
-                              <th className="px-6 py-5 text-right">Valor</th>
-                              {canManageExpenses ? <th className="px-6 py-5 text-right">Ações</th> : null}
+                              <th className="px-5 py-3">Gasto</th>
+                              <th className="px-4 py-3">Categoria</th>
+                              <th className="whitespace-nowrap px-4 py-3">Data</th>
+                              <th className="px-4 py-3 text-right">Valor</th>
+                              {canManageExpenses ? <th className="px-5 py-3 text-right">Ações</th> : null}
                             </tr>
                           </thead>
                           <tbody>
@@ -989,40 +996,40 @@ function TravelWorkspace({ groupId }: { groupId: string }) {
 
                               return (
                                 <tr key={expense.id} className="border-t border-[#eef2f7]">
-                                  <td className="px-6 py-5">
-                                    <div className="flex min-w-0 items-center gap-4">
+                                  <td className="px-5 py-2.5">
+                                    <div className="flex min-w-0 items-center gap-2.5">
                                       <span
-                                        className="grid h-11 w-11 shrink-0 place-items-center rounded-xl"
+                                        className="grid h-8 w-8 shrink-0 place-items-center rounded-xl"
                                         style={{ backgroundColor: `${category.accent}20`, color: category.accent }}
                                       >
-                                        <CategoryIcon className="h-5 w-5" />
+                                        <CategoryIcon className="h-4 w-4" />
                                       </span>
                                       <div className="min-w-0">
-                                        <p className="truncate font-black text-[#0b1326]">{expense.title}</p>
-                                        <p className="truncate text-sm font-semibold text-[#667085]">
+                                        <p className="truncate text-sm font-black text-[#0b1326]">{expense.title}</p>
+                                        <p className="truncate text-xs font-semibold text-[#667085]">
                                           {expense.detail || countryNames[expense.country ?? 'international']}
                                         </p>
                                       </div>
                                     </div>
                                   </td>
-                                  <td className="px-6 py-5">
+                                  <td className="px-4 py-2.5">
                                     <span
-                                      className="inline-flex rounded-full px-3 py-1 text-xs font-black uppercase"
+                                      className="inline-flex max-w-full truncate rounded-full px-2.5 py-1 text-[0.68rem] font-black uppercase"
                                       style={{ backgroundColor: `${category.accent}18`, color: category.accent }}
                                     >
                                       {category.name}
                                     </span>
                                   </td>
-                                  <td className="px-6 py-5 font-semibold text-[#45464d]">{formatExpenseDate(expense.createdAt)}</td>
-                                  <td className="px-6 py-5 text-right font-black text-[#0b1326]">{value}</td>
+                                  <td className="whitespace-nowrap px-4 py-2.5 text-sm font-semibold text-[#45464d]">{formatExpenseDate(expense.createdAt)}</td>
+                                  <td className="px-4 py-2.5 text-right text-sm font-black text-[#0b1326]">{value}</td>
                                   {canManageExpenses ? (
-                                    <td className="px-6 py-5">
+                                    <td className="px-5 py-2.5">
                                       <div className="flex justify-end gap-2">
                                         <button
                                           type="button"
                                           aria-label={`Editar ${expense.title}`}
                                           onClick={() => openEditExpenseModal(expense)}
-                                          className="grid h-9 w-9 place-items-center rounded-full border border-[#dfe5ee] text-[#667085] transition hover:border-[#007c68] hover:text-[#007c68]"
+                                          className="grid h-7 w-7 place-items-center rounded-full border border-[#dfe5ee] text-[#667085] transition hover:border-[#007c68] hover:text-[#007c68]"
                                         >
                                           <Edit3 className="h-4 w-4" />
                                         </button>
@@ -1030,7 +1037,7 @@ function TravelWorkspace({ groupId }: { groupId: string }) {
                                           type="button"
                                           aria-label={`Excluir ${expense.title}`}
                                           onClick={() => setExpensePendingDelete(expense)}
-                                          className="grid h-9 w-9 place-items-center rounded-full border border-[#dfe5ee] text-[#667085] transition hover:border-rose-200 hover:bg-rose-50 hover:text-rose-700"
+                                          className="grid h-7 w-7 place-items-center rounded-full border border-[#dfe5ee] text-[#667085] transition hover:border-rose-200 hover:bg-rose-50 hover:text-rose-700"
                                         >
                                           <Trash2 className="h-4 w-4" />
                                         </button>
@@ -1098,7 +1105,7 @@ function TravelWorkspace({ groupId }: { groupId: string }) {
                       </div>
                     </>
                   ) : (
-                    <div className="p-6">
+                    <div className="p-5">
                       <ExpensesEmptyState onAddExpense={openNewExpenseModal} />
                     </div>
                   )}
@@ -1107,7 +1114,7 @@ function TravelWorkspace({ groupId }: { groupId: string }) {
                     <button
                       type="button"
                       onClick={() => setShowAllTransactions((current) => !current)}
-                      className="flex h-16 w-full items-center justify-center border-t border-[#eef2f7] bg-[#f7f8fd] text-sm font-black text-[#007c68] transition hover:bg-[#eef8f6]"
+                      className="flex h-12 w-full items-center justify-center border-t border-[#eef2f7] bg-[#f7f8fd] text-sm font-black text-[#007c68] transition hover:bg-[#eef8f6]"
                     >
                       {showAllTransactions ? 'Mostrar menos transações' : 'Ver todas as transações'}
                     </button>
@@ -1115,17 +1122,17 @@ function TravelWorkspace({ groupId }: { groupId: string }) {
                 </article>
               </section>
 
-              <section className="relative overflow-hidden rounded-[1.5rem] bg-[#121b2d] p-6 text-white shadow-[0_18px_45px_rgba(15,23,42,0.12)] md:p-8">
+              <section className="relative overflow-hidden rounded-[1.35rem] bg-[#121b2d] p-5 text-white shadow-[0_18px_45px_rgba(15,23,42,0.12)] md:p-6">
                 <div className="pointer-events-none absolute -right-20 -top-16 h-72 w-72 rounded-full border border-white/10" />
                 <div className="pointer-events-none absolute -right-8 top-8 h-44 w-44 rounded-full border border-white/10" />
-                <div className="relative flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
-                  <div className="flex min-w-0 gap-5">
-                    <span className="grid h-16 w-16 shrink-0 place-items-center rounded-full bg-[#007c68] text-white">
-                      <Sparkles className="h-7 w-7" />
+                <div className="relative flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
+                  <div className="flex min-w-0 gap-4">
+                    <span className="grid h-12 w-12 shrink-0 place-items-center rounded-full bg-[#007c68] text-white">
+                      <Sparkles className="h-5 w-5" />
                     </span>
                     <div className="min-w-0">
-                      <h2 className="text-2xl font-black">Insight do TripFlow AI</h2>
-                      <p className="mt-2 max-w-4xl text-base font-semibold leading-7 text-[#9ca7bd]">
+                      <h2 className="text-xl font-black md:text-2xl">Insight do TripFlow AI</h2>
+                      <p className="mt-1.5 max-w-4xl text-sm font-semibold leading-6 text-[#9ca7bd] md:text-base">
                         {tripflowAiInsight}
                       </p>
                     </div>
@@ -1133,7 +1140,7 @@ function TravelWorkspace({ groupId }: { groupId: string }) {
                   <button
                     type="button"
                     onClick={() => setExpenseSyncWarning('Insight calculado localmente. Nenhuma IA ou Edge Function foi acionada automaticamente.')}
-                    className="inline-flex h-14 shrink-0 items-center justify-center rounded-full bg-white px-8 text-base font-bold text-black transition hover:bg-[#eef8f6]"
+                    className="inline-flex h-11 shrink-0 items-center justify-center rounded-full bg-white px-6 text-sm font-bold text-black transition hover:bg-[#eef8f6] md:h-12 md:px-7"
                   >
                     Otimizar Agora
                   </button>
