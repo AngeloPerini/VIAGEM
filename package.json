@@ -11,7 +11,8 @@
   },
   "devDependencies": {
     "typescript": "~6.0.2",
-    "vite": "^8.0.12"
+    "vite": "^8.0.12",
+    "world-atlas": "^2.0.2"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.105.4",
@@ -20,10 +21,14 @@
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.2",
     "framer-motion": "^12.38.0",
+    "i18n-iso-countries": "^7.14.0",
     "lucide-react": "^1.16.0",
+    "prop-types": "^15.8.1",
     "react": "^19.2.6",
     "react-dom": "^19.2.6",
+    "react-simple-maps": "^3.0.0",
     "recharts": "^3.8.1",
-    "tailwindcss": "^4.3.0"
+    "tailwindcss": "^4.3.0",
+    "topojson-client": "^3.1.0"
   }
 }

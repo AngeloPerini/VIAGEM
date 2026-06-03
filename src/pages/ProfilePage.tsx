@@ -36,7 +36,7 @@ import type { LanguageCode } from '../i18n';
 import { ExpenseChart } from '../components/ExpenseChart';
 import { TripVisitedMap } from '../components/TripVisitedMap';
 import type { TripMapCountry } from '../components/TripVisitedMap';
-import { countryLabel } from '../data/countries';
+import { countryLabel, normalizeCountryId } from '../data/countries';
 import {
   getCurrentProfile,
   getGroupMembers,
@@ -1314,11 +1314,16 @@ export function ProfilePage() {
     window.dispatchEvent(new PopStateEvent('popstate'));
   };
 
+  const worldMapCountryId = (value?: string | null) => {
+    const id = normalizeCountryId(value);
+    return id === 'england' || id === 'scotland' ? 'united_kingdom' : id;
+  };
+
   const handleToggleVisitedCountry = async (country: TripMapCountry) => {
     if (!activeGroupId) return;
 
     const currentCountry = visitedCountries.find(
-      (item) => item.countryCode === country.id && item.visited,
+      (item) => worldMapCountryId(item.countryCode) === country.id && item.visited,
     );
     const nextVisited = !currentCountry;
 
@@ -1340,14 +1345,14 @@ export function ProfilePage() {
     setVisitedCountryActionId(country.id);
     setVisitedCountryWarning(null);
     setVisitedCountries((current) => {
-      const withoutCountry = current.filter((item) => item.countryCode !== country.id);
+      const withoutCountry = current.filter((item) => worldMapCountryId(item.countryCode) !== country.id);
       return [optimisticCountry, ...withoutCountry];
     });
 
     try {
       const savedCountry = await setTripCountryVisited(activeGroupId, country.id, country.name, nextVisited);
       setVisitedCountries((current) => {
-        const withoutCountry = current.filter((item) => item.countryCode !== country.id);
+        const withoutCountry = current.filter((item) => worldMapCountryId(item.countryCode) !== country.id);
         return [savedCountry, ...withoutCountry];
       });
       setStatus(nextVisited ? 'País marcado como visitado.' : 'País removido dos visitados.');
