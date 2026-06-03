@@ -4,7 +4,6 @@ import { useEffect, useMemo, useState } from 'react';
 import type { FormEvent } from 'react';
 import { AttractionCard } from '../components/AttractionCard';
 import { AttractionModal } from '../components/AttractionModal';
-import { CountryFilter } from '../components/CountryFilter';
 import { LinksEditor } from '../components/LinksEditor';
 import { TimeField } from '../components/TimeField';
 import { buildCountryOptions, normalizeCountryId } from '../data/countries';
@@ -40,6 +39,14 @@ type AttractionsPageProps = {
   onCountryChange: (country: CountryFilterId) => void;
   canUseDefaultData?: boolean;
 };
+
+type AttractionStatusFilter = 'all' | 'visited' | 'pending';
+
+const statusFilterOptions: Array<{ id: AttractionStatusFilter; label: string }> = [
+  { id: 'all', label: 'Todos' },
+  { id: 'visited', label: 'Visitados' },
+  { id: 'pending', label: 'Pendentes' },
+];
 
 const blankAttraction = (country: CountryId): Attraction => ({
   id: crypto.randomUUID(),
@@ -196,6 +203,7 @@ export function AttractionsPage({
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [uploadingId, setUploadingId] = useState<string | null>(null);
+  const [statusFilter, setStatusFilter] = useState<AttractionStatusFilter>('all');
 
   useEffect(() => {
     let active = true;
@@ -285,6 +293,20 @@ export function AttractionsPage({
     [scopedItems, selectedCountry],
   );
 
+  const visibleAttractions = useMemo(
+    () =>
+      statusFilter === 'all'
+        ? filteredAttractions
+        : filteredAttractions.filter((attraction) => {
+            const visited = states[attraction.id]?.visited ?? false;
+            return statusFilter === 'visited' ? visited : !visited;
+          }),
+    [filteredAttractions, states, statusFilter],
+  );
+
+  const totalAttractionsCount = scopedItems.length;
+  const totalVisitedCount = scopedItems.filter((attraction) => states[attraction.id]?.visited).length;
+  const totalPhotoCount = scopedItems.filter((attraction) => states[attraction.id]?.photo).length;
   const visitedCount = filteredAttractions.filter((attraction) => states[attraction.id]?.visited)
     .length;
   const photoCount = filteredAttractions.filter((attraction) => states[attraction.id]?.photo).length;
@@ -407,62 +429,178 @@ export function AttractionsPage({
   };
 
   return (
-    <motion.div className="space-y-6" initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -12 }}>
-      <section className="rounded-[2rem] border border-white/70 bg-white/80 p-6 shadow-xl shadow-slate-900/10 backdrop-blur-xl md:p-8">
-        <p className="text-sm font-bold uppercase tracking-[0.2em] text-slate-500">Pontos turisticos</p>
-        <div className="mt-3 grid gap-5 lg:grid-cols-[1fr_auto] lg:items-end">
-          <div>
-            <h1 className="text-4xl font-black tracking-tight text-slate-950 md:text-5xl">Visitas da viagem</h1>
-            <p className="mt-4 max-w-3xl leading-7 text-slate-600">Uma lista limpa apenas com visitas e pontos turisticos. Marque o que ja foi visitado e guarde uma foto compactada de cada lugar.</p>
+    <motion.div
+      className="w-full space-y-6"
+      initial={{ opacity: 0, y: 16 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -12 }}
+    >
+      <section className="rounded-[1.65rem] border border-[#dfe5ee] bg-white px-5 py-5 shadow-[0_14px_34px_rgba(15,23,42,0.05)] md:px-7 md:py-6">
+        <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-start">
+          <div className="min-w-0">
+            <p className="text-xs font-black uppercase tracking-[0.22em] text-[#007c68]">Turismo</p>
+            <h1 className="mt-2 text-3xl font-black tracking-tight text-[#0b1326] md:text-[2.35rem]">
+              Pontos Turísticos
+            </h1>
+            <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-[#45464d] md:text-base">
+              Descubra, organize e acompanhe os lugares imperdíveis da sua viagem.
+              Atualmente acompanhando <strong className="text-[#0b1326]">{totalAttractionsCount}</strong> ponto{totalAttractionsCount === 1 ? '' : 's'} turístico{totalAttractionsCount === 1 ? '' : 's'}.
+            </p>
           </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="rounded-3xl bg-slate-950 px-5 py-4 text-white">
-              <span className="flex items-center gap-2 text-sm font-bold text-teal-200"><CheckCircle2 className="h-4 w-4" />Visitados</span>
-              <strong className="text-2xl font-black">{visitedCount}/{filteredAttractions.length}</strong>
-            </div>
-            <div className="rounded-3xl bg-white px-5 py-4 text-slate-950 ring-1 ring-slate-200">
-              <span className="flex items-center gap-2 text-sm font-bold text-slate-500"><Camera className="h-4 w-4" />Fotos</span>
-              <strong className="text-2xl font-black">{photoCount}</strong>
-            </div>
+
+          <div className="flex flex-wrap gap-2 lg:justify-end">
+            <span className="inline-flex h-11 items-center gap-2 rounded-full bg-black px-4 text-sm font-black text-white">
+              <CheckCircle2 className="h-4 w-4" />
+              Visitados {totalVisitedCount}/{totalAttractionsCount}
+            </span>
+            <span className="inline-flex h-11 items-center gap-2 rounded-full border border-[#cfd6e2] bg-white px-4 text-sm font-black text-[#45464d]">
+              <Camera className="h-4 w-4 text-[#007c68]" />
+              Fotos {totalPhotoCount}
+            </span>
           </div>
         </div>
-        <div className="mt-6 grid gap-3 sm:grid-cols-2">
-          <button type="button" onClick={() => setEditingAttraction(blankAttraction(defaultCountry))} className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl bg-slate-950 px-5 font-bold text-white shadow-xl shadow-slate-900/20 transition hover:bg-teal-700">
-            <Plus className="h-5 w-5" /> Novo ponto turistico
-          </button>
-          {canUseDefaultData ? (
-            <button type="button" onClick={() => void restoreDefaults()} className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-5 font-bold text-slate-700 transition hover:bg-slate-50">
-              <RotateCcw className="h-5 w-5" /> Restaurar pontos padrão
+
+        <div className="mt-5 flex flex-col gap-3 border-t border-[#eef2f7] pt-5 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-wrap items-center gap-2 text-sm font-bold text-[#667085]">
+            <span className="inline-flex items-center gap-1.5">
+              <MapPin className="h-4 w-4 text-[#007c68]" />
+              {filteredAttractions.length} nesta seleção
+            </span>
+            <span className="hidden h-1 w-1 rounded-full bg-[#cbd5e1] sm:inline-flex" />
+            <span>{visitedCount} visitado{visitedCount === 1 ? '' : 's'}</span>
+            <span className="hidden h-1 w-1 rounded-full bg-[#cbd5e1] sm:inline-flex" />
+            <span>{photoCount} foto{photoCount === 1 ? '' : 's'}</span>
+          </div>
+
+          <div className="flex flex-col gap-2 sm:flex-row">
+            {canUseDefaultData ? (
+              <button
+                type="button"
+                onClick={() => void restoreDefaults()}
+                className="inline-flex h-11 items-center justify-center gap-2 rounded-full border border-[#dfe5ee] bg-white px-4 text-sm font-black text-[#45464d] transition hover:border-[#007c68] hover:text-[#007c68]"
+              >
+                <RotateCcw className="h-4 w-4" />
+                Restaurar padrão
+              </button>
+            ) : null}
+            <button
+              type="button"
+              onClick={() => setEditingAttraction(blankAttraction(defaultCountry))}
+              className="inline-flex h-11 items-center justify-center gap-2 rounded-full bg-black px-5 text-sm font-black text-white shadow-[0_12px_28px_rgba(15,23,42,0.16)] transition hover:bg-[#111827]"
+            >
+              <Plus className="h-4 w-4" />
+              Novo ponto turístico
             </button>
-          ) : null}
+          </div>
         </div>
       </section>
 
-      <CountryFilter value={selectedCountry} onChange={onCountryChange} label="Filtrar pontos por pais" options={countryOptions} />
+      <section className="rounded-[1.35rem] border border-[#dfe5ee] bg-white px-4 py-4 shadow-[0_10px_26px_rgba(15,23,42,0.04)] md:px-5">
+        <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.2em] text-[#667085]">Filtrar pontos por país</p>
+            <p className="mt-1 text-sm font-semibold text-[#667085]">
+              Os totais e listas acompanham o país selecionado.
+            </p>
+          </div>
+
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-end">
+            <div className="flex max-w-full gap-2 overflow-x-auto pb-1">
+              {countryOptions.map((country) => {
+                const active = selectedCountry === country.id;
+
+                return (
+                  <button
+                    key={country.id}
+                    type="button"
+                    onClick={() => onCountryChange(country.id)}
+                    className={`shrink-0 rounded-full border px-5 py-2.5 text-sm font-black transition ${
+                      active
+                        ? 'border-black bg-black text-white'
+                        : 'border-[#cfd6e2] bg-white text-[#45464d] hover:border-[#007c68] hover:text-[#007c68]'
+                    }`}
+                  >
+                    {country.shortName}
+                  </button>
+                );
+              })}
+            </div>
+
+            <div className="flex max-w-full gap-2 overflow-x-auto pb-1">
+              {statusFilterOptions.map((option) => {
+                const active = statusFilter === option.id;
+
+                return (
+                  <button
+                    key={option.id}
+                    type="button"
+                    onClick={() => setStatusFilter(option.id)}
+                    className={`shrink-0 rounded-full border px-4 py-2.5 text-sm font-black transition ${
+                      active
+                        ? 'border-[#007c68] bg-[#007c68] text-white'
+                        : 'border-[#dfe5ee] bg-[#f7f8fd] text-[#667085] hover:border-[#007c68] hover:text-[#007c68]'
+                    }`}
+                  >
+                    {option.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      </section>
+
       {syncWarning || isLoading || isSaving || uploadingId ? (
-        <p className="rounded-2xl border border-white/70 bg-white/75 px-4 py-3 text-sm font-semibold text-slate-600 shadow-lg shadow-slate-900/5 backdrop-blur-xl">
+        <p className="rounded-[1.35rem] border border-[#dfe5ee] bg-white px-4 py-3 text-sm font-semibold text-[#45464d] shadow-[0_10px_26px_rgba(15,23,42,0.04)]">
           {uploadingId
             ? 'Atualizando foto no Supabase...'
             : isSaving
               ? 'Salvando pontos no Supabase...'
               : isLoading
-                ? 'Sincronizando pontos turisticos...'
+                ? 'Sincronizando pontos turísticos...'
                 : syncWarning}
         </p>
       ) : null}
 
-      <div className="flex items-center justify-between rounded-[2rem] border border-white/70 bg-white/70 px-5 py-4 shadow-lg shadow-slate-900/5 backdrop-blur-xl">
-        <span className="flex items-center gap-2 text-sm font-bold text-slate-600"><MapPin className="h-4 w-4" />{filteredAttractions.length} pontos nesta selecao</span>
-        <span className="text-sm font-bold text-slate-400">Clique em um card para editar</span>
-      </div>
-
-      <motion.div layout className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-        <AnimatePresence mode="popLayout">
-          {filteredAttractions.map((attraction) => (
-            <AttractionCard key={attraction.id} attraction={attraction} state={states[attraction.id]} onClick={setSelectedAttraction} />
-          ))}
-        </AnimatePresence>
-      </motion.div>
+      {visibleAttractions.length ? (
+        <motion.div layout className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+          <AnimatePresence mode="popLayout">
+            {visibleAttractions.map((attraction) => (
+              <AttractionCard
+                key={attraction.id}
+                attraction={attraction}
+                state={states[attraction.id]}
+                isUploading={uploadingId === attraction.id}
+                onOpen={setSelectedAttraction}
+                onEdit={setEditingAttraction}
+                onDelete={(id) => void handleDeleteAttraction(id)}
+                onToggleVisited={handleStateChange}
+                onPhotoUpload={handleUploadPhoto}
+              />
+            ))}
+          </AnimatePresence>
+        </motion.div>
+      ) : (
+        <section className="rounded-[1.65rem] border border-dashed border-[#cfd6e2] bg-white px-5 py-12 text-center shadow-[0_12px_30px_rgba(15,23,42,0.04)]">
+          <Camera className="mx-auto h-10 w-10 text-[#007c68]" />
+          <h2 className="mt-4 text-xl font-black text-[#0b1326]">
+            {totalAttractionsCount ? 'Nenhum ponto turístico encontrado para este filtro.' : 'Nenhum ponto turístico cadastrado ainda.'}
+          </h2>
+          <p className="mx-auto mt-2 max-w-md text-sm font-semibold leading-6 text-[#667085]">
+            {totalAttractionsCount
+              ? 'Ajuste os filtros de país ou status para ver outros lugares da viagem.'
+              : 'Adicione o primeiro ponto para acompanhar visitas, fotos e status durante o planejamento.'}
+          </p>
+          <button
+            type="button"
+            onClick={() => setEditingAttraction(blankAttraction(defaultCountry))}
+            className="mt-5 inline-flex h-11 items-center justify-center gap-2 rounded-full bg-black px-5 text-sm font-black text-white transition hover:bg-[#111827]"
+          >
+            <Plus className="h-4 w-4" />
+            Adicionar primeiro ponto turístico
+          </button>
+        </section>
+      )}
 
       <AttractionModal
         attraction={selectedAttraction}
