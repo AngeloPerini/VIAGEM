@@ -7,12 +7,13 @@ import {
   countryFlagEmoji,
   countryIso3Code,
   countryLabel,
-  normalizeCountryId,
+  normalizeCountryCode,
 } from '../data/countries';
 import type { CountryId, VisitedCountry } from '../types';
 
 export type TripMapCountry = {
   id: CountryId;
+  code: CountryId;
   name: string;
   flag: string;
   iso3?: string | null;
@@ -28,7 +29,7 @@ type TooltipState = {
 };
 
 const WORLD_COUNTRY_TOTAL = 195;
-const DEFAULT_CENTER: [number, number] = [14, 18];
+const DEFAULT_CENTER: [number, number] = [0, 0];
 const DEFAULT_ZOOM = 1;
 
 const formatVisitedDate = (value?: string | null) => {
@@ -43,20 +44,14 @@ const formatVisitedDate = (value?: string | null) => {
 
 const getPercent = (count: number) => Math.round((count / WORLD_COUNTRY_TOTAL) * 100);
 
-const worldMapCountryId = (value?: string | null) => {
-  const id = normalizeCountryId(value);
-  return id === 'england' || id === 'scotland' ? 'united_kingdom' : id;
-};
-
 const normalizeTripCountriesForMap = (tripCountries: string[]) => {
   const countryIds = new Set<string>();
 
   tripCountries.forEach((country) => {
-    const normalized = normalizeCountryId(country);
+    const normalized = normalizeCountryCode(country);
     if (!normalized || normalized === 'all' || normalized === 'international') return;
 
     countryIds.add(normalized);
-    countryIds.add(worldMapCountryId(normalized));
   });
 
   return countryIds;
@@ -69,9 +64,9 @@ const visitedCountriesOnly = (countries: VisitedCountry[]) => {
     .filter((country) => country.visited)
     .sort((a, b) => new Date(b.visitedAt ?? b.updatedAt ?? 0).getTime() - new Date(a.visitedAt ?? a.updatedAt ?? 0).getTime())
     .forEach((country) => {
-      const mapCountryId = worldMapCountryId(country.countryCode);
-      if (!byMapCountry.has(mapCountryId)) {
-        byMapCountry.set(mapCountryId, country);
+      const normalizedCode = normalizeCountryCode(country.countryCode);
+      if (!byMapCountry.has(normalizedCode)) {
+        byMapCountry.set(normalizedCode, country);
       }
     });
 
@@ -96,9 +91,11 @@ const geographyToCountry = (geography: GeographyType): TripMapCountry => {
   const sourceName = geographyName(geography);
   const iso3 = countryIso3Code(numericId) ?? countryIso3Code(sourceName);
   const identitySource = iso3 ?? sourceName;
+  const code = normalizeCountryCode(identitySource);
 
   return {
-    id: worldMapCountryId(identitySource),
+    id: code,
+    code,
     name: countryLabel(identitySource),
     flag: countryFlagEmoji(identitySource),
     iso3,
@@ -137,7 +134,7 @@ export function TripVisitedMap({
   );
   const visitedList = useMemo(() => visitedCountriesOnly(visitedCountries), [visitedCountries]);
   const visitedByCountryId = useMemo(
-    () => new Map(visitedList.map((country) => [worldMapCountryId(country.countryCode), country])),
+    () => new Map(visitedList.map((country) => [normalizeCountryCode(country.countryCode), country])),
     [visitedList],
   );
   const visitedCount = visitedList.length;
@@ -200,7 +197,7 @@ export function TripVisitedMap({
       {activeGroupName ? (
         <div className="mt-6 grid gap-5 xl:grid-cols-[minmax(0,1fr)_26rem]">
           <div className="min-w-0">
-            <div className="relative overflow-hidden rounded-xl border border-[#dfe5ee] bg-gradient-to-br from-[#f8fbff] to-[#eef3f8] p-3 shadow-inner">
+            <div className="relative h-[20rem] overflow-hidden rounded-xl border border-[#dfe5ee] bg-gradient-to-br from-[#f8fbff] to-[#eef3f8] p-3 shadow-inner sm:h-[24rem] lg:h-[28rem] 2xl:h-[31rem]">
               <div className="absolute left-5 top-5 z-10 grid overflow-hidden rounded-xl border border-[#dfe5ee] bg-white shadow-lg">
                 <button
                   type="button"
@@ -248,11 +245,12 @@ export function TripVisitedMap({
               <ComposableMap
                 width={1000}
                 height={430}
-                projection="geoNaturalEarth1"
-                projectionConfig={{ scale: 168 }}
+                projection="geoEqualEarth"
+                projectionConfig={{ scale: 186 }}
                 role="img"
                 aria-label="Mapa-múndi interativo de países visitados"
-                className="h-[22rem] w-full md:h-[28rem]"
+                className="h-full w-full"
+                preserveAspectRatio="xMidYMid meet"
               >
                 <ZoomableGroup
                   center={mapCenter}
@@ -272,9 +270,9 @@ export function TripVisitedMap({
                     {({ geographies }) =>
                       geographies.map((geography) => {
                         const country = geographyToCountry(geography);
-                        const isVisited = visitedByCountryId.has(country.id);
-                        const isTripCountry = normalizedTripCountries.has(country.id);
-                        const isBusy = actionCountryId === country.id;
+                        const isVisited = visitedByCountryId.has(country.code);
+                        const isTripCountry = normalizedTripCountries.has(country.code);
+                        const isBusy = actionCountryId === country.code;
                         const fill = isVisited ? '#10b981' : isTripCountry ? '#d4dde8' : '#e5e7eb';
                         const stroke = isVisited ? '#059669' : isTripCountry ? '#007c68' : '#ffffff';
 
@@ -284,6 +282,8 @@ export function TripVisitedMap({
                             geography={geography}
                             role="button"
                             tabIndex={0}
+                            data-country-code={country.code}
+                            data-country-source={country.sourceName}
                             aria-label={`${isVisited ? 'Remover' : 'Marcar'} ${country.name} ${isVisited ? 'dos visitados' : 'como visitado'}`}
                             fill={fill}
                             stroke={stroke}

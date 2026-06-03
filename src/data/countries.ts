@@ -121,6 +121,68 @@ const countryAliases: Record<string, string> = {
   internacional: 'international',
 };
 
+const countryCodeAliases: Record<string, string> = {
+  italia: 'ITA',
+  italy: 'ITA',
+  it: 'ITA',
+  ita: 'ITA',
+  '380': 'ITA',
+  suica: 'CHE',
+  switzerland: 'CHE',
+  swiss: 'CHE',
+  ch: 'CHE',
+  che: 'CHE',
+  '756': 'CHE',
+  franca: 'FRA',
+  france: 'FRA',
+  fr: 'FRA',
+  fra: 'FRA',
+  '250': 'FRA',
+  inglaterra: 'GBR',
+  england: 'GBR',
+  escocia: 'GBR',
+  scotland: 'GBR',
+  gra_bretanha: 'GBR',
+  great_britain: 'GBR',
+  britain: 'GBR',
+  reino_unido: 'GBR',
+  united_kingdom: 'GBR',
+  uk: 'GBR',
+  gb: 'GBR',
+  gbr: 'GBR',
+  '826': 'GBR',
+  brasil: 'BRA',
+  brazil: 'BRA',
+  br: 'BRA',
+  bra: 'BRA',
+  '076': 'BRA',
+  '76': 'BRA',
+  japao: 'JPN',
+  japan: 'JPN',
+  jp: 'JPN',
+  jpn: 'JPN',
+  '392': 'JPN',
+  espanha: 'ESP',
+  spain: 'ESP',
+  es: 'ESP',
+  esp: 'ESP',
+  '724': 'ESP',
+  portugal: 'PRT',
+  pt: 'PRT',
+  prt: 'PRT',
+  '620': 'PRT',
+  alemanha: 'DEU',
+  germany: 'DEU',
+  de: 'DEU',
+  deu: 'DEU',
+  '276': 'DEU',
+  paises_baixos: 'NLD',
+  netherlands: 'NLD',
+  nl: 'NLD',
+  nld: 'NLD',
+  '528': 'NLD',
+};
+
 const accentPalette = [
   '#0f766e',
   '#dc2626',
@@ -164,6 +226,11 @@ export const countryIso3Code = (value?: string | number | null): string | null =
   const rawValue = String(value ?? '').trim();
   if (!rawValue) return null;
 
+  const slug = slugifyCountry(rawValue);
+  if (countryCodeAliases[slug]) {
+    return countryCodeAliases[slug];
+  }
+
   const upperValue = stripAccents(rawValue).toUpperCase();
   if (/^\d+$/.test(upperValue)) {
     return isoCountries.numericToAlpha3(normalizeNumericIso(upperValue)) ?? null;
@@ -184,6 +251,15 @@ export const countryIso3Code = (value?: string | number | null): string | null =
     isoCountries.getSimpleAlpha3Code(rawValue, 'en') ??
     null
   );
+};
+
+export const normalizeCountryCode = (value?: string | number | null): string => {
+  const rawValue = String(value ?? '').trim();
+  const iso3 = countryIso3Code(rawValue);
+
+  if (iso3) return iso3;
+
+  return normalizeCountryId(rawValue);
 };
 
 export const countryIso2Code = (value?: string | number | null): string | null => {

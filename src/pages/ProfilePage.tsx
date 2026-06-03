@@ -36,7 +36,7 @@ import type { LanguageCode } from '../i18n';
 import { ExpenseChart } from '../components/ExpenseChart';
 import { TripVisitedMap } from '../components/TripVisitedMap';
 import type { TripMapCountry } from '../components/TripVisitedMap';
-import { countryLabel, normalizeCountryId } from '../data/countries';
+import { countryLabel, normalizeCountryCode } from '../data/countries';
 import {
   getCurrentProfile,
   getGroupMembers,
@@ -1314,45 +1314,37 @@ export function ProfilePage() {
     window.dispatchEvent(new PopStateEvent('popstate'));
   };
 
-  const worldMapCountryId = (value?: string | null) => {
-    const id = normalizeCountryId(value);
-    return id === 'england' || id === 'scotland' ? 'united_kingdom' : id;
-  };
-
   const handleToggleVisitedCountry = async (country: TripMapCountry) => {
     if (!activeGroupId) return;
 
+    const countryCode = normalizeCountryCode(country.code);
     const currentCountry = visitedCountries.find(
-      (item) => worldMapCountryId(item.countryCode) === country.id && item.visited,
+      (item) => normalizeCountryCode(item.countryCode) === countryCode && item.visited,
     );
     const nextVisited = !currentCountry;
 
-    if (!nextVisited && !window.confirm(`Deseja remover ${country.name} dos países visitados?`)) {
-      return;
-    }
-
     const optimisticCountry: VisitedCountry = {
-      id: currentCountry?.id ?? `optimistic-${country.id}`,
+      id: currentCountry?.id ?? `optimistic-${countryCode}`,
       groupId: activeGroupId,
       userId: user?.id ?? '',
-      countryCode: country.id,
+      countryCode,
       countryName: country.name,
       visited: nextVisited,
       visitedAt: nextVisited ? new Date().toISOString() : null,
       updatedAt: new Date().toISOString(),
     };
 
-    setVisitedCountryActionId(country.id);
+    setVisitedCountryActionId(countryCode);
     setVisitedCountryWarning(null);
     setVisitedCountries((current) => {
-      const withoutCountry = current.filter((item) => worldMapCountryId(item.countryCode) !== country.id);
+      const withoutCountry = current.filter((item) => normalizeCountryCode(item.countryCode) !== countryCode);
       return [optimisticCountry, ...withoutCountry];
     });
 
     try {
-      const savedCountry = await setTripCountryVisited(activeGroupId, country.id, country.name, nextVisited);
+      const savedCountry = await setTripCountryVisited(activeGroupId, countryCode, country.name, nextVisited);
       setVisitedCountries((current) => {
-        const withoutCountry = current.filter((item) => worldMapCountryId(item.countryCode) !== country.id);
+        const withoutCountry = current.filter((item) => normalizeCountryCode(item.countryCode) !== countryCode);
         return [savedCountry, ...withoutCountry];
       });
       setStatus(nextVisited ? 'País marcado como visitado.' : 'País removido dos visitados.');
