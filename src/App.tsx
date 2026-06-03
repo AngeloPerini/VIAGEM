@@ -738,6 +738,7 @@ function TravelWorkspace({ groupId }: { groupId: string }) {
             <ItineraryPage
               key="itinerary"
               groupId={groupId}
+              tripName={activeGroup?.name}
               tripCountries={activeGroup?.countries ?? []}
               tripStartDate={activeGroup?.startDate}
               tripEndDate={activeGroup?.endDate}
