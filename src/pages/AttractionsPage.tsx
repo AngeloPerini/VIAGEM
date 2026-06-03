@@ -40,14 +40,6 @@ type AttractionsPageProps = {
   canUseDefaultData?: boolean;
 };
 
-type AttractionStatusFilter = 'all' | 'visited' | 'pending';
-
-const statusFilterOptions: Array<{ id: AttractionStatusFilter; label: string }> = [
-  { id: 'all', label: 'Todos' },
-  { id: 'visited', label: 'Visitados' },
-  { id: 'pending', label: 'Pendentes' },
-];
-
 const blankAttraction = (country: CountryId): Attraction => ({
   id: crypto.randomUUID(),
   name: '',
@@ -203,7 +195,6 @@ export function AttractionsPage({
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [uploadingId, setUploadingId] = useState<string | null>(null);
-  const [statusFilter, setStatusFilter] = useState<AttractionStatusFilter>('all');
 
   useEffect(() => {
     let active = true;
@@ -291,17 +282,6 @@ export function AttractionsPage({
         ? scopedItems
         : scopedItems.filter((attraction) => normalizeCountryId(attraction.country) === selectedCountry),
     [scopedItems, selectedCountry],
-  );
-
-  const visibleAttractions = useMemo(
-    () =>
-      statusFilter === 'all'
-        ? filteredAttractions
-        : filteredAttractions.filter((attraction) => {
-            const visited = states[attraction.id]?.visited ?? false;
-            return statusFilter === 'visited' ? visited : !visited;
-          }),
-    [filteredAttractions, states, statusFilter],
   );
 
   const totalAttractionsCount = scopedItems.length;
@@ -504,48 +484,25 @@ export function AttractionsPage({
             </p>
           </div>
 
-          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-end">
-            <div className="flex max-w-full gap-2 overflow-x-auto pb-1">
-              {countryOptions.map((country) => {
-                const active = selectedCountry === country.id;
+          <div className="flex max-w-full gap-2 overflow-x-auto pb-1 xl:justify-end">
+            {countryOptions.map((country) => {
+              const active = selectedCountry === country.id;
 
-                return (
-                  <button
-                    key={country.id}
-                    type="button"
-                    onClick={() => onCountryChange(country.id)}
-                    className={`shrink-0 rounded-full border px-5 py-2.5 text-sm font-black transition ${
-                      active
-                        ? 'border-black bg-black text-white'
-                        : 'border-[#cfd6e2] bg-white text-[#45464d] hover:border-[#007c68] hover:text-[#007c68]'
-                    }`}
-                  >
-                    {country.shortName}
-                  </button>
-                );
-              })}
-            </div>
-
-            <div className="flex max-w-full gap-2 overflow-x-auto pb-1">
-              {statusFilterOptions.map((option) => {
-                const active = statusFilter === option.id;
-
-                return (
-                  <button
-                    key={option.id}
-                    type="button"
-                    onClick={() => setStatusFilter(option.id)}
-                    className={`shrink-0 rounded-full border px-4 py-2.5 text-sm font-black transition ${
-                      active
-                        ? 'border-[#007c68] bg-[#007c68] text-white'
-                        : 'border-[#dfe5ee] bg-[#f7f8fd] text-[#667085] hover:border-[#007c68] hover:text-[#007c68]'
-                    }`}
-                  >
-                    {option.label}
-                  </button>
-                );
-              })}
-            </div>
+              return (
+                <button
+                  key={country.id}
+                  type="button"
+                  onClick={() => onCountryChange(country.id)}
+                  className={`shrink-0 rounded-full border px-5 py-2.5 text-sm font-black transition ${
+                    active
+                      ? 'border-black bg-black text-white'
+                      : 'border-[#cfd6e2] bg-white text-[#45464d] hover:border-[#007c68] hover:text-[#007c68]'
+                  }`}
+                >
+                  {country.shortName}
+                </button>
+              );
+            })}
           </div>
         </div>
       </section>
@@ -562,10 +519,10 @@ export function AttractionsPage({
         </p>
       ) : null}
 
-      {visibleAttractions.length ? (
+      {filteredAttractions.length ? (
         <motion.div layout className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
           <AnimatePresence mode="popLayout">
-            {visibleAttractions.map((attraction) => (
+            {filteredAttractions.map((attraction) => (
               <AttractionCard
                 key={attraction.id}
                 attraction={attraction}
@@ -584,11 +541,11 @@ export function AttractionsPage({
         <section className="rounded-[1.65rem] border border-dashed border-[#cfd6e2] bg-white px-5 py-12 text-center shadow-[0_12px_30px_rgba(15,23,42,0.04)]">
           <Camera className="mx-auto h-10 w-10 text-[#007c68]" />
           <h2 className="mt-4 text-xl font-black text-[#0b1326]">
-            {totalAttractionsCount ? 'Nenhum ponto turístico encontrado para este filtro.' : 'Nenhum ponto turístico cadastrado ainda.'}
+            {totalAttractionsCount ? 'Nenhum ponto turístico encontrado para este país.' : 'Nenhum ponto turístico cadastrado ainda.'}
           </h2>
           <p className="mx-auto mt-2 max-w-md text-sm font-semibold leading-6 text-[#667085]">
             {totalAttractionsCount
-              ? 'Ajuste os filtros de país ou status para ver outros lugares da viagem.'
+              ? 'Selecione outro país da viagem para ver os pontos turísticos cadastrados.'
               : 'Adicione o primeiro ponto para acompanhar visitas, fotos e status durante o planejamento.'}
           </p>
           <button

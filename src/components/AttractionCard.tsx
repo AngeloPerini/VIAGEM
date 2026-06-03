@@ -151,18 +151,19 @@ export function AttractionCard({
         ) : null}
 
         <div className="mt-auto pt-5">
-          <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-2">
+          <div className="grid grid-cols-[3rem_minmax(0,1fr)] gap-2">
             <button
               type="button"
+              aria-label={hasPhoto ? `Trocar foto de ${attraction.name}` : `Anexar foto de ${attraction.name}`}
+              title={hasPhoto ? 'Trocar foto' : 'Anexar foto'}
               onClick={(event) => {
                 stop(event);
                 inputRef.current?.click();
               }}
               disabled={isUploading}
-              className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-[#dfe5ee] bg-white px-3 text-sm font-black text-[#007c68] transition hover:border-[#007c68] disabled:cursor-not-allowed disabled:opacity-60"
+              className="inline-flex h-11 w-12 items-center justify-center rounded-xl border border-[#dfe5ee] bg-white text-[#007c68] transition hover:border-[#007c68] hover:bg-[#eef8f6] disabled:cursor-not-allowed disabled:opacity-60"
             >
-              <ImagePlus className="h-4 w-4" />
-              {hasPhoto ? 'Trocar foto' : 'Anexar'}
+              <ImagePlus className="h-5 w-5" />
             </button>
             <button
               type="button"
@@ -176,11 +177,11 @@ export function AttractionCard({
               }}
               className={`inline-flex h-11 items-center justify-center rounded-xl px-3 text-sm font-black transition ${
                 visited
-                  ? 'bg-[#eef4ff] text-[#45464d] hover:bg-[#e1e9f8]'
-                  : 'bg-[#007c68] text-white hover:bg-[#005d50]'
+                  ? 'bg-[#007c68] text-white hover:bg-[#005d50]'
+                  : 'bg-[#111827] text-white hover:bg-black'
               }`}
             >
-              {visited ? 'Desmarcar' : 'Visitar'}
+              {visited ? 'Visitado' : 'Pendente'}
             </button>
           </div>
 
