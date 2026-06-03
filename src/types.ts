@@ -178,6 +178,18 @@ export type UserStats = {
   totalActiveEuro: CurrencyRange;
 };
 
+export type VisitedCountry = {
+  id: string;
+  groupId: string;
+  userId: string;
+  countryCode: CountryId;
+  countryName: string;
+  visited: boolean;
+  visitedAt?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
+};
+
 export type TripSummary = {
   groupId: string;
   totalReal: CurrencyRange;

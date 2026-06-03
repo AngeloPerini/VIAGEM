@@ -51,6 +51,11 @@ type CountryRow = {
   country: string | null;
 };
 
+type VisitedCountryStatsRow = {
+  group_id: string;
+  country_code: string | null;
+};
+
 type AttractionSummaryRow = {
   id: string;
   visited: boolean | null;
@@ -247,6 +252,7 @@ export async function getUserStats(userId?: string, activeGroupId?: string | nul
     expensesResult,
     itineraryResult,
     attractionsResult,
+    visitedCountriesResult,
   ] = await Promise.all([
     supabase
       .from('expenses')
@@ -262,6 +268,11 @@ export async function getUserStats(userId?: string, activeGroupId?: string | nul
       .select('group_id, country')
       .in('group_id', groupIds)
       .eq('visited', true),
+    supabase
+      .from('trip_visited_countries')
+      .select('group_id, country_code')
+      .in('group_id', groupIds)
+      .eq('visited', true),
   ]);
 
   if (expensesResult.error) throw expensesResult.error;
@@ -275,6 +286,11 @@ export async function getUserStats(userId?: string, activeGroupId?: string | nul
   }
   if (!attractionsResult.error) {
     for (const row of (attractionsResult.data ?? []) as CountryRow[]) addCountry(countries, row.country);
+  }
+  if (!visitedCountriesResult.error) {
+    for (const row of (visitedCountriesResult.data ?? []) as VisitedCountryStatsRow[]) {
+      addCountry(countries, row.country_code);
+    }
   }
 
   const allTotals = sumExpenses(expenses);

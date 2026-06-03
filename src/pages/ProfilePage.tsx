@@ -34,6 +34,8 @@ import { useGroup } from '../contexts/GroupContext';
 import { languageOptions, useLanguage } from '../contexts/LanguageContext';
 import type { LanguageCode } from '../i18n';
 import { ExpenseChart } from '../components/ExpenseChart';
+import { TripVisitedMap } from '../components/TripVisitedMap';
+import type { TripMapCountry } from '../components/TripVisitedMap';
 import { countryLabel } from '../data/countries';
 import {
   getCurrentProfile,
@@ -78,6 +80,11 @@ import {
   getCachedExpenseCategories,
   getExpenseCategories,
 } from '../services/expenseCategoriesService';
+import {
+  getTripVisitedCountries,
+  setTripCountryVisited,
+  subscribeTripVisitedCountries,
+} from '../services/visitedCountriesService';
 import { getExpenses } from '../services/expensesService';
 import { getItineraryItems } from '../services/itineraryService';
 import { getAttractions } from '../services/attractionsService';
@@ -102,6 +109,7 @@ import type {
   UserProfile,
   UserStats,
   UserTravelGroup,
+  VisitedCountry,
 } from '../types';
 import {
   calculateCategoryTotal,
@@ -813,6 +821,9 @@ export function ProfilePage() {
   const [tripItineraryItems, setTripItineraryItems] = useState<ItineraryItem[]>([]);
   const [tripAttractions, setTripAttractions] = useState<Attraction[]>([]);
   const [tripInfoWarning, setTripInfoWarning] = useState<string | null>(null);
+  const [visitedCountries, setVisitedCountries] = useState<VisitedCountry[]>([]);
+  const [visitedCountryWarning, setVisitedCountryWarning] = useState<string | null>(null);
+  const [visitedCountryActionId, setVisitedCountryActionId] = useState<string | null>(null);
   const [checklistItems, setChecklistItems] = useState<TripChecklistItem[]>([]);
   const [checklistDraft, setChecklistDraft] = useState<TripChecklistItemInput>(createEmptyChecklistDraft);
   const [editingChecklistItemId, setEditingChecklistItemId] = useState<string | null>(null);
@@ -1159,6 +1170,26 @@ export function ProfilePage() {
     }
   }, [activeGroupId]);
 
+  const loadVisitedCountries = useCallback(async () => {
+    if (!activeGroupId) {
+      setVisitedCountries([]);
+      setVisitedCountryWarning(null);
+      return;
+    }
+
+    try {
+      const nextVisitedCountries = await getTripVisitedCountries(activeGroupId);
+      setVisitedCountries(nextVisitedCountries);
+      setVisitedCountryWarning(null);
+    } catch (caughtError) {
+      setVisitedCountryWarning(
+        caughtError instanceof Error
+          ? caughtError.message
+          : 'Nao foi possivel carregar os paises visitados.',
+      );
+    }
+  }, [activeGroupId]);
+
   useEffect(() => {
     void loadProfile();
   }, [loadProfile]);
@@ -1248,6 +1279,22 @@ export function ProfilePage() {
     };
   }, [activeGroupId, loadChecklist]);
 
+  useEffect(() => {
+    if (!activeGroupId) {
+      void loadVisitedCountries();
+      return undefined;
+    }
+
+    void loadVisitedCountries();
+    const channel = subscribeTripVisitedCountries(activeGroupId, () => {
+      void loadVisitedCountries();
+    });
+
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [activeGroupId, loadVisitedCountries]);
+
   const copyToClipboard = async (value: string, label: string) => {
     await navigator.clipboard.writeText(value);
     setCopied(label);
@@ -1265,6 +1312,56 @@ export function ProfilePage() {
     const nextPath = view === 'dashboard' ? '/dashboard' : `/#${view}`;
     window.history.pushState({}, '', nextPath);
     window.dispatchEvent(new PopStateEvent('popstate'));
+  };
+
+  const handleToggleVisitedCountry = async (country: TripMapCountry) => {
+    if (!activeGroupId) return;
+
+    const currentCountry = visitedCountries.find(
+      (item) => item.countryCode === country.id && item.visited,
+    );
+    const nextVisited = !currentCountry;
+
+    if (!nextVisited && !window.confirm(`Deseja remover ${country.name} dos países visitados?`)) {
+      return;
+    }
+
+    const optimisticCountry: VisitedCountry = {
+      id: currentCountry?.id ?? `optimistic-${country.id}`,
+      groupId: activeGroupId,
+      userId: user?.id ?? '',
+      countryCode: country.id,
+      countryName: country.name,
+      visited: nextVisited,
+      visitedAt: nextVisited ? new Date().toISOString() : null,
+      updatedAt: new Date().toISOString(),
+    };
+
+    setVisitedCountryActionId(country.id);
+    setVisitedCountryWarning(null);
+    setVisitedCountries((current) => {
+      const withoutCountry = current.filter((item) => item.countryCode !== country.id);
+      return [optimisticCountry, ...withoutCountry];
+    });
+
+    try {
+      const savedCountry = await setTripCountryVisited(activeGroupId, country.id, country.name, nextVisited);
+      setVisitedCountries((current) => {
+        const withoutCountry = current.filter((item) => item.countryCode !== country.id);
+        return [savedCountry, ...withoutCountry];
+      });
+      setStatus(nextVisited ? 'País marcado como visitado.' : 'País removido dos visitados.');
+      window.setTimeout(() => setStatus(null), 2200);
+    } catch (caughtError) {
+      setVisitedCountryWarning(
+        caughtError instanceof Error
+          ? caughtError.message
+          : 'Nao foi possivel atualizar o pais visitado.',
+      );
+      void loadVisitedCountries();
+    } finally {
+      setVisitedCountryActionId(null);
+    }
   };
 
   const prepareProfileEditFeedback = () => {
@@ -3035,69 +3132,16 @@ export function ProfilePage() {
           ) : null}
 
           {activeProfileSection === 'map' ? (
-            <section className="rounded-xl border border-[#e6ebf3] bg-white p-6 shadow-[0_8px_24px_rgba(15,23,42,0.045)] md:p-8">
-              <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-                <div>
-                  <p className="text-sm font-bold uppercase tracking-[0.16em] text-[#007c68]">Mapa da viagem</p>
-                  <h2 className="mt-2 text-3xl font-black tracking-tight text-[#0b1326]">
-                    {activeGroup ? 'Países e pontos da viagem ativa' : 'Nenhuma viagem ativa'}
-                  </h2>
-                  <p className="mt-3 max-w-3xl text-sm font-semibold leading-6 text-[#667085]">
-                    {activeGroup
-                      ? 'Resumo visual usando apenas os dados reais vinculados ao group_id ativo.'
-                      : 'Crie ou abra uma viagem para visualizar países, cidades e pontos turísticos.'}
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => activeGroup ? navigateWorkspaceView('attractions') : navigateProfileSection('create-ai')}
-                  className="inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-black px-5 font-bold text-white transition hover:bg-[#111827]"
-                >
-                  {activeGroup ? 'Abrir Turismo' : 'Criar viagem'}
-                  <ArrowRight className="h-4 w-4" />
-                </button>
-              </div>
-
-              <div className="mt-6 grid gap-4 md:grid-cols-3">
-                <ProfileMetricCard
-                  icon={Globe2}
-                  label="Países"
-                  value={String(activeGroup?.countries?.length ?? 0)}
-                  detail={activeGroup ? activeTripCountries : 'Sem países vinculados'}
-                />
-                <ProfileMetricCard
-                  icon={MapPin}
-                  label="Pontos turísticos"
-                  value={String(tripAttractions.length)}
-                  detail={tripAttractions.length ? 'Cadastrados na viagem ativa' : 'Nenhum ponto turístico cadastrado'}
-                />
-                <ProfileMetricCard
-                  icon={Route}
-                  label="Itens de roteiro"
-                  value={String(tripItineraryItems.length)}
-                  detail={tripItineraryItems.length ? 'Atividades reais do roteiro' : 'Roteiro ainda vazio'}
-                />
-              </div>
-
-              <div className="mt-6 rounded-xl bg-[#f4f7fb] p-5">
-                {activeGroup?.countries?.length ? (
-                  <div className="flex flex-wrap gap-3">
-                    {activeGroup.countries?.map((country) => (
-                      <span key={country} className="inline-flex items-center gap-2 rounded-full bg-white px-4 py-2 text-sm font-bold text-[#0b1326] shadow-sm">
-                        <Globe2 className="h-4 w-4 text-[#007c68]" />
-                        {countryLabel(country)}
-                      </span>
-                    ))}
-                  </div>
-                ) : (
-                  <EmptyState
-                    icon={Globe2}
-                    title="Mapa ainda vazio"
-                    description="Os países aparecem aqui assim que houver uma viagem ativa com destinos cadastrados."
-                  />
-                )}
-              </div>
-            </section>
+            <TripVisitedMap
+              activeGroupName={activeGroup?.name}
+              tripCountries={activeGroup?.countries ?? []}
+              visitedCountries={visitedCountries}
+              actionCountryId={visitedCountryActionId}
+              warning={visitedCountryWarning}
+              onToggleCountry={(country) => void handleToggleVisitedCountry(country)}
+              onOpenTourism={() => navigateWorkspaceView('attractions')}
+              onCreateTrip={() => navigateProfileSection('create-ai')}
+            />
           ) : null}
 
           {activeProfileSection === 'documents' ? (
