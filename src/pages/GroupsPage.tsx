@@ -82,8 +82,8 @@ export function GroupsPage() {
   };
 
   return (
-    <main className="min-h-screen bg-[#eef5f3] px-4 py-8 text-slate-950 sm:px-6 lg:px-8">
-      <div className="mx-auto flex w-full max-w-6xl flex-col gap-6">
+    <main className="min-h-screen bg-[#eef5f3] px-4 py-8 text-slate-950 sm:px-6 lg:px-10 xl:px-12">
+      <div className="flex w-full flex-col gap-6">
         <motion.header
           className="rounded-[2rem] border border-white/80 bg-white/85 p-6 shadow-xl shadow-slate-900/10 backdrop-blur md:p-8"
           initial={{ opacity: 0, y: 16 }}

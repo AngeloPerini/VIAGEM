@@ -217,9 +217,11 @@ function CostProgress({
 }) {
   return (
     <div>
-      <div className="mb-3 flex items-center justify-between gap-3">
+      <div className="mb-3 flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
         <span className="text-base font-medium text-[#9ca7bd]">{label}</span>
-        <span className="text-base font-semibold text-white">{formatRange(range, 'BRL', true)}</span>
+        <span className="text-sm font-semibold leading-tight text-white sm:text-right sm:text-base">
+          {formatRange(range, 'BRL', true)}
+        </span>
       </div>
       <div className="h-1.5 overflow-hidden rounded-full bg-[#263247]">
         <div
@@ -500,11 +502,11 @@ export function NextActionDashboard({
           </div>
         </article>
 
-        <article className="min-h-[16rem] rounded-xl bg-[#121b2d] p-8 text-white shadow-[0_14px_34px_rgba(15,23,42,0.15)] md:min-h-[19rem]">
+        <article className="min-h-[16rem] rounded-xl bg-[#121b2d] p-6 text-white shadow-[0_14px_34px_rgba(15,23,42,0.15)] md:min-h-[19rem] md:p-8">
           <div className="flex items-start justify-between gap-4">
             <div>
               <p className="text-base font-medium uppercase text-[#8c96ab]">Custo estimado</p>
-              <h2 className="mt-3 whitespace-nowrap text-[clamp(1.75rem,2.4vw,2.2rem)] font-black leading-tight text-white">
+              <h2 className="mt-3 text-[clamp(1.75rem,2.4vw,2.2rem)] font-black leading-tight text-white md:whitespace-nowrap">
                 {formatRange(grandTotal.real, 'BRL', true)}
               </h2>
             </div>

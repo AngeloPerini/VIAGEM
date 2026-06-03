@@ -839,11 +839,11 @@ export function TripAIReviewPage() {
 
   return (
     <motion.main
-      className="min-h-screen bg-[#edf4f2] px-4 py-6 text-slate-900 md:px-6 md:py-8"
+      className="min-h-screen bg-[#edf4f2] px-4 py-6 text-slate-900 md:px-6 md:py-8 lg:px-10 xl:px-12"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
     >
-      <div className="mx-auto max-w-7xl space-y-6">
+      <div className="w-full space-y-6">
         <section className="rounded-[2rem] border border-white/80 bg-slate-950 p-6 text-white shadow-2xl shadow-slate-900/20 md:p-8">
           <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
             <div>

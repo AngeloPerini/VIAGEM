@@ -118,7 +118,7 @@ function StandaloneProfileShell() {
         <div className="absolute -left-24 top-0 h-96 w-96 rounded-full bg-teal-200/50 blur-3xl" />
         <div className="absolute right-0 top-24 h-[30rem] w-[30rem] rounded-full bg-sky-200/50 blur-3xl" />
       </div>
-      <div className="relative mx-auto flex w-full max-w-7xl flex-col gap-6 px-4 py-5 sm:px-6 md:gap-8 md:py-8 lg:px-8">
+      <div className="relative flex w-full flex-col gap-6 px-4 py-5 sm:px-6 md:gap-8 md:py-8 lg:px-10 xl:px-12">
         <div className="rounded-3xl border border-white/70 bg-white/85 p-4 shadow-xl shadow-slate-900/10 backdrop-blur-xl">
           <div className="flex items-center gap-2">
             <img src="/logo.png" alt="TripFlow" className="h-9 w-9 rounded-xl object-contain" />
@@ -718,7 +718,7 @@ function TravelWorkspace({ groupId }: { groupId: string }) {
         onNavigateToProfilePath={handleNavigateToProfilePath}
       />
 
-      <div className="mx-auto flex w-full max-w-[1500px] flex-col gap-6 px-4 py-8 sm:px-6 lg:px-8 2xl:px-0">
+      <div className="flex w-full flex-col gap-6 px-4 py-6 sm:px-6 lg:px-10 xl:px-12">
         <AnimatePresence mode="wait">
           {activeView === 'profile' ? (
             <ProfilePage key="profile" />
@@ -758,7 +758,7 @@ function TravelWorkspace({ groupId }: { groupId: string }) {
           ) : activeView === 'expenses' ? (
             <motion.div
               key="expenses"
-              className="mx-auto w-full max-w-[1280px] space-y-5"
+              className="w-full space-y-5"
               initial={{ opacity: 0, y: 16 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -12 }}

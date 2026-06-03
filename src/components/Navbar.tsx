@@ -84,7 +84,7 @@ export function Navbar({ activeView, onNavigate, onNavigateToProfilePath }: Navb
       initial={{ opacity: 0, y: -12 }}
       animate={{ opacity: 1, y: 0 }}
     >
-      <div className="mx-auto flex h-16 w-full max-w-[1500px] items-center justify-between gap-5 px-4 sm:px-6 lg:px-8 2xl:px-0">
+      <div className="flex h-16 w-full items-center justify-between gap-5 px-4 sm:px-6 lg:px-10 xl:px-12">
         <button
           type="button"
           onClick={() => onNavigate('dashboard')}
@@ -161,7 +161,7 @@ export function Navbar({ activeView, onNavigate, onNavigateToProfilePath }: Navb
         </div>
       </div>
 
-      <div className="mx-auto flex w-full max-w-[1500px] gap-5 overflow-x-auto px-4 pb-3 md:hidden">
+      <div className="flex w-full gap-5 overflow-x-auto px-4 pb-3 sm:px-6 md:hidden">
         {navItems.map((item) => {
           const active = activeView === item.id;
 
