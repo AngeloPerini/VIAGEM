@@ -22,6 +22,8 @@
     "@vitejs/plugin-react": "^6.0.2",
     "framer-motion": "^12.38.0",
     "i18n-iso-countries": "^7.14.0",
+    "jspdf": "^4.2.1",
+    "jspdf-autotable": "^5.0.8",
     "lucide-react": "^1.16.0",
     "prop-types": "^15.8.1",
     "react": "^19.2.6",

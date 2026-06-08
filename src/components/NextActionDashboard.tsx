@@ -233,21 +233,142 @@ function CostProgress({
   );
 }
 
-function CircularMetric({ label, value, detail }: { label: string; value: number; detail: string }) {
+function PreparationRing({ detail, value }: { detail: string; value: number }) {
   const roundedValue = Math.max(0, Math.min(100, Math.round(value)));
 
   return (
-    <div className="flex flex-col items-center text-center">
-      <div
-        className="grid h-16 w-16 place-items-center rounded-full"
-        style={{ background: `conic-gradient(#007c68 ${roundedValue * 3.6}deg, #e7edf6 0deg)` }}
-      >
-        <div className="grid h-12 w-12 place-items-center rounded-full bg-white text-base font-semibold text-[#0b1326]">
-          {detail}
+    <div
+      className="grid h-[4.6rem] w-[4.6rem] shrink-0 place-items-center rounded-full"
+      style={{ background: `conic-gradient(#00816d ${roundedValue * 3.6}deg, #e7edf6 0deg)` }}
+    >
+      <div className="grid h-[3.55rem] w-[3.55rem] place-items-center rounded-full bg-white text-xl font-black text-[#0b1326]">
+        {detail}
+      </div>
+    </div>
+  );
+}
+
+function PreparationStatusCard({
+  checklistProgress,
+  completedDocumentsCount,
+  documentItemsCount,
+  documentsProgress,
+  onOpenChecklist,
+  pendingPreparationCount,
+  pendingPreparationItems,
+  travelReadiness,
+}: {
+  checklistProgress: number;
+  completedDocumentsCount: number;
+  documentItemsCount: number;
+  documentsProgress: number;
+  onOpenChecklist: () => void;
+  pendingPreparationCount: number;
+  pendingPreparationItems: TripChecklistItem[];
+  travelReadiness: number;
+}) {
+  const readinessPercent = Math.max(0, Math.min(100, Math.round(travelReadiness)));
+  const criticalCount = Math.min(3, pendingPreparationCount);
+  const criticalText = pendingPreparationCount
+    ? `${criticalCount} ${criticalCount === 1 ? 'item crítico' : 'itens críticos'} para concluir nesta semana`
+    : 'Nenhuma pendência crítica para esta semana';
+
+  return (
+    <section className="relative min-h-[360px] rounded-xl border border-[#e0e5ee] bg-white p-5 shadow-[0_14px_34px_rgba(15,23,42,0.07)] md:p-6">
+      <div className="flex items-center gap-4">
+        <span className="grid h-12 w-12 shrink-0 place-items-center rounded-full bg-[#ddf5ef] text-[#00816d]">
+          <WalletCards className="h-6 w-6" />
+        </span>
+        <div className="min-w-0">
+          <h2 className="text-xl font-black leading-tight text-[#070d1f]">Status dos Preparativos</h2>
+          <p className="mt-1 text-sm font-medium leading-5 text-[#667085]">Acompanhe o andamento antes da viagem</p>
         </div>
       </div>
-      <p className="mt-3 text-base font-medium text-[#2c3242]">{label}</p>
-    </div>
+
+      <div className="my-5 h-px bg-[#e0e5ee]" />
+
+      <div className="grid gap-5 sm:grid-cols-2">
+        <div className="flex items-center gap-4">
+          <PreparationRing detail={`${Math.round(checklistProgress)}%`} value={checklistProgress} />
+          <div>
+            <p className="text-lg font-black text-[#0b1326]">Checklist</p>
+            <p className="text-sm font-medium text-[#667085]">de conclusão</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-4 border-[#dfe5ee] sm:border-l sm:pl-5">
+          <PreparationRing
+            detail={`${completedDocumentsCount}/${documentItemsCount}`}
+            value={documentsProgress}
+          />
+          <div>
+            <p className="text-lg font-black text-[#0b1326]">Docs</p>
+            <p className="text-sm font-medium text-[#667085]">documentos prontos</p>
+          </div>
+        </div>
+      </div>
+
+      <div className="mt-5 rounded-xl bg-gradient-to-r from-[#eef9f5] to-[#f5faf8] p-4">
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex min-w-0 items-center gap-3">
+            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-white text-[#00816d] shadow-sm">
+              <Plane className="h-5 w-5" />
+            </span>
+            <p className="truncate text-base font-black text-[#0b1326]">Pronto para viajar</p>
+          </div>
+          <span className="text-base font-black text-[#00816d]">{readinessPercent}%</span>
+        </div>
+        <div className="mt-3 h-2 overflow-hidden rounded-full bg-[#e0e7ef]">
+          <div className="h-full rounded-full bg-[#00816d]" style={{ width: `${readinessPercent}%` }} />
+        </div>
+      </div>
+
+      <div className="mt-4 rounded-xl bg-gradient-to-r from-[#fff1f1] to-[#fff8f6] p-4">
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <span className="grid h-9 w-9 place-items-center rounded-full bg-white text-[#dc2626] shadow-sm">
+              <FileWarning className="h-5 w-5" />
+            </span>
+            <p className="text-base font-black text-[#0b1326]">Pendências</p>
+          </div>
+          <span className="rounded-lg bg-[#ffe0e0] px-3 py-1 text-base font-black text-[#dc2626]">
+            {pendingPreparationCount}
+          </span>
+        </div>
+        <div className="mt-4 flex flex-wrap gap-2">
+          {pendingPreparationItems.length ? (
+            pendingPreparationItems.map((item) => (
+              <button
+                key={item.id}
+                type="button"
+                onClick={onOpenChecklist}
+                className="inline-flex min-h-9 max-w-full items-center gap-2 rounded-[7px] border border-[#cfd8e7] bg-white px-3 py-1.5 text-sm font-medium text-[#2c3242]"
+              >
+                <FileWarning className="h-4 w-4 shrink-0" />
+                <span className="truncate">{item.title || item.category}</span>
+              </button>
+            ))
+          ) : (
+            <span className="inline-flex min-h-9 items-center rounded-[7px] border border-[#cfd8e7] bg-white px-3 py-1.5 text-sm font-medium text-[#2c3242]">
+              Tudo em dia
+            </span>
+          )}
+        </div>
+        <div className="mt-4 border-t border-[#ead6d6] pt-3 text-sm font-medium text-[#667085]">
+          {criticalText}
+        </div>
+      </div>
+
+      <div className="mt-5 flex justify-end">
+        <button
+          type="button"
+          onClick={onOpenChecklist}
+          className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-[#00816d] px-5 text-sm font-black text-white shadow-[0_12px_24px_rgba(0,129,109,0.22)] transition hover:bg-[#006b57]"
+        >
+          Ver checklist
+          <ArrowRight className="h-4 w-4" />
+        </button>
+      </div>
+    </section>
   );
 }
 
@@ -362,7 +483,7 @@ export function NextActionDashboard({
     emptyRange(),
   );
   const secondaryCostRange = subtractRange(grandTotal.real, primaryCostRange);
-  const pendingPreparationItems = [...pendingDocuments, ...pendingChecklist].slice(0, 3);
+  const pendingPreparationItems = [...pendingDocuments, ...pendingChecklist].slice(0, 4);
   const pendingPreparationCount = pendingDocuments.length + pendingChecklist.length;
 
   const nextAction = useMemo<NextAction>(() => {
@@ -620,46 +741,16 @@ export function NextActionDashboard({
           )}
         </BottomCard>
 
-        <BottomCard title="Status dos Preparativos">
-          <div className="flex justify-center gap-10">
-            <CircularMetric
-              label="Checklist"
-              value={checklistProgress}
-              detail={`${Math.round(checklistProgress)}%`}
-            />
-            <CircularMetric
-              label="Docs"
-              value={documentsProgress}
-              detail={`${completedDocumentsCount}/${documentItems.length}`}
-            />
-          </div>
-          <div className="mt-7 rounded-xl bg-[#eef4ff] p-4">
-            <div className="flex items-center gap-3 text-base font-medium text-[#d31919]">
-              <FileWarning className="h-5 w-5" />
-              <span>
-                {pendingPreparationCount} pendência{pendingPreparationCount === 1 ? '' : 's'}
-              </span>
-            </div>
-            <div className="mt-4 flex flex-wrap gap-2">
-              {pendingPreparationItems.length ? (
-                pendingPreparationItems.map((item) => (
-                  <button
-                    key={item.id}
-                    type="button"
-                    onClick={() => onNavigateToProfilePath('/perfil/checklist')}
-                    className="rounded-[6px] border border-[#cfd8e7] bg-white px-3 py-2 text-sm font-medium text-[#2c3242]"
-                  >
-                    {item.title}
-                  </button>
-                ))
-              ) : (
-                <span className="rounded-[6px] border border-[#cfd8e7] bg-white px-3 py-2 text-sm font-medium text-[#2c3242]">
-                  Tudo em dia
-                </span>
-              )}
-            </div>
-          </div>
-        </BottomCard>
+        <PreparationStatusCard
+          checklistProgress={checklistProgress}
+          completedDocumentsCount={completedDocumentsCount}
+          documentItemsCount={documentItems.length}
+          documentsProgress={documentsProgress}
+          onOpenChecklist={() => onNavigateToProfilePath('/perfil/checklist')}
+          pendingPreparationCount={pendingPreparationCount}
+          pendingPreparationItems={pendingPreparationItems}
+          travelReadiness={travelReadiness}
+        />
 
         <BottomCard
           title="Membros do Grupo"

@@ -1,4 +1,6 @@
 import { AnimatePresence, motion } from 'framer-motion';
+import { jsPDF } from 'jspdf';
+import autoTable from 'jspdf-autotable';
 import {
   AlertTriangle,
   ArrowRight,
@@ -74,6 +76,8 @@ import {
 } from './utils/money';
 import { getExpenseCategoryIcon, inferExpenseCategoryIconId } from './utils/expenseCategoryIcons';
 
+type ExpenseViewType = 'all' | 'recent' | 'highest';
+
 function loadInitialView(): AppView {
   const path = window.location.pathname;
   if (path === '/perfil' || path.startsWith('/perfil/') || path === '/profile' || path.startsWith('/profile/')) {
@@ -133,14 +137,46 @@ function StandaloneProfileShell() {
 
 const rangeMidpoint = (range: { min: number; max: number }) => (range.min + range.max) / 2;
 
+const normalizeText = (value?: string | number | null) =>
+  String(value ?? '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase();
+
+const parseNumberFilter = (value: string) => {
+  const normalized = value.trim().replace(/\./g, '').replace(',', '.').replace(/[^\d.]/g, '');
+  if (!normalized) return null;
+  const parsed = Number(normalized);
+  return Number.isFinite(parsed) ? parsed : null;
+};
+
+const getExpenseTimestamp = (expense: Expense) => {
+  if (!expense.createdAt) return 0;
+  const timestamp = Date.parse(expense.createdAt);
+  return Number.isFinite(timestamp) ? timestamp : 0;
+};
+
+const getDateInputTimestamp = (value: string, endOfDay = false) => {
+  if (!value) return null;
+  const timestamp = Date.parse(`${value}T${endOfDay ? '23:59:59.999' : '00:00:00.000'}`);
+  return Number.isFinite(timestamp) ? timestamp : null;
+};
+
+const buildExpenseFileSlug = (value?: string) =>
+  normalizeText(value || 'viagem')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/(^-|-$)/g, '') || 'viagem';
+
 const formatExpenseDate = (value?: string) => {
   if (!value) return 'Sem data';
+  const date = /^\d{4}-\d{2}-\d{2}$/.test(value) ? new Date(`${value}T00:00:00`) : new Date(value);
+  if (Number.isNaN(date.getTime())) return 'Sem data';
 
   return new Intl.DateTimeFormat('pt-BR', {
     day: '2-digit',
     month: '2-digit',
     year: 'numeric',
-  }).format(new Date(value));
+  }).format(date);
 };
 
 const buildDonutGradient = (items: Array<{ color: string; value: number }>) => {
@@ -254,6 +290,14 @@ function TravelWorkspace({ groupId }: { groupId: string }) {
   const [realValueMode, setRealValueMode] = useState<RealValueMode>('converted');
   const [showAllTransactions, setShowAllTransactions] = useState(false);
   const [expenseCountryFilter, setExpenseCountryFilter] = useState<CountryFilterId>('all');
+  const [expenseCategoryFilter, setExpenseCategoryFilter] = useState('all');
+  const [expenseCurrencyFilter, setExpenseCurrencyFilter] = useState<TravelCurrencyCode | 'all'>('all');
+  const [expenseDateFromFilter, setExpenseDateFromFilter] = useState('');
+  const [expenseDateToFilter, setExpenseDateToFilter] = useState('');
+  const [expenseSearchFilter, setExpenseSearchFilter] = useState('');
+  const [expenseMinValueFilter, setExpenseMinValueFilter] = useState('');
+  const [expenseMaxValueFilter, setExpenseMaxValueFilter] = useState('');
+  const [expenseViewType, setExpenseViewType] = useState<ExpenseViewType>('all');
   const [itineraryCountryFilter, setItineraryCountryFilter] = useState<CountryFilterId>('all');
   const [attractionCountryFilter, setAttractionCountryFilter] = useState<CountryFilterId>('all');
   const [exchangeRates, setExchangeRates] = useState<ExchangeRateMap>(getCachedExchangeRates);
@@ -435,22 +479,81 @@ function TravelWorkspace({ groupId }: { groupId: string }) {
     Boolean(activeGroup?.name?.toLowerCase().includes('viagem europa')) &&
     user?.email?.toLowerCase() === 'aperini351@gmail.com';
 
+  const expenseCurrencyOptions = useMemo(
+    () => Array.from(new Set(scopedExpenses.map((expense) => getExpenseCurrency(expense)))).sort(),
+    [scopedExpenses],
+  );
+
   useEffect(() => {
     if (expenseCountryFilter !== 'all' && !expenseCountryOptions.some((country) => country.id === expenseCountryFilter)) {
       setExpenseCountryFilter('all');
     }
   }, [expenseCountryFilter, expenseCountryOptions]);
 
-  const filteredExpenses = useMemo(
-    () =>
-      expenseCountryFilter === 'all'
-        ? scopedExpenses
-        : scopedExpenses.filter((expense) => normalizeCountryId(expense.country) === expenseCountryFilter),
-    [expenseCountryFilter, scopedExpenses],
-  );
+  useEffect(() => {
+    if (expenseCategoryFilter !== 'all' && !categoriesForDisplay.some((category) => category.id === expenseCategoryFilter)) {
+      setExpenseCategoryFilter('all');
+    }
+  }, [categoriesForDisplay, expenseCategoryFilter]);
+
+  useEffect(() => {
+    if (expenseCurrencyFilter !== 'all' && !expenseCurrencyOptions.includes(expenseCurrencyFilter)) {
+      setExpenseCurrencyFilter('all');
+    }
+  }, [expenseCurrencyFilter, expenseCurrencyOptions]);
+
+  const filteredExpenses = useMemo(() => {
+    const search = normalizeText(expenseSearchFilter);
+    const minValue = parseNumberFilter(expenseMinValueFilter);
+    const maxValue = parseNumberFilter(expenseMaxValueFilter);
+    const fromTimestamp = getDateInputTimestamp(expenseDateFromFilter);
+    const toTimestamp = getDateInputTimestamp(expenseDateToFilter, true);
+
+    return scopedExpenses.filter((expense) => {
+      if (expenseCountryFilter !== 'all' && normalizeCountryId(expense.country) !== expenseCountryFilter) return false;
+      if (expenseCategoryFilter !== 'all' && expense.category !== expenseCategoryFilter) return false;
+      if (expenseCurrencyFilter !== 'all' && getExpenseCurrency(expense) !== expenseCurrencyFilter) return false;
+
+      const timestamp = getExpenseTimestamp(expense);
+      if (fromTimestamp !== null && (!timestamp || timestamp < fromTimestamp)) return false;
+      if (toTimestamp !== null && (!timestamp || timestamp > toTimestamp)) return false;
+
+      const realMidpoint = rangeMidpoint(getExpenseRealRange(expense, exchangeRates));
+      if (minValue !== null && realMidpoint < minValue) return false;
+      if (maxValue !== null && realMidpoint > maxValue) return false;
+
+      if (search) {
+        const category = categoriesForDisplay.find((item) => item.id === expense.category);
+        const country = countryNames[normalizeCountryId(expense.country)] ?? expense.country ?? '';
+        const searchable = normalizeText(`${expense.title} ${expense.detail ?? ''} ${category?.name ?? expense.category} ${country}`);
+        if (!searchable.includes(search)) return false;
+      }
+
+      return true;
+    });
+  }, [
+    categoriesForDisplay,
+    exchangeRates,
+    expenseCategoryFilter,
+    expenseCountryFilter,
+    expenseCurrencyFilter,
+    expenseDateFromFilter,
+    expenseDateToFilter,
+    expenseMaxValueFilter,
+    expenseMinValueFilter,
+    expenseSearchFilter,
+    scopedExpenses,
+  ]);
+
+  const hasExpenseFilters =
+    expenseCountryFilter !== 'all' ||
+    expenseCategoryFilter !== 'all' ||
+    expenseCurrencyFilter !== 'all' ||
+    Boolean(expenseDateFromFilter || expenseDateToFilter || expenseSearchFilter || expenseMinValueFilter || expenseMaxValueFilter) ||
+    expenseViewType !== 'all';
 
   const filteredTotalsByCategory = useMemo(() => {
-    const applySourceSheetAdjustment = expenseCountryFilter === 'all';
+    const applySourceSheetAdjustment = !hasExpenseFilters;
 
     return categoriesForDisplay.reduce<Record<string, Totals>>((totals, category) => {
       totals[category.id] = calculateCategoryTotal(
@@ -461,12 +564,12 @@ function TravelWorkspace({ groupId }: { groupId: string }) {
       );
       return totals;
     }, {});
-  }, [categoriesForDisplay, exchangeRates, expenseCountryFilter, filteredExpenses]);
+  }, [categoriesForDisplay, exchangeRates, filteredExpenses, hasExpenseFilters]);
 
   const filteredGrandTotal = calculateExpensesTotal(
     filteredExpenses,
     exchangeRates,
-    expenseCountryFilter === 'all',
+    !hasExpenseFilters,
   );
   const dashboardTotalsByCategory = useMemo(() => {
     return categoriesForDisplay.reduce<Record<string, Totals>>((totals, category) => {
@@ -518,13 +621,17 @@ function TravelWorkspace({ groupId }: { groupId: string }) {
     })),
   );
   const recentTransactions = useMemo(
-    () =>
-      [...filteredExpenses].sort((a, b) => {
-        const dateA = a.createdAt ? Date.parse(a.createdAt) : 0;
-        const dateB = b.createdAt ? Date.parse(b.createdAt) : 0;
-        return dateB - dateA;
-      }),
-    [filteredExpenses],
+    () => {
+      const sorted = [...filteredExpenses].sort((a, b) => {
+        if (expenseViewType === 'highest') {
+          return rangeMidpoint(getExpenseRealRange(b, exchangeRates)) - rangeMidpoint(getExpenseRealRange(a, exchangeRates));
+        }
+        return getExpenseTimestamp(b) - getExpenseTimestamp(a);
+      });
+
+      return expenseViewType === 'recent' ? sorted.slice(0, 8) : sorted;
+    },
+    [exchangeRates, expenseViewType, filteredExpenses],
   );
   const visibleTransactions = showAllTransactions ? recentTransactions : recentTransactions.slice(0, 5);
   const selectedTotalLabel = formatRange(filteredGrandTotal.real, 'BRL', true);
@@ -616,8 +723,122 @@ function TravelWorkspace({ groupId }: { groupId: string }) {
     setIsCategoryModalOpen(true);
   };
 
-  const handleExportPdfFallback = () => {
-    setExpenseSyncWarning('Exportar Relatório PDF ainda não está habilitado. Nenhum dado foi alterado.');
+  const handleClearExpenseFilters = () => {
+    setExpenseCountryFilter('all');
+    setExpenseCategoryFilter('all');
+    setExpenseCurrencyFilter('all');
+    setExpenseDateFromFilter('');
+    setExpenseDateToFilter('');
+    setExpenseSearchFilter('');
+    setExpenseMinValueFilter('');
+    setExpenseMaxValueFilter('');
+    setExpenseViewType('all');
+    setShowAllTransactions(false);
+  };
+
+  const handleExportExpensesPdf = () => {
+    const tripName = activeGroup?.name ?? 'Viagem ativa';
+    const tripPeriod = activeGroup?.startDate || activeGroup?.endDate
+      ? `${formatExpenseDate(activeGroup?.startDate)} - ${formatExpenseDate(activeGroup?.endDate)}`
+      : 'Periodo nao definido';
+    const generatedAt = new Intl.DateTimeFormat('pt-BR', {
+      dateStyle: 'medium',
+      timeStyle: 'short',
+    }).format(new Date());
+    const exchangeRateSummary = Object.values(exchangeRates)
+      .filter((rate) => rate?.rate)
+      .map((rate) => `1 ${rate.code} = ${formatRange({ min: rate.rate, max: rate.rate }, 'BRL')}`)
+      .join(' | ') || 'Cotacao indisponivel';
+    const categoryById = new Map(categoriesForDisplay.map((category) => [category.id, category]));
+    const doc = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'a4' });
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const marginX = 36;
+
+    doc.setFillColor(11, 19, 38);
+    doc.rect(0, 0, pageWidth, 86, 'F');
+    doc.setTextColor(255, 255, 255);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(22);
+    doc.text('Relatorio de Gastos TripFlow', marginX, 38);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(10);
+    doc.text(`Gerado em ${generatedAt}`, marginX, 58);
+
+    doc.setTextColor(11, 19, 38);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(15);
+    doc.text(tripName, marginX, 116);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(10);
+    doc.text(`Periodo: ${tripPeriod}`, marginX, 134);
+    doc.text(`Filtros aplicados: ${hasExpenseFilters ? 'sim' : 'nao'}`, marginX, 150);
+    doc.text(`Cotacao usada: ${exchangeRateSummary}`, marginX, 166);
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(12);
+    doc.text(`Total BRL: ${formatRange(filteredGrandTotal.real, 'BRL', true)}`, pageWidth - marginX - 220, 116);
+    doc.text(`Total original: ${formatOriginalCurrencyBreakdown(filteredGrandTotal.originalByCurrency)}`, pageWidth - marginX - 220, 134, {
+      maxWidth: 220,
+    });
+
+    autoTable(doc, {
+      startY: 190,
+      head: [['Categoria', 'Itens', 'Total BRL', 'Moeda original']],
+      body: expenseCategoryBreakdown.length
+        ? expenseCategoryBreakdown.map(({ category, count, total }) => [
+            category.name,
+            String(count),
+            formatRange(total.real, 'BRL', true),
+            formatOriginalCurrencyBreakdown(total.originalByCurrency),
+          ])
+        : [['Sem categorias com gastos', '0', formatRange({ min: 0, max: 0 }, 'BRL'), 'Sem valores originais']],
+      styles: { font: 'helvetica', fontSize: 8, cellPadding: 5 },
+      headStyles: { fillColor: [0, 124, 104], textColor: 255 },
+      alternateRowStyles: { fillColor: [247, 248, 253] },
+      margin: { left: marginX, right: marginX },
+    });
+
+    const tableState = doc as jsPDF & { lastAutoTable?: { finalY?: number } };
+    const startY = (tableState.lastAutoTable?.finalY ?? 250) + 24;
+    autoTable(doc, {
+      startY,
+      head: [['Data', 'Pais', 'Categoria', 'Gasto', 'Detalhe', 'Moeda', 'Valor original', 'Valor BRL']],
+      body: recentTransactions.map((expense) => {
+        const category = categoryById.get(expense.category);
+        return [
+          formatExpenseDate(expense.createdAt),
+          countryNames[normalizeCountryId(expense.country)] ?? expense.country ?? 'Internacional',
+          category?.name ?? expense.category,
+          expense.title,
+          expense.detail ?? '',
+          getExpenseCurrency(expense),
+          formatRange(getExpenseOriginalRange(expense), getExpenseCurrency(expense)),
+          formatRange(getExpenseRealRange(expense, exchangeRates), 'BRL'),
+        ];
+      }),
+      styles: { font: 'helvetica', fontSize: 7.5, cellPadding: 4, overflow: 'linebreak' },
+      headStyles: { fillColor: [11, 19, 38], textColor: 255 },
+      alternateRowStyles: { fillColor: [247, 248, 253] },
+      columnStyles: {
+        0: { cellWidth: 56 },
+        1: { cellWidth: 72 },
+        2: { cellWidth: 80 },
+        3: { cellWidth: 120 },
+        4: { cellWidth: 150 },
+        5: { cellWidth: 44 },
+        6: { cellWidth: 86, halign: 'right' },
+        7: { cellWidth: 86, halign: 'right' },
+      },
+      margin: { left: marginX, right: marginX },
+      didDrawPage: () => {
+        doc.setFontSize(8);
+        doc.setTextColor(102, 112, 133);
+        doc.text('TripFlow - dados filtrados da viagem ativa', marginX, doc.internal.pageSize.getHeight() - 18);
+      },
+    });
+
+    doc.save(`tripflow-gastos-${buildExpenseFileSlug(tripName)}.pdf`);
+    setExpenseSyncWarning(`Relatório PDF gerado com ${filteredExpenses.length} gasto${filteredExpenses.length === 1 ? '' : 's'} filtrado${filteredExpenses.length === 1 ? '' : 's'}.`);
   };
 
   const handleSaveExpenseCategory = async (input: ExpenseCategoryInput) => {
@@ -771,26 +992,6 @@ function TravelWorkspace({ groupId }: { groupId: string }) {
                   <p className="mt-1.5 text-base font-semibold text-[#45464d]">
                     Viagem: {activeGroup?.name ?? 'Viagem ativa'} ({tripDestinations})
                   </p>
-                  <div className="mt-4 flex flex-wrap gap-2">
-                    {expenseCountryOptions.map((country) => {
-                      const isActive = expenseCountryFilter === country.id;
-
-                      return (
-                        <button
-                          key={country.id}
-                          type="button"
-                          onClick={() => setExpenseCountryFilter(country.id)}
-                          className={`inline-flex h-8 items-center rounded-full border px-3.5 text-sm font-bold transition ${
-                            isActive
-                              ? 'border-[#007c68] bg-[#007c68] text-white'
-                              : 'border-[#dfe5ee] bg-white text-[#45464d] hover:border-[#007c68] hover:text-[#007c68]'
-                          }`}
-                        >
-                          {country.shortName}
-                        </button>
-                      );
-                    })}
-                  </div>
                 </div>
                 <div className="inline-flex w-fit items-center gap-2.5 rounded-full border border-[#dfe5ee] bg-white px-4 py-2.5 text-sm font-bold text-[#45464d] shadow-[0_8px_24px_rgba(15,23,42,0.04)]">
                   <WalletCards className="h-4 w-4 text-[#007c68]" />
@@ -850,7 +1051,7 @@ function TravelWorkspace({ groupId }: { groupId: string }) {
 
                   <button
                     type="button"
-                    onClick={handleExportPdfFallback}
+                    onClick={handleExportExpensesPdf}
                     className="flex min-h-20 items-center justify-between gap-4 rounded-[1.35rem] border border-[#cfd6e2] bg-white p-5 text-left shadow-[0_12px_28px_rgba(15,23,42,0.04)] transition hover:border-[#007c68]"
                   >
                     <span className="flex items-center gap-4">
@@ -863,6 +1064,148 @@ function TravelWorkspace({ groupId }: { groupId: string }) {
                     </span>
                     <ArrowRight className="h-5 w-5 text-[#45464d]" />
                   </button>
+                </div>
+              </section>
+
+              <section className="rounded-[1.35rem] border border-[#dfe5ee] bg-white p-4 shadow-[0_12px_28px_rgba(15,23,42,0.04)] md:p-5">
+                <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                  <div>
+                    <h2 className="text-lg font-black text-[#0b1326]">Filtros de gastos</h2>
+                    <p className="mt-1 text-sm font-semibold text-[#667085]">
+                      {filteredExpenses.length} de {scopedExpenses.length} gasto{scopedExpenses.length === 1 ? '' : 's'} da viagem ativa.
+                    </p>
+                  </div>
+                  {hasExpenseFilters ? (
+                    <button
+                      type="button"
+                      onClick={handleClearExpenseFilters}
+                      className="inline-flex h-10 items-center justify-center rounded-full border border-[#dfe5ee] px-4 text-sm font-black text-[#006b57] transition hover:border-[#006b57] hover:bg-[#eef8f6]"
+                    >
+                      Limpar filtros
+                    </button>
+                  ) : null}
+                </div>
+
+                <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-6">
+                  <label className="sm:col-span-2 lg:col-span-2">
+                    <span className="mb-1.5 block text-xs font-black uppercase tracking-[0.14em] text-[#667085]">Buscar</span>
+                    <input
+                      value={expenseSearchFilter}
+                      onChange={(event) => setExpenseSearchFilter(event.target.value)}
+                      placeholder="Nome, detalhe, pais..."
+                      className="h-11 w-full rounded-xl border border-[#dfe5ee] bg-[#f8fafc] px-3.5 text-sm font-semibold text-[#0b1326] outline-none transition placeholder:text-[#98a2b3] focus:border-[#007c68] focus:bg-white"
+                    />
+                  </label>
+
+                  <label>
+                    <span className="mb-1.5 block text-xs font-black uppercase tracking-[0.14em] text-[#667085]">País</span>
+                    <select
+                      value={expenseCountryFilter}
+                      onChange={(event) => setExpenseCountryFilter(event.target.value)}
+                      className="h-11 w-full rounded-xl border border-[#dfe5ee] bg-[#f8fafc] px-3 text-sm font-semibold text-[#0b1326] outline-none transition focus:border-[#007c68] focus:bg-white"
+                    >
+                      {expenseCountryOptions.map((country) => (
+                        <option key={country.id} value={country.id}>
+                          {country.shortName}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+
+                  <label>
+                    <span className="mb-1.5 block text-xs font-black uppercase tracking-[0.14em] text-[#667085]">Categoria</span>
+                    <select
+                      value={expenseCategoryFilter}
+                      onChange={(event) => setExpenseCategoryFilter(event.target.value)}
+                      className="h-11 w-full rounded-xl border border-[#dfe5ee] bg-[#f8fafc] px-3 text-sm font-semibold text-[#0b1326] outline-none transition focus:border-[#007c68] focus:bg-white"
+                    >
+                      <option value="all">Todas</option>
+                      {categoriesForDisplay.map((category) => (
+                        <option key={category.id} value={category.id}>
+                          {category.name}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+
+                  <label>
+                    <span className="mb-1.5 block text-xs font-black uppercase tracking-[0.14em] text-[#667085]">Moeda</span>
+                    <select
+                      value={expenseCurrencyFilter}
+                      onChange={(event) => setExpenseCurrencyFilter(event.target.value as TravelCurrencyCode | 'all')}
+                      className="h-11 w-full rounded-xl border border-[#dfe5ee] bg-[#f8fafc] px-3 text-sm font-semibold text-[#0b1326] outline-none transition focus:border-[#007c68] focus:bg-white"
+                    >
+                      <option value="all">Todas</option>
+                      {expenseCurrencyOptions.map((currency) => (
+                        <option key={currency} value={currency}>
+                          {currency}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+
+                  <label>
+                    <span className="mb-1.5 block text-xs font-black uppercase tracking-[0.14em] text-[#667085]">De</span>
+                    <input
+                      type="date"
+                      value={expenseDateFromFilter}
+                      onChange={(event) => setExpenseDateFromFilter(event.target.value)}
+                      className="h-11 w-full rounded-xl border border-[#dfe5ee] bg-[#f8fafc] px-3 text-sm font-semibold text-[#0b1326] outline-none transition focus:border-[#007c68] focus:bg-white"
+                    />
+                  </label>
+
+                  <label>
+                    <span className="mb-1.5 block text-xs font-black uppercase tracking-[0.14em] text-[#667085]">Até</span>
+                    <input
+                      type="date"
+                      value={expenseDateToFilter}
+                      onChange={(event) => setExpenseDateToFilter(event.target.value)}
+                      className="h-11 w-full rounded-xl border border-[#dfe5ee] bg-[#f8fafc] px-3 text-sm font-semibold text-[#0b1326] outline-none transition focus:border-[#007c68] focus:bg-white"
+                    />
+                  </label>
+
+                  <label>
+                    <span className="mb-1.5 block text-xs font-black uppercase tracking-[0.14em] text-[#667085]">Valor mín.</span>
+                    <input
+                      inputMode="decimal"
+                      value={expenseMinValueFilter}
+                      onChange={(event) => setExpenseMinValueFilter(event.target.value)}
+                      placeholder="BRL"
+                      className="h-11 w-full rounded-xl border border-[#dfe5ee] bg-[#f8fafc] px-3.5 text-sm font-semibold text-[#0b1326] outline-none transition placeholder:text-[#98a2b3] focus:border-[#007c68] focus:bg-white"
+                    />
+                  </label>
+
+                  <label>
+                    <span className="mb-1.5 block text-xs font-black uppercase tracking-[0.14em] text-[#667085]">Valor máx.</span>
+                    <input
+                      inputMode="decimal"
+                      value={expenseMaxValueFilter}
+                      onChange={(event) => setExpenseMaxValueFilter(event.target.value)}
+                      placeholder="BRL"
+                      className="h-11 w-full rounded-xl border border-[#dfe5ee] bg-[#f8fafc] px-3.5 text-sm font-semibold text-[#0b1326] outline-none transition placeholder:text-[#98a2b3] focus:border-[#007c68] focus:bg-white"
+                    />
+                  </label>
+                </div>
+
+                <div className="mt-4 flex flex-wrap gap-2">
+                  {([
+                    ['all', 'Todos'],
+                    ['recent', 'Recentes'],
+                    ['highest', 'Maiores valores'],
+                  ] as const).map(([id, label]) => (
+                    <button
+                      key={id}
+                      type="button"
+                      onClick={() => setExpenseViewType(id)}
+                      className={`inline-flex h-9 items-center rounded-full border px-4 text-sm font-black transition ${
+                        expenseViewType === id
+                          ? 'border-[#007c68] bg-[#007c68] text-white'
+                          : 'border-[#dfe5ee] bg-[#f8fafc] text-[#667085] hover:border-[#007c68] hover:text-[#007c68]'
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  ))}
                 </div>
               </section>
 

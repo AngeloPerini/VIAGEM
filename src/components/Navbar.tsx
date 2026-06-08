@@ -23,7 +23,14 @@ const navItems = [
   { id: 'itinerary', label: 'Roteiro' },
   { id: 'attractions', label: 'Turismo' },
   { id: 'quote', label: 'Cotação' },
+  { id: 'profile', label: 'Perfil' },
 ] as const;
+
+const getNavHref = (view: AppView) => {
+  if (view === 'dashboard') return '/dashboard';
+  if (view === 'profile') return '/perfil';
+  return `/#${view}`;
+};
 
 export function Navbar({ activeView, onNavigate, onNavigateToProfilePath }: NavbarProps) {
   const { user } = useAuth();
@@ -103,9 +110,13 @@ export function Navbar({ activeView, onNavigate, onNavigateToProfilePath }: Navb
                 key={item.id}
                 onClick={(event) => {
                   event.preventDefault();
+                  if (item.id === 'profile') {
+                    onNavigateToProfilePath('/perfil');
+                    return;
+                  }
                   onNavigate(item.id);
                 }}
-                href={item.id === 'dashboard' ? '/dashboard' : `/#${item.id}`}
+                href={getNavHref(item.id)}
                 className={`relative inline-flex h-16 items-center text-base font-semibold transition ${
                   active ? 'text-[#006b57]' : 'text-[#171a26] hover:text-[#006b57]'
                 }`}
@@ -170,9 +181,13 @@ export function Navbar({ activeView, onNavigate, onNavigateToProfilePath }: Navb
               key={item.id}
               onClick={(event) => {
                 event.preventDefault();
+                if (item.id === 'profile') {
+                  onNavigateToProfilePath('/perfil');
+                  return;
+                }
                 onNavigate(item.id);
               }}
-              href={item.id === 'dashboard' ? '/dashboard' : `/#${item.id}`}
+              href={getNavHref(item.id)}
               className={`shrink-0 border-b-2 pb-2 text-sm font-bold ${
                 active ? 'border-[#006b57] text-[#006b57]' : 'border-transparent text-slate-500'
               }`}
