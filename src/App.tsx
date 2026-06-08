@@ -1105,145 +1105,227 @@ function TravelWorkspace({ groupId }: { groupId: string }) {
                 </div>
               </section>
 
-              <section className="rounded-[1.35rem] border border-[#dfe5ee] bg-white p-4 shadow-[0_12px_28px_rgba(15,23,42,0.04)] md:p-5">
-                <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                  <div>
-                    <h2 className="text-lg font-black text-[#0b1326]">Filtros de gastos</h2>
-                    <p className="mt-1 text-sm font-semibold text-[#667085]">
+              <section className="rounded-[1.35rem] border border-[#dfe5ee] bg-white p-5 shadow-[0_14px_34px_rgba(15,23,42,0.05)] md:p-6">
+                <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+                  <div className="min-w-0">
+                    <p className="text-xs font-black uppercase tracking-[0.18em] text-[#007c68]">Controle financeiro</p>
+                    <h2 className="mt-1 text-xl font-black text-[#0b1326]">Filtros de gastos</h2>
+                    <p className="mt-1.5 text-sm font-semibold text-[#667085]">
                       {filteredExpenses.length} de {scopedExpenses.length} gasto{scopedExpenses.length === 1 ? '' : 's'} da viagem ativa.
                     </p>
                   </div>
-                  {hasExpenseFilters ? (
+                  <div className="flex flex-wrap gap-2">
+                    {hasExpenseFilters ? (
+                      <button
+                        type="button"
+                        onClick={handleClearExpenseFilters}
+                        className="inline-flex h-10 items-center justify-center rounded-full border border-[#dfe5ee] bg-white px-4 text-sm font-black text-[#006b57] transition hover:border-[#006b57] hover:bg-[#eef8f6]"
+                      >
+                        Limpar filtros
+                      </button>
+                    ) : null}
                     <button
                       type="button"
-                      onClick={handleClearExpenseFilters}
-                      className="inline-flex h-10 items-center justify-center rounded-full border border-[#dfe5ee] px-4 text-sm font-black text-[#006b57] transition hover:border-[#006b57] hover:bg-[#eef8f6]"
+                      onClick={handleExportExpensesPdf}
+                      className="inline-flex h-10 items-center justify-center gap-2 rounded-full border border-[#dfe5ee] bg-[#f8fafc] px-4 text-sm font-black text-[#0b1326] transition hover:border-[#007c68] hover:text-[#007c68]"
                     >
-                      Limpar filtros
+                      <FileText className="h-4 w-4" />
+                      Exportar PDF
                     </button>
-                  ) : null}
+                  </div>
                 </div>
 
-                <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-6">
-                  <label className="sm:col-span-2 lg:col-span-2">
-                    <span className="mb-1.5 block text-xs font-black uppercase tracking-[0.14em] text-[#667085]">Buscar</span>
-                    <input
-                      value={expenseSearchFilter}
-                      onChange={(event) => setExpenseSearchFilter(event.target.value)}
-                      placeholder="Nome, detalhe, pais..."
-                      className="h-11 w-full rounded-xl border border-[#dfe5ee] bg-[#f8fafc] px-3.5 text-sm font-semibold text-[#0b1326] outline-none transition placeholder:text-[#98a2b3] focus:border-[#007c68] focus:bg-white"
-                    />
-                  </label>
+                <div className="mt-6 grid gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(16rem,0.32fr)]">
+                  <div className="min-w-0 space-y-5">
+                    <div>
+                      <div className="mb-2.5 flex items-center justify-between gap-3">
+                        <span className="text-xs font-black uppercase tracking-[0.14em] text-[#667085]">País</span>
+                        <span className="text-xs font-bold text-[#98a2b3]">Totais seguem o país selecionado</span>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        {expenseCountryOptions.map((country) => {
+                          const active = expenseCountryFilter === country.id;
+                          return (
+                            <button
+                              key={country.id}
+                              type="button"
+                              onClick={() => setExpenseCountryFilter(country.id)}
+                              aria-pressed={active}
+                              className={`inline-flex h-10 items-center rounded-full border px-4 text-sm font-black transition ${
+                                active
+                                  ? 'border-black bg-black text-white shadow-[0_10px_24px_rgba(15,23,42,0.12)]'
+                                  : 'border-[#dfe5ee] bg-[#f8fafc] text-[#45464d] hover:border-[#007c68] hover:text-[#007c68]'
+                              }`}
+                            >
+                              {country.shortName}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
 
-                  <label>
-                    <span className="mb-1.5 block text-xs font-black uppercase tracking-[0.14em] text-[#667085]">País</span>
-                    <select
-                      value={expenseCountryFilter}
-                      onChange={(event) => setExpenseCountryFilter(event.target.value)}
-                      className="h-11 w-full rounded-xl border border-[#dfe5ee] bg-[#f8fafc] px-3 text-sm font-semibold text-[#0b1326] outline-none transition focus:border-[#007c68] focus:bg-white"
-                    >
-                      {expenseCountryOptions.map((country) => (
-                        <option key={country.id} value={country.id}>
-                          {country.shortName}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
+                    <div>
+                      <div className="mb-2.5 flex items-center justify-between gap-3">
+                        <span className="text-xs font-black uppercase tracking-[0.14em] text-[#667085]">Categoria</span>
+                        <span className="text-xs font-bold text-[#98a2b3]">Categorias reais do grupo ativo</span>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setExpenseCategoryFilter('all')}
+                          aria-pressed={expenseCategoryFilter === 'all'}
+                          className={`inline-flex h-10 items-center rounded-full border px-4 text-sm font-black transition ${
+                            expenseCategoryFilter === 'all'
+                              ? 'border-[#007c68] bg-[#007c68] text-white shadow-[0_10px_24px_rgba(0,124,104,0.16)]'
+                              : 'border-[#dfe5ee] bg-[#f8fafc] text-[#45464d] hover:border-[#007c68] hover:text-[#007c68]'
+                          }`}
+                        >
+                          Todos
+                        </button>
+                        {categoriesForDisplay.map((category) => {
+                          const active = expenseCategoryFilter === category.id;
+                          const CategoryIcon = getExpenseCategoryIcon(category);
+                          return (
+                            <button
+                              key={category.id}
+                              type="button"
+                              onClick={() => setExpenseCategoryFilter(category.id)}
+                              aria-pressed={active}
+                              className={`inline-flex h-10 items-center gap-2 rounded-full border px-4 text-sm font-black transition ${
+                                active
+                                  ? 'border-[#007c68] bg-[#007c68] text-white shadow-[0_10px_24px_rgba(0,124,104,0.16)]'
+                                  : 'border-[#dfe5ee] bg-[#f8fafc] text-[#45464d] hover:border-[#007c68] hover:text-[#007c68]'
+                              }`}
+                            >
+                              <CategoryIcon className="h-4 w-4" />
+                              {category.name}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
 
-                  <label>
-                    <span className="mb-1.5 block text-xs font-black uppercase tracking-[0.14em] text-[#667085]">Categoria</span>
-                    <select
-                      value={expenseCategoryFilter}
-                      onChange={(event) => setExpenseCategoryFilter(event.target.value)}
-                      className="h-11 w-full rounded-xl border border-[#dfe5ee] bg-[#f8fafc] px-3 text-sm font-semibold text-[#0b1326] outline-none transition focus:border-[#007c68] focus:bg-white"
-                    >
-                      <option value="all">Todas</option>
-                      {categoriesForDisplay.map((category) => (
-                        <option key={category.id} value={category.id}>
-                          {category.name}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
+                    <div className="rounded-2xl border border-[#e8ecf4] bg-[#f8fafc] p-4">
+                      <p className="text-xs font-black uppercase tracking-[0.14em] text-[#667085]">Filtros avançados</p>
+                      <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-6">
+                        <label className="sm:col-span-2 lg:col-span-1 2xl:col-span-2">
+                          <span className="mb-1.5 block text-xs font-black uppercase tracking-[0.12em] text-[#667085]">Buscar</span>
+                          <input
+                            value={expenseSearchFilter}
+                            onChange={(event) => setExpenseSearchFilter(event.target.value)}
+                            placeholder="Nome, detalhe, pais..."
+                            className="h-11 w-full rounded-xl border border-[#dfe5ee] bg-white px-3.5 text-sm font-semibold text-[#0b1326] outline-none transition placeholder:text-[#98a2b3] focus:border-[#007c68]"
+                          />
+                        </label>
 
-                  <label>
-                    <span className="mb-1.5 block text-xs font-black uppercase tracking-[0.14em] text-[#667085]">Moeda</span>
-                    <select
-                      value={expenseCurrencyFilter}
-                      onChange={(event) => setExpenseCurrencyFilter(event.target.value as TravelCurrencyCode | 'all')}
-                      className="h-11 w-full rounded-xl border border-[#dfe5ee] bg-[#f8fafc] px-3 text-sm font-semibold text-[#0b1326] outline-none transition focus:border-[#007c68] focus:bg-white"
-                    >
-                      <option value="all">Todas</option>
-                      {expenseCurrencyOptions.map((currency) => (
-                        <option key={currency} value={currency}>
-                          {currency}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
+                        <label>
+                          <span className="mb-1.5 block text-xs font-black uppercase tracking-[0.12em] text-[#667085]">Moeda</span>
+                          <select
+                            value={expenseCurrencyFilter}
+                            onChange={(event) => setExpenseCurrencyFilter(event.target.value as TravelCurrencyCode | 'all')}
+                            className="h-11 w-full rounded-xl border border-[#dfe5ee] bg-white px-3 text-sm font-semibold text-[#0b1326] outline-none transition focus:border-[#007c68]"
+                          >
+                            <option value="all">Todas</option>
+                            {expenseCurrencyOptions.map((currency) => (
+                              <option key={currency} value={currency}>
+                                {currency}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
 
-                  <label>
-                    <span className="mb-1.5 block text-xs font-black uppercase tracking-[0.14em] text-[#667085]">De</span>
-                    <input
-                      type="date"
-                      value={expenseDateFromFilter}
-                      onChange={(event) => setExpenseDateFromFilter(event.target.value)}
-                      className="h-11 w-full rounded-xl border border-[#dfe5ee] bg-[#f8fafc] px-3 text-sm font-semibold text-[#0b1326] outline-none transition focus:border-[#007c68] focus:bg-white"
-                    />
-                  </label>
+                        <label>
+                          <span className="mb-1.5 block text-xs font-black uppercase tracking-[0.12em] text-[#667085]">De</span>
+                          <input
+                            type="date"
+                            value={expenseDateFromFilter}
+                            onChange={(event) => setExpenseDateFromFilter(event.target.value)}
+                            className="h-11 w-full rounded-xl border border-[#dfe5ee] bg-white px-3 text-sm font-semibold text-[#0b1326] outline-none transition focus:border-[#007c68]"
+                          />
+                        </label>
 
-                  <label>
-                    <span className="mb-1.5 block text-xs font-black uppercase tracking-[0.14em] text-[#667085]">Até</span>
-                    <input
-                      type="date"
-                      value={expenseDateToFilter}
-                      onChange={(event) => setExpenseDateToFilter(event.target.value)}
-                      className="h-11 w-full rounded-xl border border-[#dfe5ee] bg-[#f8fafc] px-3 text-sm font-semibold text-[#0b1326] outline-none transition focus:border-[#007c68] focus:bg-white"
-                    />
-                  </label>
+                        <label>
+                          <span className="mb-1.5 block text-xs font-black uppercase tracking-[0.12em] text-[#667085]">Até</span>
+                          <input
+                            type="date"
+                            value={expenseDateToFilter}
+                            onChange={(event) => setExpenseDateToFilter(event.target.value)}
+                            className="h-11 w-full rounded-xl border border-[#dfe5ee] bg-white px-3 text-sm font-semibold text-[#0b1326] outline-none transition focus:border-[#007c68]"
+                          />
+                        </label>
 
-                  <label>
-                    <span className="mb-1.5 block text-xs font-black uppercase tracking-[0.14em] text-[#667085]">Valor mín.</span>
-                    <input
-                      inputMode="decimal"
-                      value={expenseMinValueFilter}
-                      onChange={(event) => setExpenseMinValueFilter(event.target.value)}
-                      placeholder="BRL"
-                      className="h-11 w-full rounded-xl border border-[#dfe5ee] bg-[#f8fafc] px-3.5 text-sm font-semibold text-[#0b1326] outline-none transition placeholder:text-[#98a2b3] focus:border-[#007c68] focus:bg-white"
-                    />
-                  </label>
+                        <label>
+                          <span className="mb-1.5 block text-xs font-black uppercase tracking-[0.12em] text-[#667085]">Valor mín.</span>
+                          <input
+                            inputMode="decimal"
+                            value={expenseMinValueFilter}
+                            onChange={(event) => setExpenseMinValueFilter(event.target.value)}
+                            placeholder="BRL"
+                            className="h-11 w-full rounded-xl border border-[#dfe5ee] bg-white px-3.5 text-sm font-semibold text-[#0b1326] outline-none transition placeholder:text-[#98a2b3] focus:border-[#007c68]"
+                          />
+                        </label>
 
-                  <label>
-                    <span className="mb-1.5 block text-xs font-black uppercase tracking-[0.14em] text-[#667085]">Valor máx.</span>
-                    <input
-                      inputMode="decimal"
-                      value={expenseMaxValueFilter}
-                      onChange={(event) => setExpenseMaxValueFilter(event.target.value)}
-                      placeholder="BRL"
-                      className="h-11 w-full rounded-xl border border-[#dfe5ee] bg-[#f8fafc] px-3.5 text-sm font-semibold text-[#0b1326] outline-none transition placeholder:text-[#98a2b3] focus:border-[#007c68] focus:bg-white"
-                    />
-                  </label>
-                </div>
+                        <label>
+                          <span className="mb-1.5 block text-xs font-black uppercase tracking-[0.12em] text-[#667085]">Valor máx.</span>
+                          <input
+                            inputMode="decimal"
+                            value={expenseMaxValueFilter}
+                            onChange={(event) => setExpenseMaxValueFilter(event.target.value)}
+                            placeholder="BRL"
+                            className="h-11 w-full rounded-xl border border-[#dfe5ee] bg-white px-3.5 text-sm font-semibold text-[#0b1326] outline-none transition placeholder:text-[#98a2b3] focus:border-[#007c68]"
+                          />
+                        </label>
+                      </div>
+                    </div>
+                  </div>
 
-                <div className="mt-4 flex flex-wrap gap-2">
-                  {([
-                    ['all', 'Todos'],
-                    ['recent', 'Recentes'],
-                    ['highest', 'Maiores valores'],
-                  ] as const).map(([id, label]) => (
-                    <button
-                      key={id}
-                      type="button"
-                      onClick={() => setExpenseViewType(id)}
-                      className={`inline-flex h-9 items-center rounded-full border px-4 text-sm font-black transition ${
-                        expenseViewType === id
-                          ? 'border-[#007c68] bg-[#007c68] text-white'
-                          : 'border-[#dfe5ee] bg-[#f8fafc] text-[#667085] hover:border-[#007c68] hover:text-[#007c68]'
-                      }`}
-                    >
-                      {label}
-                    </button>
-                  ))}
+                  <aside className="rounded-2xl border border-[#e8ecf4] bg-[#f8fafc] p-4">
+                    <p className="text-xs font-black uppercase tracking-[0.14em] text-[#667085]">Exibição</p>
+                    <div className="mt-3 grid grid-cols-2 rounded-full border border-[#dfe5ee] bg-white p-1">
+                      <button
+                        type="button"
+                        onClick={() => setRealValueMode('original')}
+                        className={`h-10 rounded-full px-3 text-sm font-black transition ${
+                          realValueMode === 'original' ? 'bg-black text-white shadow-sm' : 'text-[#667085] hover:text-black'
+                        }`}
+                      >
+                        Originais
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setRealValueMode('converted')}
+                        className={`h-10 rounded-full px-3 text-sm font-black transition ${
+                          realValueMode === 'converted' ? 'bg-[#007c68] text-white shadow-sm' : 'text-[#667085] hover:text-black'
+                        }`}
+                      >
+                        Convertidos
+                      </button>
+                    </div>
+
+                    <div className="mt-5">
+                      <p className="text-xs font-black uppercase tracking-[0.14em] text-[#667085]">Lista</p>
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        {([
+                          ['all', 'Todos'],
+                          ['recent', 'Recentes'],
+                          ['highest', 'Maiores'],
+                        ] as const).map(([id, label]) => (
+                          <button
+                            key={id}
+                            type="button"
+                            onClick={() => setExpenseViewType(id)}
+                            className={`inline-flex h-9 items-center rounded-full border px-3.5 text-sm font-black transition ${
+                              expenseViewType === id
+                                ? 'border-[#007c68] bg-[#007c68] text-white'
+                                : 'border-[#dfe5ee] bg-white text-[#667085] hover:border-[#007c68] hover:text-[#007c68]'
+                            }`}
+                          >
+                            {label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </aside>
                 </div>
               </section>
 
@@ -1319,26 +1401,9 @@ function TravelWorkspace({ groupId }: { groupId: string }) {
                 <article className="overflow-hidden rounded-[1.35rem] border border-[#dfe5ee] bg-white shadow-[0_18px_45px_rgba(15,23,42,0.06)]">
                   <div className="flex flex-col gap-4 border-b border-[#e8ecf4] p-5 md:flex-row md:items-center md:justify-between">
                     <h2 className="text-xl font-black text-[#0b1326] md:text-2xl">Transações Recentes</h2>
-                    <div className="grid w-full grid-cols-2 rounded-full border border-[#dfe5ee] bg-[#f7f8fd] p-1 md:w-auto">
-                      <button
-                        type="button"
-                        onClick={() => setRealValueMode('converted')}
-                        className={`h-9 rounded-full px-4 text-sm font-bold transition ${
-                          realValueMode === 'converted' ? 'bg-white text-black shadow-sm' : 'text-[#667085] hover:text-black'
-                        }`}
-                      >
-                        BRL
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setRealValueMode('original')}
-                        className={`h-9 rounded-full px-4 text-sm font-bold transition ${
-                          realValueMode === 'original' ? 'bg-white text-black shadow-sm' : 'text-[#667085] hover:text-black'
-                        }`}
-                      >
-                        Moeda Original
-                      </button>
-                    </div>
+                    <p className="inline-flex w-fit items-center rounded-full border border-[#dfe5ee] bg-[#f8fafc] px-4 py-2 text-sm font-black text-[#667085]">
+                      {realValueMode === 'converted' ? 'Valores convertidos em BRL' : 'Valores originais cadastrados'}
+                    </p>
                   </div>
 
                   {visibleTransactions.length ? (

@@ -54,6 +54,22 @@ export async function getTripVisitedCountries(groupId: string) {
   return ((data ?? []) as VisitedCountryRow[]).map(toVisitedCountry);
 }
 
+export async function getVisitedCountriesForGroups(groupIds: string[]) {
+  const uniqueGroupIds = Array.from(new Set(groupIds.filter(Boolean)));
+  if (!uniqueGroupIds.length) return [];
+
+  const { data, error } = await supabase
+    .from('trip_visited_countries')
+    .select('id, group_id, user_id, country_code, country_name, visited, visited_at, created_at, updated_at')
+    .in('group_id', uniqueGroupIds)
+    .eq('visited', true)
+    .order('visited_at', { ascending: false, nullsFirst: false })
+    .order('updated_at', { ascending: false });
+
+  if (error) throw error;
+  return ((data ?? []) as VisitedCountryRow[]).map(toVisitedCountry);
+}
+
 export async function setTripCountryVisited(
   groupId: string,
   countryCode: string,

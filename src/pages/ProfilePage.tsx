@@ -83,6 +83,7 @@ import {
 } from '../services/expenseCategoriesService';
 import {
   getTripVisitedCountries,
+  getVisitedCountriesForGroups,
   setTripCountryVisited,
   subscribeTripVisitedCountries,
 } from '../services/visitedCountriesService';
@@ -826,6 +827,7 @@ export function ProfilePage() {
   const [tripAttractions, setTripAttractions] = useState<Attraction[]>([]);
   const [tripInfoWarning, setTripInfoWarning] = useState<string | null>(null);
   const [visitedCountries, setVisitedCountries] = useState<VisitedCountry[]>([]);
+  const [profileVisitedCountries, setProfileVisitedCountries] = useState<VisitedCountry[]>([]);
   const [visitedCountryWarning, setVisitedCountryWarning] = useState<string | null>(null);
   const [visitedCountryActionId, setVisitedCountryActionId] = useState<string | null>(null);
   const [checklistItems, setChecklistItems] = useState<TripChecklistItem[]>([]);
@@ -963,9 +965,22 @@ export function ProfilePage() {
     ? Math.round((tripItineraryItems.filter((item) => item.completed).length / tripItineraryItems.length) * 100)
     : 0;
   const tripPlanningProgress = Math.round((itineraryProgress + checklistProgress + documentsProgress) / 3);
-  const countriesSummary = stats.countriesCount
-    ? `${stats.countriesCount} país${stats.countriesCount === 1 ? '' : 'es'} nas suas viagens`
-    : 'Nenhum país registrado ainda';
+  const profileVisitedCountriesCount = useMemo(
+    () =>
+      new Set(
+        profileVisitedCountries
+          .filter((country) => country.visited)
+          .map((country) => normalizeCountryCode(country.countryCode)),
+      ).size,
+    [profileVisitedCountries],
+  );
+  const profileVisitedCountriesLabel =
+    profileVisitedCountriesCount === 1
+      ? '1 país visitado'
+      : `${profileVisitedCountriesCount} países visitados`;
+  const profileVisitedCountriesDetail = profileVisitedCountriesCount
+    ? 'Países marcados como visitados no mapa'
+    : 'Nenhum país marcado como visitado ainda';
   const activeTripMetric = activeGroup?.name ?? 'Sem viagem ativa';
   const accountPlanLabel = isAiTestUser ? 'Acesso de teste' : 'Gratuito';
   const aiSuggestionTitle = activeGroup ? `Continue ${activeGroup.name}` : 'Crie sua primeira viagem';
@@ -1196,9 +1211,28 @@ export function ProfilePage() {
     }
   }, [activeGroupId]);
 
+  const loadProfileVisitedCountries = useCallback(async () => {
+    const groupIds = userGroups.map((group) => group.id);
+    if (!groupIds.length) {
+      setProfileVisitedCountries([]);
+      return;
+    }
+
+    try {
+      const nextVisitedCountries = await getVisitedCountriesForGroups(groupIds);
+      setProfileVisitedCountries(nextVisitedCountries);
+    } catch {
+      setProfileVisitedCountries([]);
+    }
+  }, [userGroups]);
+
   useEffect(() => {
     void loadProfile();
   }, [loadProfile]);
+
+  useEffect(() => {
+    void loadProfileVisitedCountries();
+  }, [loadProfileVisitedCountries]);
 
   useEffect(() => {
     setDisplayNameDraft(displayName === 'Viajante' ? '' : displayName);
@@ -1298,12 +1332,13 @@ export function ProfilePage() {
     void loadVisitedCountries();
     const channel = subscribeTripVisitedCountries(activeGroupId, () => {
       void loadVisitedCountries();
+      void loadProfileVisitedCountries();
     });
 
     return () => {
       void supabase.removeChannel(channel);
     };
-  }, [activeGroupId, loadVisitedCountries]);
+  }, [activeGroupId, loadProfileVisitedCountries, loadVisitedCountries]);
 
   const copyToClipboard = async (value: string, label: string) => {
     await navigator.clipboard.writeText(value);
@@ -1322,6 +1357,22 @@ export function ProfilePage() {
     const nextPath = view === 'dashboard' ? '/dashboard' : `/#${view}`;
     window.history.pushState({}, '', nextPath);
     window.dispatchEvent(new PopStateEvent('popstate'));
+  };
+
+  const openTripCreationWithAI = () => {
+    setError(null);
+    setStatus(null);
+    setAiFailedGroup(null);
+    setAiRetryInput(null);
+    setShowCreateTripForm(true);
+    navigateProfileSection('create-ai');
+  };
+
+  const openManualTripCreation = () => {
+    setError(null);
+    setStatus(null);
+    setShowCreateTripForm(true);
+    navigateProfileSection('create-ai');
   };
 
   const handleToggleVisitedCountry = async (country: TripMapCountry) => {
@@ -1358,6 +1409,7 @@ export function ProfilePage() {
         return [savedCountry, ...withoutCountry];
       });
       setStatus(nextVisited ? 'País marcado como visitado.' : 'País removido dos visitados.');
+      void loadProfileVisitedCountries();
       window.setTimeout(() => setStatus(null), 2200);
     } catch (caughtError) {
       setVisitedCountryWarning(
@@ -1366,6 +1418,7 @@ export function ProfilePage() {
           : 'Nao foi possivel atualizar o pais visitado.',
       );
       void loadVisitedCountries();
+      void loadProfileVisitedCountries();
     } finally {
       setVisitedCountryActionId(null);
     }
@@ -2414,17 +2467,34 @@ export function ProfilePage() {
             )}
             <div className="min-w-0 pb-1">
               <h1 className="break-words text-4xl font-black tracking-tight md:text-5xl">{displayName}</h1>
-              <p className="mt-2 break-all text-lg font-semibold text-white/82">{displayEmail}</p>
+              <p className="mt-2 inline-flex items-center gap-2 rounded-full bg-white/12 px-3 py-1.5 text-base font-bold text-white/86 ring-1 ring-white/18 backdrop-blur">
+                <Globe2 className="h-4 w-4 text-[#48fdd3]" />
+                {profileVisitedCountriesLabel}
+              </p>
             </div>
           </div>
-          <button
-            type="button"
-            onClick={() => navigateProfileSection('edit-profile')}
-            className="inline-flex h-12 items-center justify-center gap-2 rounded-full bg-[#007c68] px-6 text-base font-bold text-white transition hover:bg-[#006b57]"
-          >
-            <Pencil className="h-5 w-5" />
-            Editar Perfil
-          </button>
+          {activeProfileSection === 'trip' ? (
+            <button
+              type="button"
+              onClick={openTripCreationWithAI}
+              className="inline-flex h-14 items-center justify-center gap-3 rounded-full bg-[#007c68] px-6 text-left text-white shadow-[0_16px_32px_rgba(0,124,104,0.28)] transition hover:-translate-y-0.5 hover:bg-[#006b57]"
+            >
+              <Sparkles className="h-5 w-5" />
+              <span className="leading-tight">
+                <span className="block text-sm font-black">Criar Nova Viagem</span>
+                <span className="block text-[0.68rem] font-black uppercase tracking-[0.12em] text-white/75">Gerar com IA</span>
+              </span>
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => navigateProfileSection('edit-profile')}
+              className="inline-flex h-12 items-center justify-center gap-2 rounded-full bg-[#007c68] px-6 text-base font-bold text-white transition hover:bg-[#006b57]"
+            >
+              <Pencil className="h-5 w-5" />
+              Editar Perfil
+            </button>
+          )}
         </div>
       </section>
 
@@ -2476,8 +2546,8 @@ export function ProfilePage() {
                   <ProfileMetricCard
                     icon={Globe2}
                     label="Países visitados"
-                    value={String(stats.countriesCount)}
-                    detail={countriesSummary}
+                    value={String(profileVisitedCountriesCount)}
+                    detail={profileVisitedCountriesDetail}
                   />
                   <ProfileMetricCard
                     icon={Sparkles}
@@ -2892,7 +2962,98 @@ export function ProfilePage() {
           ) : null}
 
           {activeProfileSection === 'trip' ? (
-            activeGroup ? (
+            <>
+              <section className="space-y-6">
+                <div>
+                  <h2 className="text-3xl font-black tracking-tight text-[#0b1326]">Minhas Viagens</h2>
+                  <p className="mt-2 text-base font-semibold text-[#45464d]">
+                    Gerencie suas aventuras atuais e planejadas.
+                  </p>
+                </div>
+
+                <div className="grid gap-5 xl:grid-cols-[minmax(0,1.9fr)_minmax(18rem,0.9fr)]">
+                  <article className="grid gap-5 rounded-[1.5rem] border border-dashed border-[#89cfc2] bg-[#eef8f6] p-5 shadow-[0_12px_28px_rgba(15,23,42,0.04)] md:grid-cols-[auto_minmax(0,1fr)_auto] md:items-center md:p-6">
+                    <span className="grid h-14 w-14 place-items-center rounded-2xl bg-[#48fdd3] text-[#007c68]">
+                      <Sparkles className="h-7 w-7" />
+                    </span>
+                    <div className="min-w-0">
+                      <h3 className="text-lg font-black text-[#0b1326]">Planejar próxima aventura com IA</h3>
+                      <p className="mt-1.5 max-w-2xl text-sm font-semibold leading-6 text-[#45464d]">
+                        Deixe a inteligência artificial montar uma prévia de roteiro para você. A IA só roda depois que você preencher os dados e confirmar a geração.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={openTripCreationWithAI}
+                      className="inline-flex h-14 items-center justify-center rounded-2xl bg-black px-7 text-base font-black text-white transition hover:-translate-y-0.5 hover:bg-[#111827]"
+                    >
+                      Começar agora
+                    </button>
+                  </article>
+
+                  <button
+                    type="button"
+                    onClick={openManualTripCreation}
+                    className="group flex min-h-[8.5rem] flex-col items-center justify-center rounded-[1.5rem] border border-[#dfe5ee] bg-white p-6 text-center shadow-[0_12px_28px_rgba(15,23,42,0.04)] transition hover:-translate-y-0.5 hover:border-[#007c68]"
+                  >
+                    <span className="grid h-12 w-12 place-items-center rounded-full bg-[#e7f0ff] text-[#0b1326] transition group-hover:bg-[#48fdd3] group-hover:text-[#007c68]">
+                      <Plus className="h-6 w-6" />
+                    </span>
+                    <span className="mt-4 text-lg font-black text-[#0b1326]">Criar manualmente</span>
+                    <span className="mt-1 max-w-xs text-sm font-semibold leading-6 text-[#667085]">
+                      Cadastre uma viagem do zero e organize os detalhes depois.
+                    </span>
+                  </button>
+                </div>
+
+                <section className="rounded-[1.5rem] border border-[#e6ebf3] bg-white p-5 shadow-[0_12px_28px_rgba(15,23,42,0.04)] md:p-6">
+                  <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+                    <div>
+                      <p className="text-sm font-black uppercase tracking-[0.18em] text-[#007c68]">{t('profile.history')}</p>
+                      <h3 className="mt-2 text-2xl font-black tracking-tight text-[#0b1326]">{t('profile.myTrips')}</h3>
+                      <p className="mt-2 max-w-2xl text-sm font-semibold leading-6 text-[#667085]">
+                        {t('profile.historyDescription')}
+                      </p>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {tripTabs.map((tab) => (
+                        <button
+                          key={tab.id}
+                          type="button"
+                          onClick={() => setActiveTripTab(tab.id)}
+                          className={`inline-flex h-10 items-center justify-center rounded-full px-4 text-sm font-black transition ${
+                            activeTripTab === tab.id
+                              ? 'bg-black text-white'
+                              : 'bg-[#f4f7fb] text-[#667085] hover:bg-[#e7edf7] hover:text-[#0b1326]'
+                          }`}
+                        >
+                          {tab.label} ({tripCounts[tab.id]})
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                    {visibleTrips.length ? (
+                      visibleTrips.map((group) => (
+                        <TripHistoryCard
+                          key={group.id}
+                          group={group}
+                          isActive={activeGroup?.id === group.id}
+                          onDetails={setSelectedTrip}
+                          summary={tripSummaries[group.id]}
+                        />
+                      ))
+                    ) : (
+                      <p className="rounded-3xl bg-[#f8fafc] px-4 py-6 text-sm font-bold text-[#667085] md:col-span-2 xl:col-span-3">
+                        Nenhuma viagem encontrada neste filtro.
+                      </p>
+                    )}
+                  </div>
+                </section>
+              </section>
+
+              {activeGroup ? (
               <>
                 <section className="rounded-[2rem] border border-white/80 bg-white/95 p-6 shadow-xl shadow-slate-900/10 md:p-8">
                   <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
@@ -3098,7 +3259,7 @@ export function ProfilePage() {
                   action={(
                     <button
                       type="button"
-                      onClick={() => navigateProfileSection('create-ai')}
+                      onClick={openManualTripCreation}
                       className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl bg-slate-950 px-5 font-black text-white transition hover:bg-teal-700"
                     >
                       <Plus className="h-5 w-5" />
@@ -3107,7 +3268,8 @@ export function ProfilePage() {
                   )}
                 />
               </section>
-            )
+              )}
+            </>
           ) : null}
 
           {activeProfileSection === 'create-ai' ? (
