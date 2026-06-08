@@ -25,6 +25,7 @@ type ExpenseFormModalProps = {
   isOpen: boolean;
   countryOptions: CountryMeta[];
   exchangeRates: ExchangeRateMap;
+  defaultCurrency?: TravelCurrencyCode;
   onClose: () => void;
   onSave: (expense: Expense) => void;
 };
@@ -46,13 +47,17 @@ const getDefaultCurrencyForCountry = (country: CountryId): TravelCurrencyCode =>
   return 'EUR';
 };
 
-const createBlankExpense = (category: string, country: CountryId): Expense => ({
+const createBlankExpense = (
+  category: string,
+  country: CountryId,
+  defaultCurrency?: TravelCurrencyCode,
+): Expense => ({
   id: crypto.randomUUID(),
   category,
   country,
   title: '',
   detail: '',
-  currency: getDefaultCurrencyForCountry(country),
+  currency: defaultCurrency ?? getDefaultCurrencyForCountry(country),
   amount: 0,
   euro: { min: 0, max: 0 },
   real: { min: 0, max: 0 },
@@ -65,6 +70,7 @@ export function ExpenseFormModal({
   isOpen,
   countryOptions,
   exchangeRates,
+  defaultCurrency,
   onClose,
   onSave,
 }: ExpenseFormModalProps) {
@@ -86,15 +92,15 @@ export function ExpenseFormModal({
   useEffect(() => {
     const defaultCountry = getDefaultCountry(selectableCountryOptions);
     const defaultCategory = getDefaultCategory(categories);
-    const source = expense ?? createBlankExpense(defaultCategory, defaultCountry);
+    const source = expense ?? createBlankExpense(defaultCategory, defaultCountry, defaultCurrency);
     setCategory(source.category);
     setCountry(normalizeCountryId(source.country ?? defaultCountry));
     setTitle(source.title);
     setDetail(source.detail ?? '');
-    setCurrency(source.currency ?? getDefaultCurrencyForCountry(source.country ?? defaultCountry));
+    setCurrency(source.currency ?? defaultCurrency ?? getDefaultCurrencyForCountry(source.country ?? defaultCountry));
     setAmount(stringifyAmountForInput(source.amount ?? source.euro.min ?? source.real.min));
     setLinks(source.links ?? []);
-  }, [categories, selectableCountryOptions, expense, isOpen]);
+  }, [categories, defaultCurrency, selectableCountryOptions, expense, isOpen]);
 
   const numericAmount = parseAmountInput(amount);
   const amountRange = { min: numericAmount, max: numericAmount };
@@ -112,7 +118,7 @@ export function ExpenseFormModal({
 
   const handleCountryChange = (nextCountry: CountryId) => {
     setCountry(nextCountry);
-    if (!expense) setCurrency(getDefaultCurrencyForCountry(nextCountry));
+    if (!expense) setCurrency(defaultCurrency ?? getDefaultCurrencyForCountry(nextCountry));
   };
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {

@@ -157,6 +157,7 @@ export type UserProfile = {
   email?: string;
   fullName?: string;
   avatarUrl?: string;
+  originCurrency?: TravelCurrencyCode;
   aiGenerationsUsed?: number;
   aiGenerationsLimit?: number;
   lastAiGenerationAt?: string;

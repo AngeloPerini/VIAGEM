@@ -34,6 +34,7 @@ import {
   getCachedExchangeRates,
   loadExchangeRateHistory,
   refreshExchangeRates,
+  TRAVEL_CURRENCIES,
 } from './services/currencyService';
 import {
   cacheExpensesFallback,
@@ -55,6 +56,7 @@ import {
   type ExpenseCategoryInput,
 } from './services/expenseCategoriesService';
 import { supabase } from './services/supabaseClient';
+import { getCurrentProfile } from './services/profileService';
 import type {
   CategoryMeta,
   CountryFilterId,
@@ -303,6 +305,7 @@ function TravelWorkspace({ groupId }: { groupId: string }) {
   const [exchangeRates, setExchangeRates] = useState<ExchangeRateMap>(getCachedExchangeRates);
   const [quoteHistory, setQuoteHistory] = useState<ExchangeRateHistory>(loadExchangeRateHistory);
   const [selectedQuoteCurrency, setSelectedQuoteCurrency] = useState<TravelCurrencyCode>('EUR');
+  const [originCurrency, setOriginCurrency] = useState<TravelCurrencyCode>('BRL');
   const [isQuoteLoading, setIsQuoteLoading] = useState(false);
   const [quoteWarning, setQuoteWarning] = useState<string | null>(null);
   const [failedQuoteCurrencies, setFailedQuoteCurrencies] = useState<TravelCurrencyCode[]>([]);
@@ -436,6 +439,41 @@ function TravelWorkspace({ groupId }: { groupId: string }) {
   useEffect(() => {
     void refreshQuote();
   }, []);
+
+  useEffect(() => {
+    if (!user?.id) {
+      setOriginCurrency('BRL');
+      return undefined;
+    }
+
+    let active = true;
+    const updateOriginCurrency = (currency?: string | null) => {
+      const normalized = String(currency ?? 'BRL').toUpperCase();
+      setOriginCurrency(
+        TRAVEL_CURRENCIES.includes(normalized as TravelCurrencyCode)
+          ? normalized as TravelCurrencyCode
+          : 'BRL',
+      );
+    };
+    const handleOriginCurrencyEvent = (event: Event) => {
+      updateOriginCurrency((event as CustomEvent<TravelCurrencyCode>).detail);
+    };
+
+    void getCurrentProfile()
+      .then((currentProfile) => {
+        if (active) updateOriginCurrency(currentProfile?.originCurrency);
+      })
+      .catch(() => {
+        if (active) setOriginCurrency('BRL');
+      });
+
+    window.addEventListener('tripflow-origin-currency-updated', handleOriginCurrencyEvent);
+
+    return () => {
+      active = false;
+      window.removeEventListener('tripflow-origin-currency-updated', handleOriginCurrencyEvent);
+    };
+  }, [user?.id]);
 
   const tripCountryIds = useMemo(
     () => new Set((activeGroup?.countries ?? []).map((country) => normalizeCountryId(country))),
@@ -1519,6 +1557,7 @@ function TravelWorkspace({ groupId }: { groupId: string }) {
         isOpen={isModalOpen}
         countryOptions={expenseCountryOptions}
         exchangeRates={exchangeRates}
+        defaultCurrency={originCurrency}
         onClose={() => {
           setIsModalOpen(false);
           setEditingExpense(null);

@@ -456,6 +456,7 @@ create table if not exists public.profiles (
   email text,
   full_name text,
   avatar_url text,
+  origin_currency text not null default 'BRL',
   created_at timestamptz default now(),
   updated_at timestamptz default now()
 );
@@ -463,7 +464,8 @@ create table if not exists public.profiles (
 alter table public.profiles
   add column if not exists ai_generations_used integer not null default 0,
   add column if not exists ai_generations_limit integer not null default 3,
-  add column if not exists last_ai_generation_at timestamptz;
+  add column if not exists last_ai_generation_at timestamptz,
+  add column if not exists origin_currency text not null default 'BRL';
 
 do $$
 begin
@@ -480,11 +482,23 @@ begin
     alter table public.profiles
       add constraint profiles_ai_generations_limit_nonnegative check (ai_generations_limit >= 0);
   end if;
+
+  if not exists (
+    select 1 from pg_constraint where conname = 'profiles_origin_currency_check'
+  ) then
+    alter table public.profiles
+      add constraint profiles_origin_currency_check
+      check (origin_currency in ('BRL', 'EUR', 'USD', 'GBP', 'CHF', 'JPY'));
+  end if;
 end $$;
 
 update public.profiles
 set ai_generations_used = coalesce(ai_generations_used, 0),
-    ai_generations_limit = coalesce(ai_generations_limit, 3);
+    ai_generations_limit = coalesce(ai_generations_limit, 3),
+    origin_currency = case
+      when origin_currency in ('BRL', 'EUR', 'USD', 'GBP', 'CHF', 'JPY') then origin_currency
+      else 'BRL'
+    end;
 
 create or replace function public.can_view_profile(target_user_id uuid, viewer_user_id uuid default auth.uid())
 returns boolean
@@ -666,7 +680,7 @@ grant select, insert, update, delete on public.attractions to authenticated;
 revoke insert, update on public.profiles from authenticated;
 grant select on public.profiles to authenticated;
 grant insert (id, email, full_name, avatar_url, created_at, updated_at) on public.profiles to authenticated;
-grant update (email, full_name, avatar_url, updated_at) on public.profiles to authenticated;
+grant update (email, full_name, avatar_url, origin_currency, updated_at) on public.profiles to authenticated;
 grant execute on function public.accept_group_invite(text) to authenticated;
 grant execute on function public.claim_owner_trip_group(text, text) to authenticated;
 grant execute on function public.claim_legacy_trip_group(text, text) to authenticated;

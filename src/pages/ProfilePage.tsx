@@ -44,6 +44,7 @@ import {
   getUserStats,
   removeGroupMember,
   updateCurrentProfileName,
+  updateCurrentProfileOriginCurrency,
   upsertCurrentProfile,
 } from '../services/profileService';
 import { updateCurrentUserEmail, updateCurrentUserPassword } from '../services/authService';
@@ -88,7 +89,7 @@ import {
 import { getExpenses } from '../services/expensesService';
 import { getItineraryItems } from '../services/itineraryService';
 import { getAttractions } from '../services/attractionsService';
-import { getCachedExchangeRates } from '../services/currencyService';
+import { currencyNames, getCachedExchangeRates, TRAVEL_CURRENCIES } from '../services/currencyService';
 import { supabase } from '../services/supabaseClient';
 import { generateTripPlan, storeTripAIReview, TripAIFunctionError } from '../services/tripAIService';
 import type {
@@ -109,6 +110,7 @@ import type {
   UserProfile,
   UserStats,
   UserTravelGroup,
+  TravelCurrencyCode,
   VisitedCountry,
 } from '../types';
 import {
@@ -271,7 +273,7 @@ const profileSections = [
   { id: 'notifications', label: 'Notificações', path: '/perfil/notificacoes', icon: Bell, visible: true },
   { id: 'documents', label: 'Documentos', path: '/perfil/documentos', icon: FileText, visible: true },
   { id: 'create-ai', label: 'Criar viagem / IA', path: '/perfil/criar-viagem', icon: Sparkles, visible: false },
-  { id: 'edit-profile', label: 'Editar perfil', path: '/perfil/editar', icon: Pencil, visible: false },
+  { id: 'edit-profile', label: 'Configuração', path: '/perfil/configuracao', icon: Pencil, visible: true },
 ] as const;
 
 type ProfileSectionId = typeof profileSections[number]['id'];
@@ -292,6 +294,8 @@ const sectionByPath: Record<string, ProfileSectionId> = {
   '/profile/notificacoes': 'notifications',
   '/perfil/documentos': 'documents',
   '/profile/documentos': 'documents',
+  '/perfil/configuracao': 'edit-profile',
+  '/profile/configuracao': 'edit-profile',
   '/perfil/editar': 'edit-profile',
   '/profile/editar': 'edit-profile',
 };
@@ -857,9 +861,10 @@ export function ProfilePage() {
   const [emailDraft, setEmailDraft] = useState('');
   const [passwordDraft, setPasswordDraft] = useState('');
   const [passwordConfirmationDraft, setPasswordConfirmationDraft] = useState('');
+  const [originCurrencyDraft, setOriginCurrencyDraft] = useState<TravelCurrencyCode>('BRL');
   const [showPasswordDraft, setShowPasswordDraft] = useState(false);
   const [showPasswordConfirmationDraft, setShowPasswordConfirmationDraft] = useState(false);
-  const [profileEditAction, setProfileEditAction] = useState<'name' | 'email' | 'password' | null>(null);
+  const [profileEditAction, setProfileEditAction] = useState<'name' | 'email' | 'password' | 'currency' | null>(null);
   const [profileEditMessage, setProfileEditMessage] = useState<string | null>(null);
   const [profileEditError, setProfileEditError] = useState<string | null>(null);
 
@@ -869,6 +874,7 @@ export function ProfilePage() {
   const displayName = getProfileName(profile, user?.email);
   const displayEmail = getProfileEmail(profile, user?.email);
   const currentAccountEmail = user?.email ?? profile?.email ?? '';
+  const profileOriginCurrency = profile?.originCurrency ?? 'BRL';
   const isProfileEditBusy = Boolean(profileEditAction);
 
   const ownerMember = useMemo(
@@ -1200,6 +1206,10 @@ export function ProfilePage() {
   }, [currentAccountEmail, displayName]);
 
   useEffect(() => {
+    setOriginCurrencyDraft(profileOriginCurrency);
+  }, [profileOriginCurrency]);
+
+  useEffect(() => {
     if (!activeGroupId) return undefined;
 
     const channel = supabase
@@ -1444,6 +1454,32 @@ export function ProfilePage() {
       setShowPasswordDraft(false);
       setShowPasswordConfirmationDraft(false);
       setProfileEditMessage('Senha atualizada com sucesso.');
+    } catch (caughtError) {
+      setProfileEditError(normalizeProfileEditError(caughtError));
+    } finally {
+      setProfileEditAction(null);
+    }
+  };
+
+  const handleUpdateOriginCurrency = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    prepareProfileEditFeedback();
+
+    if (originCurrencyDraft === profileOriginCurrency) {
+      setProfileEditMessage('Moeda de origem ja esta atualizada.');
+      return;
+    }
+
+    setProfileEditAction('currency');
+    try {
+      const updatedProfile = await updateCurrentProfileOriginCurrency(originCurrencyDraft);
+      const nextCurrency = updatedProfile.originCurrency ?? originCurrencyDraft;
+      setProfile(updatedProfile);
+      setOriginCurrencyDraft(nextCurrency);
+      window.dispatchEvent(new CustomEvent<TravelCurrencyCode>('tripflow-origin-currency-updated', {
+        detail: nextCurrency,
+      }));
+      setProfileEditMessage('Moeda de origem atualizada.');
     } catch (caughtError) {
       setProfileEditError(normalizeProfileEditError(caughtError));
     } finally {
@@ -2497,14 +2533,14 @@ export function ProfilePage() {
                     <SettingsActionRow
                       icon={Globe2}
                       title="Idioma e Região"
-                      description={`${languageOptions.find((option) => option.code === language)?.label ?? 'Português (Brasil)'} · Moeda BRL`}
+                      description={`${languageOptions.find((option) => option.code === language)?.label ?? 'Português (Brasil)'} · Moeda ${profileOriginCurrency}`}
                       onClick={() => navigateProfileSection('edit-profile')}
                     />
                     <SettingsActionRow
                       icon={WalletCards}
                       title="Preferências de moeda"
-                      description="Valores reais e moedas originais seguem os dados atuais da viagem."
-                      onClick={() => navigateWorkspaceView('expenses')}
+                      description={`Moeda de origem atual: ${profileOriginCurrency}`}
+                      onClick={() => navigateProfileSection('edit-profile')}
                     />
                     <SettingsActionRow
                       icon={Bell}
@@ -3502,10 +3538,10 @@ export function ProfilePage() {
           {activeProfileSection === 'edit-profile' ? (
             <section className="space-y-6">
               <div className="rounded-[2rem] border border-white/80 bg-white/95 p-6 shadow-xl shadow-slate-900/10 md:p-8">
-                <p className="text-sm font-black uppercase tracking-[0.18em] text-teal-700">Editar perfil</p>
-                <h2 className="mt-2 text-3xl font-black tracking-tight text-slate-950">Conta e acesso</h2>
+                <p className="text-sm font-black uppercase tracking-[0.18em] text-teal-700">Configuração</p>
+                <h2 className="mt-2 text-3xl font-black tracking-tight text-slate-950">Configuração</h2>
                 <p className="mt-3 max-w-3xl text-sm font-bold leading-6 text-slate-600">
-                  Atualize seus dados pessoais e credenciais usando os fluxos seguros da conta TripFlow.
+                  Atualize seus dados pessoais, credenciais e preferências da sua conta TripFlow.
                 </p>
                 {profileEditMessage ? (
                   <p className="mt-5 rounded-2xl bg-teal-50 px-4 py-3 text-sm font-bold text-teal-700">
@@ -3519,7 +3555,7 @@ export function ProfilePage() {
                 ) : null}
               </div>
 
-              <div className="grid gap-6 xl:grid-cols-3">
+              <div className="grid gap-6 lg:grid-cols-2 2xl:grid-cols-4">
                 <form
                   onSubmit={handleUpdateDisplayName}
                   noValidate
@@ -3687,6 +3723,52 @@ export function ProfilePage() {
                   >
                     {profileEditAction === 'password' ? <Loader2 className="h-5 w-5 animate-spin" /> : <ShieldCheck className="h-5 w-5" />}
                     Atualizar senha
+                  </button>
+                </form>
+
+                <form
+                  onSubmit={handleUpdateOriginCurrency}
+                  noValidate
+                  className="flex min-h-full flex-col rounded-[2rem] border border-white/80 bg-white/95 p-6 shadow-xl shadow-slate-900/10 md:p-7"
+                >
+                  <div className="flex items-center gap-3">
+                    <span className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-teal-50 text-teal-700">
+                      <WalletCards className="h-5 w-5" />
+                    </span>
+                    <div>
+                      <p className="text-sm font-black uppercase tracking-[0.16em] text-slate-400">Moeda de Origem</p>
+                      <h3 className="text-xl font-black text-slate-950">Moeda padrão</h3>
+                    </div>
+                  </div>
+                  <p className="mt-4 text-sm font-bold leading-6 text-slate-500">
+                    Defina a moeda principal usada para valores originais da sua viagem.
+                  </p>
+                  <label className="mt-6 block text-sm font-black text-slate-700" htmlFor="origin-currency">
+                    Moeda
+                  </label>
+                  <select
+                    id="origin-currency"
+                    value={originCurrencyDraft}
+                    onChange={(event) => setOriginCurrencyDraft(event.target.value as TravelCurrencyCode)}
+                    disabled={isProfileEditBusy}
+                    className="mt-2 h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-900 outline-none transition focus:border-teal-500 focus:ring-4 focus:ring-teal-100"
+                  >
+                    {TRAVEL_CURRENCIES.map((currency) => (
+                      <option key={currency} value={currency}>
+                        {currency} — {currencyNames[currency]}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="mt-3 text-xs font-bold leading-5 text-slate-400">
+                    Novos gastos usam essa moeda como padrão. Gastos antigos permanecem inalterados.
+                  </p>
+                  <button
+                    type="submit"
+                    disabled={isProfileEditBusy}
+                    className="mt-6 inline-flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-slate-950 px-5 font-black text-white shadow-xl shadow-slate-900/15 transition hover:bg-teal-700 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {profileEditAction === 'currency' ? <Loader2 className="h-5 w-5 animate-spin" /> : <Save className="h-5 w-5" />}
+                    Salvar moeda
                   </button>
                 </form>
               </div>

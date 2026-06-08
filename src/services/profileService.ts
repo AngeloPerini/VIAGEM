@@ -5,6 +5,7 @@ import type {
   GroupMemberProfile,
   GroupRole,
   TripSummary,
+  TravelCurrencyCode,
   UserProfile,
   UserStats,
   UserTravelGroup,
@@ -19,6 +20,7 @@ type ProfileRow = {
   email: string | null;
   full_name: string | null;
   avatar_url: string | null;
+  origin_currency?: string | null;
   ai_generations_used?: number | null;
   ai_generations_limit?: number | null;
   last_ai_generation_at?: string | null;
@@ -27,7 +29,16 @@ type ProfileRow = {
 };
 
 const PROFILE_SELECT =
-  'id, email, full_name, avatar_url, ai_generations_used, ai_generations_limit, last_ai_generation_at, created_at, updated_at';
+  'id, email, full_name, avatar_url, origin_currency, ai_generations_used, ai_generations_limit, last_ai_generation_at, created_at, updated_at';
+
+const allowedProfileCurrencies: TravelCurrencyCode[] = ['BRL', 'EUR', 'USD', 'GBP', 'CHF', 'JPY'];
+
+const normalizeProfileCurrency = (value?: string | null): TravelCurrencyCode => {
+  const normalized = String(value ?? 'BRL').trim().toUpperCase();
+  return allowedProfileCurrencies.includes(normalized as TravelCurrencyCode)
+    ? normalized as TravelCurrencyCode
+    : 'BRL';
+};
 
 type GroupMemberRow = {
   id: string;
@@ -68,6 +79,7 @@ const toProfile = (row: ProfileRow): UserProfile => ({
   email: row.email ?? undefined,
   fullName: row.full_name ?? undefined,
   avatarUrl: row.avatar_url ?? undefined,
+  originCurrency: normalizeProfileCurrency(row.origin_currency),
   aiGenerationsUsed: Number(row.ai_generations_used ?? 0),
   aiGenerationsLimit: Number(row.ai_generations_limit ?? 3),
   lastAiGenerationAt: row.last_ai_generation_at ?? undefined,
@@ -163,6 +175,24 @@ export async function updateCurrentProfileName(fullName: string) {
   const updatedProfile = await upsertCurrentProfile(updatedUser);
   if (!updatedProfile) throw new Error('Perfil nao encontrado.');
   return updatedProfile;
+}
+
+export async function updateCurrentProfileOriginCurrency(currency: TravelCurrencyCode) {
+  const user = await requireUser();
+  const originCurrency = normalizeProfileCurrency(currency);
+
+  const { data, error } = await supabase
+    .from('profiles')
+    .update({
+      origin_currency: originCurrency,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', user.id)
+    .select(PROFILE_SELECT)
+    .single();
+
+  if (error) throw error;
+  return toProfile(data as ProfileRow);
 }
 
 export async function getGroupMembers(groupId: string) {

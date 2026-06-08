@@ -151,7 +151,7 @@ export function Navbar({ activeView, onNavigate, onNavigateToProfilePath }: Navb
           <button
             type="button"
             aria-label="Configurações"
-            onClick={() => onNavigateToProfilePath('/perfil')}
+            onClick={() => onNavigateToProfilePath('/perfil/configuracao')}
             className="inline-flex h-10 w-10 items-center justify-center rounded-full text-[#171a26] transition hover:bg-white hover:shadow-sm"
           >
             <Settings className="h-6 w-6" />
