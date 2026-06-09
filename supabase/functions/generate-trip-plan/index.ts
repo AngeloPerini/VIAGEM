@@ -2833,7 +2833,8 @@ Deno.serve(async (req) => {
       );
     }
 
-    const model = activeModel;
+    const configuredModel = activeModel;
+    const fallbackModel = configuredModel === 'gpt-4.1-mini' ? configuredModel : 'gpt-4.1-mini';
     destinationContext = await fetchDestinationContext(adminSupabase, input);
     destinationSummary = buildDestinationSummary(input, destinationContext);
     const contextWarnings = getDestinationContextWarnings(destinationContext);
@@ -2881,6 +2882,8 @@ Deno.serve(async (req) => {
       }
 
       const qualityFeedback = qualityReasons.length ? qualityReasons.join('; ') : undefined;
+      const model = attempt === 1 ? configuredModel : fallbackModel;
+      activeModel = model;
       logAiEvent('info', 'openai_attempt_started', {
         group_id: input.groupId,
         user_id: user.id,
@@ -2899,6 +2902,21 @@ Deno.serve(async (req) => {
           attempt,
         });
       } catch (error) {
+        if (error instanceof AiJsonError && model !== fallbackModel) {
+          qualityReasons = ['modelo configurado retornou JSON invalido; repetindo com modelo de fallback'];
+          validationFailureKind = 'schema';
+          logAiEvent('warn', 'openai_json_failed_retrying_with_fallback_model', {
+            group_id: input.groupId,
+            user_id: user.id,
+            attempt,
+            model,
+            fallback_model: fallbackModel,
+            error_code: 'INVALID_JSON',
+            message: error.message,
+          });
+          continue;
+        }
+
         if (error instanceof AiTimeoutError) {
           logAiEvent('warn', 'openai_timeout_without_preview', {
             group_id: input.groupId,
