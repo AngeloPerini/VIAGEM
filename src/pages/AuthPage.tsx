@@ -7,7 +7,9 @@ import {
   Loader2,
   Lock,
   Mail,
+  Moon,
   Route,
+  Sun,
   Ticket,
   UserPlus,
 } from 'lucide-react';
@@ -15,6 +17,7 @@ import { useCallback, useMemo, useState } from 'react';
 import type { FormEvent } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
+import { useTheme } from '../contexts/ThemeContext';
 import { normalizeInviteToken, storePendingInviteToken } from '../services/groupsService';
 
 type AuthMode = 'login' | 'signup' | 'reset';
@@ -107,6 +110,7 @@ function ButtonStatus({
 export function AuthPage({ initialInviteCode }: AuthPageProps) {
   const { sendPasswordReset, signIn, signInWithEmail, signUp } = useAuth();
   const { t } = useLanguage();
+  const { theme, toggleTheme } = useTheme();
   const [mode, setMode] = useState<AuthMode>('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -255,11 +259,24 @@ export function AuthPage({ initialInviteCode }: AuthPageProps) {
 
   return (
     <main
-      className="flex min-h-svh items-start justify-center overflow-x-hidden px-4 py-3 text-[#0b1c30] sm:px-6 md:items-center lg:px-8 lg:py-3"
-      style={{ background: 'radial-gradient(circle at top left, #f8f9ff 0%, #e5eeff 46%, #dce9ff 100%)' }}
+      className="relative flex min-h-svh items-start justify-center overflow-x-hidden px-4 py-3 text-[#0b1c30] sm:px-6 md:items-center lg:px-8 lg:py-3"
+      style={{
+        background: theme === 'dark'
+          ? 'radial-gradient(circle at top left, rgba(16,185,129,0.16) 0%, #0f172a 44%, #111827 100%)'
+          : 'radial-gradient(circle at top left, #f8f9ff 0%, #e5eeff 46%, #dce9ff 100%)',
+      }}
     >
+      <button
+        type="button"
+        aria-label={theme === 'dark' ? 'Ativar tema claro' : 'Ativar tema escuro'}
+        onClick={toggleTheme}
+        className="theme-toggle absolute right-4 top-4 z-20 inline-flex h-10 items-center gap-2 rounded-full border border-[#dfe5ee] bg-white/85 px-3 text-sm font-black text-[#171a26] shadow-lg shadow-slate-900/10 backdrop-blur transition hover:border-[#10b981] hover:text-[#007c68]"
+      >
+        {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+        {theme === 'dark' ? 'Claro' : 'Escuro'}
+      </button>
       <motion.section
-        className="grid w-full max-w-[1060px] grid-cols-1 overflow-hidden rounded-[1.75rem] border border-white/70 bg-white shadow-[0_24px_70px_rgba(15,23,42,0.12)] lg:h-[min(660px,calc(100svh-1.5rem))] lg:grid-cols-[0.95fr_1.05fr]"
+        className="mt-12 grid w-full max-w-[1060px] grid-cols-1 overflow-hidden rounded-[1.75rem] border border-white/70 bg-white shadow-[0_24px_70px_rgba(15,23,42,0.12)] md:mt-0 lg:h-[min(660px,calc(100svh-1.5rem))] lg:grid-cols-[0.95fr_1.05fr]"
         initial={{ opacity: 0, y: 18 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}

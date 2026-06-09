@@ -2,6 +2,27 @@
 
 :root {
   color-scheme: light;
+  --background: #f7f8fd;
+  --foreground: #0b1326;
+  --card: #ffffff;
+  --card-foreground: #0b1326;
+  --surface: #f8fafc;
+  --surface-strong: #eef8f6;
+  --muted: #f1f5f9;
+  --muted-foreground: #667085;
+  --border: #dfe5ee;
+  --input: #ffffff;
+  --primary: #10b981;
+  --primary-foreground: #06281e;
+  --secondary: #38bdf8;
+  --secondary-foreground: #082f49;
+  --accent: #d1fae5;
+  --danger: #f43f5e;
+  --success: #10b981;
+  --warning: #f59e0b;
+  --ring: rgba(16, 185, 129, 0.28);
+  --shadow: rgba(15, 23, 42, 0.08);
+  --shadow-strong: rgba(15, 23, 42, 0.2);
   font-family:
     "Plus Jakarta Sans", Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
     sans-serif;
@@ -9,6 +30,31 @@
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+.dark {
+  color-scheme: dark;
+  --background: #0f172a;
+  --foreground: #e8eefc;
+  --card: #111827;
+  --card-foreground: #e8eefc;
+  --surface: #172033;
+  --surface-strong: #1d293d;
+  --muted: #202b3f;
+  --muted-foreground: #9aa6ba;
+  --border: #2a3952;
+  --input: #202b3f;
+  --primary: #10b981;
+  --primary-foreground: #052e22;
+  --secondary: #38bdf8;
+  --secondary-foreground: #082f49;
+  --accent: #54e0ad;
+  --danger: #f43f5e;
+  --success: #10b981;
+  --warning: #fbbf24;
+  --ring: rgba(16, 185, 129, 0.32);
+  --shadow: rgba(0, 0, 0, 0.34);
+  --shadow-strong: rgba(0, 0, 0, 0.52);
 }
 
 * {
@@ -22,6 +68,8 @@ html {
 body {
   margin: 0;
   min-width: 320px;
+  background: var(--background);
+  color: var(--foreground);
 }
 
 button,
@@ -32,4 +80,218 @@ select {
 
 ::selection {
   background: rgba(20, 184, 166, 0.28);
+}
+
+.dark ::selection {
+  background: rgba(16, 185, 129, 0.34);
+}
+
+.dark #root {
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at top left, rgba(16, 185, 129, 0.12), transparent 30rem),
+    radial-gradient(circle at top right, rgba(56, 189, 248, 0.11), transparent 28rem),
+    var(--background);
+}
+
+.dark :is(main, nav, header, footer, section, article, aside, form, div)[class*="bg-[#f7f8fd]"],
+.dark :is(main, nav, header, footer, section, article, aside, form, div)[class*="bg-[#edf4f2]"],
+.dark :is(main, nav, header, footer, section, article, aside, form, div)[class*="bg-[#eef5f3]"] {
+  background-color: var(--background) !important;
+  color: var(--foreground) !important;
+}
+
+.dark :is(section, article, aside, div, form, table, thead)[class~="bg-white"],
+.dark :is(section, article, aside, div, form, table, thead)[class~="bg-white/95"],
+.dark :is(section, article, aside, div, form, table, thead)[class~="bg-white/90"],
+.dark :is(section, article, aside, div, form, table, thead)[class~="bg-white/85"],
+.dark :is(section, article, aside, div, form, table, thead)[class~="bg-white/82"],
+.dark :is(section, article, aside, div, form, table, thead)[class~="bg-white/80"],
+.dark :is(section, article, aside, div, form, table, thead)[class~="bg-white/75"],
+.dark :is(section, article, aside, div, form, table, thead)[class*="bg-[#f8fafc]"],
+.dark :is(section, article, aside, div, form, table, thead)[class*="bg-[#f4f7fb]"],
+.dark :is(section, article, aside, div, form, table, thead)[class*="bg-[#eff4ff]"],
+.dark :is(section, article, aside, div, form, table, thead)[class~="bg-slate-50"],
+.dark :is(section, article, aside, div, form, table, thead)[class~="bg-slate-100"] {
+  background-color: var(--card) !important;
+  color: var(--card-foreground) !important;
+}
+
+.dark :is(section, article, aside, div)[class*="bg-[#eef8f6]"],
+.dark :is(section, article, aside, div)[class~="bg-teal-50"],
+.dark :is(section, article, aside, div)[class~="bg-emerald-50"],
+.dark :is(p, span, div)[class~="bg-emerald-100"],
+.dark :is(p, span, div)[class~="bg-teal-100"] {
+  background-color: rgba(16, 185, 129, 0.14) !important;
+  color: #b8f7dc !important;
+}
+
+.dark :is(section, article, aside, div, p)[class~="bg-sky-50"],
+.dark :is(p, span, div)[class~="bg-sky-100"],
+.dark :is(section, article, aside, div)[class~="bg-[#e7f0ff]"] {
+  background-color: rgba(56, 189, 248, 0.14) !important;
+  color: #bae6fd !important;
+}
+
+.dark :is(section, article, aside, div, p)[class~="bg-amber-50"],
+.dark :is(p, span, div)[class~="bg-amber-100"] {
+  background-color: rgba(245, 158, 11, 0.16) !important;
+  color: #fde68a !important;
+}
+
+.dark :is(section, article, aside, div, p, span)[class~="bg-rose-50"],
+.dark :is(p, span, div)[class~="bg-rose-100"] {
+  background-color: rgba(244, 63, 94, 0.16) !important;
+  color: #fecdd3 !important;
+}
+
+.dark :is(nav)[class*="bg-[#f7f8fd]"],
+.dark :is(nav)[class~="bg-white/95"] {
+  background-color: rgba(15, 23, 42, 0.9) !important;
+  border-color: var(--border) !important;
+  box-shadow: 0 16px 42px var(--shadow);
+}
+
+.dark :is(section, article, aside, div, nav, table)[class*="border-white"],
+.dark :is(section, article, aside, div, nav, table)[class*="border-[#e6ebf3]"],
+.dark :is(section, article, aside, div, nav, table)[class*="border-[#dfe5ee]"],
+.dark :is(section, article, aside, div, nav, table)[class*="border-[#e8ecf4]"],
+.dark :is(section, article, aside, div, nav, table)[class*="border-[#eef2f7]"],
+.dark :is(section, article, aside, div, nav, table)[class*="border-[#cfd6e2]"],
+.dark :is(section, article, aside, div, nav, table)[class*="border-[#cbd7ea]"],
+.dark :is(section, article, aside, div, nav, table)[class~="border-slate-100"],
+.dark :is(section, article, aside, div, nav, table)[class~="border-slate-200"],
+.dark :is(section, article, aside, div, nav, table)[class~="border-slate-300"] {
+  border-color: var(--border) !important;
+}
+
+.dark :is(h1, h2, h3, h4, p, span, strong, label, dt, dd, td, th, button, a)[class*="text-[#0b1326]"],
+.dark :is(h1, h2, h3, h4, p, span, strong, label, dt, dd, td, th, button, a)[class*="text-[#0b1c30]"],
+.dark :is(h1, h2, h3, h4, p, span, strong, label, dt, dd, td, th, button, a)[class*="text-[#131b2e]"],
+.dark :is(h1, h2, h3, h4, p, span, strong, label, dt, dd, td, th, button, a)[class*="text-[#171a26]"],
+.dark :is(h1, h2, h3, h4, p, span, strong, label, dt, dd, td, th, button, a)[class*="text-[#45464d]"],
+.dark :is(h1, h2, h3, h4, p, span, strong, label, dt, dd, td, th, button, a)[class~="text-black"],
+.dark :is(h1, h2, h3, h4, p, span, strong, label, dt, dd, td, th, button, a)[class~="text-slate-950"],
+.dark :is(h1, h2, h3, h4, p, span, strong, label, dt, dd, td, th, button, a)[class~="text-slate-900"],
+.dark :is(h1, h2, h3, h4, p, span, strong, label, dt, dd, td, th, button, a)[class~="text-slate-800"],
+.dark :is(h1, h2, h3, h4, p, span, strong, label, dt, dd, td, th, button, a)[class~="text-slate-700"] {
+  color: var(--foreground) !important;
+}
+
+.dark :is(p, span, label, dt, dd, td, th, button, a)[class*="text-[#667085]"],
+.dark :is(p, span, label, dt, dd, td, th, button, a)[class*="text-[#7f8aa2]"],
+.dark :is(p, span, label, dt, dd, td, th, button, a)[class*="text-[#98a2b3]"],
+.dark :is(p, span, label, dt, dd, td, th, button, a)[class~="text-slate-600"],
+.dark :is(p, span, label, dt, dd, td, th, button, a)[class~="text-slate-500"],
+.dark :is(p, span, label, dt, dd, td, th, button, a)[class~="text-slate-400"] {
+  color: var(--muted-foreground) !important;
+}
+
+.dark :is(p, span, label, button, a, svg)[class*="text-[#007c68]"],
+.dark :is(p, span, label, button, a, svg)[class*="text-[#006b57]"],
+.dark :is(p, span, label, button, a, svg)[class~="text-teal-700"],
+.dark :is(p, span, label, button, a, svg)[class~="text-emerald-700"] {
+  color: var(--primary) !important;
+}
+
+.dark :is(button, a)[class*="bg-black"],
+.dark :is(button, a)[class~="bg-slate-950"],
+.dark :is(button, a)[class*="bg-[#007c68]"],
+.dark :is(button, a)[class~="bg-teal-700"],
+.dark :is(button, a)[class~="bg-teal-600"] {
+  background-color: var(--primary) !important;
+  color: white !important;
+  box-shadow: 0 14px 32px rgba(16, 185, 129, 0.18) !important;
+}
+
+.dark :is(button, a)[class*="hover:bg-[#111827]"]:hover,
+.dark :is(button, a)[class~="hover:bg-teal-800"]:hover,
+.dark :is(button, a)[class~="hover:bg-teal-700"]:hover {
+  background-color: #34d399 !important;
+  color: #052e22 !important;
+}
+
+.dark :is(button, a)[class~="bg-white"],
+.dark :is(button, a)[class~="bg-white/80"],
+.dark :is(button, a)[class~="bg-slate-100"] {
+  background-color: var(--surface) !important;
+  color: var(--foreground) !important;
+  border-color: var(--border) !important;
+}
+
+.dark .theme-toggle {
+  background-color: rgba(16, 185, 129, 0.14) !important;
+  border-color: rgba(16, 185, 129, 0.42) !important;
+  color: #d1fae5 !important;
+}
+
+.dark input:not([type="checkbox"]):not([type="radio"]),
+.dark textarea,
+.dark select {
+  background-color: var(--input) !important;
+  border-color: var(--border) !important;
+  color: var(--foreground) !important;
+}
+
+.dark input::placeholder,
+.dark textarea::placeholder {
+  color: #78869c !important;
+}
+
+.dark input:focus,
+.dark textarea:focus,
+.dark select:focus {
+  border-color: var(--primary) !important;
+  box-shadow: 0 0 0 4px var(--ring) !important;
+}
+
+.dark option {
+  background-color: var(--input);
+  color: var(--foreground);
+}
+
+.dark table {
+  color: var(--foreground);
+}
+
+.dark thead {
+  color: var(--muted-foreground);
+}
+
+.dark tbody tr {
+  border-color: var(--border) !important;
+}
+
+.dark tbody tr:hover {
+  background-color: rgba(56, 189, 248, 0.08) !important;
+}
+
+.dark [class*="shadow-slate"],
+.dark [class*="shadow-xl"],
+.dark [class*="shadow-2xl"],
+.dark [class*="shadow-["] {
+  box-shadow: 0 18px 46px var(--shadow) !important;
+}
+
+.dark [class*="backdrop-blur"] {
+  backdrop-filter: blur(18px);
+}
+
+.dark hr {
+  border-color: var(--border);
+}
+
+.dark ::-webkit-scrollbar {
+  width: 12px;
+  height: 12px;
+}
+
+.dark ::-webkit-scrollbar-track {
+  background: #0b1222;
+}
+
+.dark ::-webkit-scrollbar-thumb {
+  background: #2a3952;
+  border: 3px solid #0b1222;
+  border-radius: 999px;
 }

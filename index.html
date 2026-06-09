@@ -16,6 +16,20 @@
       content="TripFlow: painel moderno para controlar roteiros, gastos e grupos de viagem."
     />
     <title>TripFlow</title>
+    <script>
+      (() => {
+        try {
+          const stored = localStorage.getItem('tripflow-theme');
+          const prefersDark = window.matchMedia?.('(prefers-color-scheme: dark)').matches;
+          const theme = stored === 'light' || stored === 'dark' ? stored : prefersDark ? 'dark' : 'light';
+          document.documentElement.classList.toggle('dark', theme === 'dark');
+          document.documentElement.dataset.theme = theme;
+          document.documentElement.style.colorScheme = theme;
+        } catch {
+          document.documentElement.dataset.theme = 'light';
+        }
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

@@ -1138,6 +1138,7 @@ export function ProfilePage() {
         INVALID_JSON: caughtError.message || 'A IA retornou JSON inválido. Tente gerar novamente.',
         AI_JSON_PARSE_ERROR: caughtError.message || 'A IA retornou JSON inválido. Tente gerar novamente.',
         VALIDATION_FAILED: caughtError.message,
+        AI_INTENT_MISMATCH: caughtError.message || 'A IA não conseguiu montar uma prévia coerente com a descrição. Reforce região, cidades ou interesses principais e tente novamente.',
         AI_QUALITY_FAILED: caughtError.message,
         DESCRIPTION_TOO_LONG: caughtError.message || TRIP_DESCRIPTION_TOO_LONG_MESSAGE,
         PROFILE_NOT_FOUND: 'Perfil não encontrado. Saia e entre novamente para recriar seu perfil.',

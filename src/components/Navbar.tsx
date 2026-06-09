@@ -1,12 +1,15 @@
 import { motion } from 'framer-motion';
 import {
   Bell,
+  Moon,
   Settings,
+  Sun,
   UserRound,
 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
+import { useTheme } from '../contexts/ThemeContext';
 import { getUnreadNotificationCount, subscribeNotifications } from '../services/notificationsService';
 
 export type AppView = 'dashboard' | 'expenses' | 'itinerary' | 'attractions' | 'quote' | 'profile';
@@ -35,6 +38,7 @@ const getNavHref = (view: AppView) => {
 export function Navbar({ activeView, onNavigate, onNavigateToProfilePath }: NavbarProps) {
   const { user } = useAuth();
   const { t } = useLanguage();
+  const { theme, toggleTheme } = useTheme();
   const [unreadNotifications, setUnreadNotifications] = useState(0);
 
   const avatarUrl = user?.user_metadata?.avatar_url as string | undefined;
@@ -155,6 +159,16 @@ export function Navbar({ activeView, onNavigate, onNavigateToProfilePath }: Navb
             className="inline-flex h-10 w-10 items-center justify-center rounded-full text-[#171a26] transition hover:bg-white hover:shadow-sm"
           >
             <Settings className="h-6 w-6" />
+          </button>
+          <button
+            type="button"
+            aria-label={theme === 'dark' ? 'Ativar tema claro' : 'Ativar tema escuro'}
+            title={theme === 'dark' ? 'Tema claro' : 'Tema escuro'}
+            onClick={toggleTheme}
+            className="theme-toggle inline-flex h-10 items-center gap-2 rounded-full border border-[#dfe5ee] bg-white/80 px-3 text-sm font-black text-[#171a26] shadow-sm transition hover:border-[#10b981] hover:text-[#007c68]"
+          >
+            {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+            <span className="hidden lg:inline">{theme === 'dark' ? 'Claro' : 'Escuro'}</span>
           </button>
           <button
             type="button"
