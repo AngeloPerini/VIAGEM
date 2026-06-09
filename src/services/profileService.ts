@@ -1,6 +1,5 @@
 import type { User } from '@supabase/supabase-js';
 import type {
-  CountryId,
   CurrencyRange,
   GroupMemberProfile,
   GroupRole,
@@ -10,7 +9,7 @@ import type {
   UserStats,
   UserTravelGroup,
 } from '../types';
-import { normalizeCountryId } from '../data/countries';
+import { normalizeCountryCode } from '../data/countries';
 import { addRanges } from '../utils/money';
 import { getUserGroups as getCurrentUserGroups } from './groupsService';
 import { supabase } from './supabaseClient';
@@ -57,13 +56,7 @@ type ExpenseStatsRow = {
   brl_max: number | null;
 };
 
-type CountryRow = {
-  group_id: string;
-  country: string | null;
-};
-
 type VisitedCountryStatsRow = {
-  group_id: string;
   country_code: string | null;
 };
 
@@ -253,9 +246,9 @@ const sumExpenses = (rows: ExpenseStatsRow[], groupId?: string) => {
   };
 };
 
-const addCountry = (countries: Set<CountryId>, country: string | null | undefined) => {
+const addVisitedCountry = (countries: Set<string>, country: string | null | undefined) => {
   const normalizedCountry = country?.trim();
-  if (normalizedCountry) countries.add(normalizeCountryId(normalizedCountry));
+  if (normalizedCountry) countries.add(normalizeCountryCode(normalizedCountry));
 };
 
 export async function getUserStats(userId?: string, activeGroupId?: string | null): Promise<UserStats> {
@@ -266,60 +259,47 @@ export async function getUserStats(userId?: string, activeGroupId?: string | nul
   const groups = await getCurrentUserGroups();
   const groupIds = groups.map((group) => group.id);
 
-  if (!groupIds.length) {
-    return {
-      countriesCount: 0,
-      travelCount: 0,
-      hasActiveTrip: false,
-      totalAllReal: emptyRange(),
-      totalAllEuro: emptyRange(),
-      totalActiveReal: emptyRange(),
-      totalActiveEuro: emptyRange(),
-    };
-  }
-
   const [
     expensesResult,
-    itineraryResult,
-    attractionsResult,
     visitedCountriesResult,
   ] = await Promise.all([
+    groupIds.length
+      ? supabase
+        .from('expenses')
+        .select('group_id, country, euro_min, euro_max, brl_min, brl_max')
+        .in('group_id', groupIds)
+      : Promise.resolve({ data: [] as ExpenseStatsRow[], error: null }),
     supabase
-      .from('expenses')
-      .select('group_id, country, euro_min, euro_max, brl_min, brl_max')
-      .in('group_id', groupIds),
-    supabase
-      .from('itinerary_items')
-      .select('group_id, country')
-      .in('group_id', groupIds)
-      .eq('completed', true),
-    supabase
-      .from('attractions')
-      .select('group_id, country')
-      .in('group_id', groupIds)
-      .eq('visited', true),
-    supabase
-      .from('trip_visited_countries')
-      .select('group_id, country_code')
-      .in('group_id', groupIds)
-      .eq('visited', true),
+      .from('user_visited_countries')
+      .select('country_code')
+      .eq('user_id', resolvedUserId),
   ]);
 
   if (expensesResult.error) throw expensesResult.error;
 
   const expenses = (expensesResult.data ?? []) as ExpenseStatsRow[];
-  const countries = new Set<CountryId>();
+  const countries = new Set<string>();
 
-  for (const row of expenses) addCountry(countries, row.country);
-  if (!itineraryResult.error) {
-    for (const row of (itineraryResult.data ?? []) as CountryRow[]) addCountry(countries, row.country);
-  }
-  if (!attractionsResult.error) {
-    for (const row of (attractionsResult.data ?? []) as CountryRow[]) addCountry(countries, row.country);
-  }
   if (!visitedCountriesResult.error) {
     for (const row of (visitedCountriesResult.data ?? []) as VisitedCountryStatsRow[]) {
-      addCountry(countries, row.country_code);
+      addVisitedCountry(countries, row.country_code);
+    }
+  } else if (groupIds.length) {
+    const message = visitedCountriesResult.error.message ?? '';
+    const canFallbackToLegacy =
+      visitedCountriesResult.error.code === '42P01' ||
+      message.includes('user_visited_countries');
+
+    if (canFallbackToLegacy) {
+      const { data: legacyRows } = await supabase
+        .from('trip_visited_countries')
+        .select('country_code')
+        .in('group_id', groupIds)
+        .eq('visited', true);
+
+      for (const row of (legacyRows ?? []) as VisitedCountryStatsRow[]) {
+        addVisitedCountry(countries, row.country_code);
+      }
     }
   }
 

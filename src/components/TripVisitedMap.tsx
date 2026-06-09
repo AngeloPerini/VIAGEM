@@ -170,12 +170,12 @@ export function TripVisitedMap({
         <div>
           <p className="text-sm font-bold uppercase tracking-[0.16em] text-[#007c68]">Mapa da viagem</p>
           <h2 className="mt-2 text-3xl font-black tracking-tight text-[#0b1326]">
-            {activeGroupName ? 'Países e pontos da viagem ativa' : 'Nenhuma viagem ativa'}
+            {activeGroupName ? 'Países e pontos da viagem ativa' : 'Histórico de países visitados'}
           </h2>
           <p className="mt-3 max-w-3xl text-sm font-semibold leading-6 text-[#667085]">
             {activeGroupName
               ? 'Verde indica país marcado como visitado. Destinos da viagem ficam em cinza até serem marcados.'
-              : 'Crie ou abra uma viagem para visualizar países, cidades e pontos turísticos.'}
+              : 'Verde indica o histórico global do seu perfil. Crie uma viagem para destacar destinos planejados.'}
           </p>
         </div>
         <button
@@ -194,8 +194,7 @@ export function TripVisitedMap({
         </p>
       ) : null}
 
-      {activeGroupName ? (
-        <div className="mt-6 grid gap-5 xl:grid-cols-[minmax(0,1fr)_26rem]">
+      <div className="mt-6 grid gap-5 xl:grid-cols-[minmax(0,1fr)_26rem]">
           <div className="min-w-0">
             <div className="relative h-[20rem] overflow-hidden rounded-xl border border-[#dfe5ee] bg-gradient-to-br from-[#f8fbff] to-[#eef3f8] p-3 shadow-inner sm:h-[24rem] lg:h-[28rem] 2xl:h-[31rem]">
               <div className="absolute left-5 top-5 z-10 grid overflow-hidden rounded-xl border border-[#dfe5ee] bg-white shadow-lg">
@@ -377,16 +376,7 @@ export function TripVisitedMap({
               </div>
             </section>
           </aside>
-        </div>
-      ) : (
-        <div className="mt-6 rounded-xl border border-dashed border-[#cfd6e2] bg-[#f8fafc] p-8 text-center">
-          <Globe2 className="mx-auto h-10 w-10 text-[#007c68]" />
-          <h3 className="mt-4 text-2xl font-black text-[#0b1326]">Nenhuma viagem ativa encontrada.</h3>
-          <p className="mx-auto mt-2 max-w-lg text-sm font-semibold leading-6 text-[#667085]">
-            Crie uma viagem ou entre em um grupo para começar a marcar países visitados.
-          </p>
-        </div>
-      )}
+      </div>
     </section>
   );
 }

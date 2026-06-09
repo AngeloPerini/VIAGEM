@@ -296,6 +296,16 @@ export const countryLabel = (value?: string | null): string => {
   return knownCountryNames[id] ?? (iso3 ? isoCountries.getName(iso3, 'pt') : undefined) ?? titleCase(id);
 };
 
+export const normalizeCountry = (value?: string | number | null) => {
+  const countryCode = normalizeCountryCode(value);
+
+  return {
+    countryCode,
+    countryName: countryLabel(countryCode),
+    countryId: normalizeCountryId(countryCode),
+  };
+};
+
 export const countryShortName = (value?: string | null): string => {
   const id = normalizeCountryId(value);
   return knownCountryShortNames[id] ?? countryLabel(id);

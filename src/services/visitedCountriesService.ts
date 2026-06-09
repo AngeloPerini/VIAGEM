@@ -1,9 +1,22 @@
 import type { RealtimeChannel } from '@supabase/supabase-js';
-import { countryLabel, normalizeCountryCode } from '../data/countries';
+import { countryLabel, normalizeCountry, normalizeCountryCode } from '../data/countries';
 import type { VisitedCountry } from '../types';
 import { supabase } from './supabaseClient';
 
-type VisitedCountryRow = {
+type UserVisitedCountryRow = {
+  id: string;
+  user_id: string;
+  country_code: string;
+  country_name: string;
+  visited_at: string | null;
+  source?: string | null;
+  source_group_id?: string | null;
+  source_trip_id?: string | null;
+  created_at?: string;
+  updated_at?: string;
+};
+
+type LegacyVisitedCountryRow = {
   id: string;
   group_id: string;
   user_id: string;
@@ -15,7 +28,56 @@ type VisitedCountryRow = {
   updated_at?: string;
 };
 
-const toVisitedCountry = (row: VisitedCountryRow): VisitedCountry => {
+export type VisitedCountrySource = {
+  source?: string;
+  sourceGroupId?: string | null;
+  sourceTripId?: string | null;
+};
+
+const USER_VISITED_COUNTRY_SELECT =
+  'id, user_id, country_code, country_name, visited_at, source, source_group_id, source_trip_id, created_at, updated_at';
+
+const LEGACY_VISITED_COUNTRY_SELECT =
+  'id, group_id, user_id, country_code, country_name, visited, visited_at, created_at, updated_at';
+
+const isPersistableCountry = (countryCode: string) => {
+  const normalized = countryCode.trim().toLowerCase();
+  return Boolean(normalized) && normalized !== 'all' && normalized !== 'international';
+};
+
+const normalizeVisitedCountryInput = (countryCode: string, countryName?: string) => {
+  const normalized = normalizeCountry(countryCode || countryName);
+
+  if (!isPersistableCountry(normalized.countryCode)) {
+    throw new Error('Pais invalido para marcar como visitado.');
+  }
+
+  return {
+    countryCode: normalized.countryCode,
+    countryName: countryLabel(normalized.countryCode) || countryName?.trim() || normalized.countryName,
+  };
+};
+
+const toVisitedCountry = (row: UserVisitedCountryRow): VisitedCountry => {
+  const countryCode = normalizeCountryCode(row.country_code);
+
+  return {
+    id: row.id,
+    groupId: row.source_group_id ?? row.source_trip_id ?? '',
+    userId: row.user_id,
+    countryCode,
+    countryName: countryLabel(countryCode) || row.country_name,
+    visited: true,
+    visitedAt: row.visited_at,
+    source: row.source ?? undefined,
+    sourceGroupId: row.source_group_id ?? undefined,
+    sourceTripId: row.source_trip_id ?? undefined,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+};
+
+const toLegacyVisitedCountry = (row: LegacyVisitedCountryRow): VisitedCountry => {
   const countryCode = normalizeCountryCode(row.country_code);
 
   return {
@@ -42,32 +104,153 @@ async function getCurrentUserId() {
   return user.id;
 }
 
-export async function getTripVisitedCountries(groupId: string) {
+const dedupeVisitedCountries = (countries: VisitedCountry[]) => {
+  const byCountry = new Map<string, VisitedCountry>();
+
+  countries
+    .filter((country) => country.visited)
+    .sort((a, b) =>
+      new Date(b.visitedAt ?? b.updatedAt ?? 0).getTime() -
+      new Date(a.visitedAt ?? a.updatedAt ?? 0).getTime(),
+    )
+    .forEach((country) => {
+      const countryCode = normalizeCountryCode(country.countryCode);
+      if (!byCountry.has(countryCode)) {
+        byCountry.set(countryCode, { ...country, countryCode, countryName: countryLabel(countryCode) });
+      }
+    });
+
+  return [...byCountry.values()];
+};
+
+async function getLegacyVisitedCountriesForCurrentUser(userId: string) {
   const { data, error } = await supabase
     .from('trip_visited_countries')
-    .select('id, group_id, user_id, country_code, country_name, visited, visited_at, created_at, updated_at')
-    .eq('group_id', groupId)
-    .order('visited_at', { ascending: false, nullsFirst: false })
-    .order('updated_at', { ascending: false });
-
-  if (error) throw error;
-  return ((data ?? []) as VisitedCountryRow[]).map(toVisitedCountry);
-}
-
-export async function getVisitedCountriesForGroups(groupIds: string[]) {
-  const uniqueGroupIds = Array.from(new Set(groupIds.filter(Boolean)));
-  if (!uniqueGroupIds.length) return [];
-
-  const { data, error } = await supabase
-    .from('trip_visited_countries')
-    .select('id, group_id, user_id, country_code, country_name, visited, visited_at, created_at, updated_at')
-    .in('group_id', uniqueGroupIds)
+    .select(LEGACY_VISITED_COUNTRY_SELECT)
+    .eq('user_id', userId)
     .eq('visited', true)
     .order('visited_at', { ascending: false, nullsFirst: false })
     .order('updated_at', { ascending: false });
 
   if (error) throw error;
-  return ((data ?? []) as VisitedCountryRow[]).map(toVisitedCountry);
+  return dedupeVisitedCountries(((data ?? []) as LegacyVisitedCountryRow[]).map(toLegacyVisitedCountry));
+}
+
+export async function getUserVisitedCountries() {
+  const userId = await getCurrentUserId();
+  const { data, error } = await supabase
+    .from('user_visited_countries')
+    .select(USER_VISITED_COUNTRY_SELECT)
+    .eq('user_id', userId)
+    .order('visited_at', { ascending: false, nullsFirst: false })
+    .order('updated_at', { ascending: false });
+
+  if (!error) {
+    return dedupeVisitedCountries(((data ?? []) as UserVisitedCountryRow[]).map(toVisitedCountry));
+  }
+
+  const message = error.message ?? '';
+  if (error.code === '42P01' || message.includes('user_visited_countries')) {
+    return getLegacyVisitedCountriesForCurrentUser(userId);
+  }
+
+  throw error;
+}
+
+export async function getTripVisitedCountries(groupId: string) {
+  const { data, error } = await supabase
+    .from('trip_visited_countries')
+    .select(LEGACY_VISITED_COUNTRY_SELECT)
+    .eq('group_id', groupId)
+    .order('visited_at', { ascending: false, nullsFirst: false })
+    .order('updated_at', { ascending: false });
+
+  if (error) throw error;
+  return ((data ?? []) as LegacyVisitedCountryRow[]).map(toLegacyVisitedCountry);
+}
+
+export async function getVisitedCountriesForGroups(_groupIds: string[]) {
+  return getUserVisitedCountries();
+}
+
+export async function setUserCountryVisited(
+  countryCode: string,
+  countryName: string,
+  visited: boolean,
+  metadata: VisitedCountrySource = {},
+) {
+  const userId = await getCurrentUserId();
+  const normalizedCountry = normalizeVisitedCountryInput(countryCode, countryName);
+
+  if (!visited) {
+    const { error } = await supabase
+      .from('user_visited_countries')
+      .delete()
+      .eq('user_id', userId)
+      .eq('country_code', normalizedCountry.countryCode);
+
+    if (error) throw error;
+
+    return {
+      id: `removed-${normalizedCountry.countryCode}`,
+      groupId: metadata.sourceGroupId ?? metadata.sourceTripId ?? '',
+      userId,
+      countryCode: normalizedCountry.countryCode,
+      countryName: normalizedCountry.countryName,
+      visited: false,
+      visitedAt: null,
+      updatedAt: new Date().toISOString(),
+    } satisfies VisitedCountry;
+  }
+
+  const { data: existingCountry, error: existingCountryError } = await supabase
+    .from('user_visited_countries')
+    .select(USER_VISITED_COUNTRY_SELECT)
+    .eq('user_id', userId)
+    .eq('country_code', normalizedCountry.countryCode)
+    .maybeSingle();
+
+  if (existingCountryError) throw existingCountryError;
+
+  const now = new Date().toISOString();
+  const sourcePatch = {
+    ...(metadata.source ? { source: metadata.source } : {}),
+    ...(metadata.sourceGroupId ? { source_group_id: metadata.sourceGroupId } : {}),
+    ...(metadata.sourceTripId ? { source_trip_id: metadata.sourceTripId } : {}),
+  };
+
+  if (existingCountry) {
+    const { data, error } = await supabase
+      .from('user_visited_countries')
+      .update({
+        country_name: normalizedCountry.countryName,
+        updated_at: now,
+        ...sourcePatch,
+      })
+      .eq('id', (existingCountry as UserVisitedCountryRow).id)
+      .select(USER_VISITED_COUNTRY_SELECT)
+      .single();
+
+    if (error) throw error;
+    return toVisitedCountry(data as UserVisitedCountryRow);
+  }
+
+  const { data, error } = await supabase
+    .from('user_visited_countries')
+    .insert({
+      user_id: userId,
+      country_code: normalizedCountry.countryCode,
+      country_name: normalizedCountry.countryName,
+      visited_at: now,
+      source: metadata.source ?? 'manual',
+      source_group_id: metadata.sourceGroupId ?? null,
+      source_trip_id: metadata.sourceTripId ?? null,
+    })
+    .select(USER_VISITED_COUNTRY_SELECT)
+    .single();
+
+  if (error) throw error;
+  return toVisitedCountry(data as UserVisitedCountryRow);
 }
 
 export async function setTripCountryVisited(
@@ -76,79 +259,83 @@ export async function setTripCountryVisited(
   countryName: string,
   visited: boolean,
 ) {
-  const userId = await getCurrentUserId();
-  const normalizedCountryCode = normalizeCountryCode(countryCode);
-  const normalizedCountryName = countryName || countryLabel(normalizedCountryCode);
-  const visitedAt = visited ? new Date().toISOString() : null;
+  return setUserCountryVisited(countryCode, countryName, visited, {
+    source: 'manual',
+    sourceGroupId: groupId,
+    sourceTripId: groupId,
+  });
+}
 
+export async function markTripCountriesVisited(
+  groupId: string,
+  countries: string[],
+  source = 'trip_completed',
+) {
+  const userId = await getCurrentUserId();
+  const normalizedCountries = Array.from(
+    countries.reduce<Map<string, { countryCode: string; countryName: string }>>((items, country) => {
+      try {
+        const normalizedCountry = normalizeVisitedCountryInput(country, country);
+        items.set(normalizedCountry.countryCode, normalizedCountry);
+      } catch {
+        // Ignore non-country filters such as "all" or "international".
+      }
+      return items;
+    }, new Map()).values(),
+  );
+
+  if (!normalizedCountries.length) return getUserVisitedCountries();
+
+  const countryCodes = normalizedCountries.map((country) => country.countryCode);
   const { data: existingRows, error: existingRowsError } = await supabase
-    .from('trip_visited_countries')
-    .select('id, group_id, user_id, country_code, country_name, visited, visited_at, created_at, updated_at')
-    .eq('group_id', groupId);
+    .from('user_visited_countries')
+    .select('country_code')
+    .eq('user_id', userId)
+    .in('country_code', countryCodes);
 
   if (existingRowsError) throw existingRowsError;
 
-  const matchingRows = ((existingRows ?? []) as VisitedCountryRow[])
-    .filter((row) =>
-      normalizeCountryCode(row.country_code) === normalizedCountryCode
-      || normalizeCountryCode(row.country_name) === normalizedCountryCode,
-    )
-    .sort((a, b) => {
-      if (a.country_code.trim().toUpperCase() === normalizedCountryCode) return -1;
-      if (b.country_code.trim().toUpperCase() === normalizedCountryCode) return 1;
-      if ((a.visited ?? false) !== (b.visited ?? false)) return a.visited ? -1 : 1;
-      return new Date(b.visited_at ?? b.updated_at ?? 0).getTime() - new Date(a.visited_at ?? a.updated_at ?? 0).getTime();
-    });
+  const existingCodes = new Set(((existingRows ?? []) as Array<{ country_code: string }>).map((row) => row.country_code));
+  const now = new Date().toISOString();
+  const rowsToInsert = normalizedCountries
+    .filter((country) => !existingCodes.has(country.countryCode))
+    .map((country) => ({
+      user_id: userId,
+      country_code: country.countryCode,
+      country_name: country.countryName,
+      visited_at: now,
+      source,
+      source_group_id: groupId,
+      source_trip_id: groupId,
+    }));
 
-  const existingCountry = matchingRows[0];
+  if (rowsToInsert.length) {
+    const { error } = await supabase
+      .from('user_visited_countries')
+      .insert(rowsToInsert);
 
-  if (existingCountry) {
-    const duplicateIds = matchingRows.slice(1).map((row) => row.id);
-    if (duplicateIds.length) {
-      const { error: duplicateUpdateError } = await supabase
-        .from('trip_visited_countries')
-        .update({
-          user_id: userId,
-          visited: false,
-          visited_at: null,
-        })
-        .in('id', duplicateIds);
-
-      if (duplicateUpdateError) throw duplicateUpdateError;
-    }
-
-    const { data: updatedCountry, error: updateError } = await supabase
-      .from('trip_visited_countries')
-      .update({
-        user_id: userId,
-        country_code: normalizedCountryCode,
-        country_name: normalizedCountryName,
-        visited,
-        visited_at: visitedAt,
-      })
-      .eq('id', existingCountry.id)
-      .select('id, group_id, user_id, country_code, country_name, visited, visited_at, created_at, updated_at')
-      .single();
-
-    if (updateError) throw updateError;
-    return toVisitedCountry(updatedCountry as VisitedCountryRow);
+    if (error) throw error;
   }
 
-  const { data: insertedCountry, error: insertError } = await supabase
-    .from('trip_visited_countries')
-    .insert({
-      group_id: groupId,
-      user_id: userId,
-      country_code: normalizedCountryCode,
-      country_name: normalizedCountryName,
-      visited,
-      visited_at: visitedAt,
-    })
-    .select('id, group_id, user_id, country_code, country_name, visited, visited_at, created_at, updated_at')
-    .single();
+  return getUserVisitedCountries();
+}
 
-  if (insertError) throw insertError;
-  return toVisitedCountry(insertedCountry as VisitedCountryRow);
+export function subscribeUserVisitedCountries(userId: string, onChange: () => void): RealtimeChannel {
+  const topic = `user-visited-countries-${userId}`;
+  supabase.getChannels()
+    .filter((channel) => channel.topic === `realtime:${topic}`)
+    .forEach((channel) => {
+      void supabase.removeChannel(channel);
+    });
+
+  return supabase
+    .channel(topic)
+    .on(
+      'postgres_changes',
+      { event: '*', schema: 'public', table: 'user_visited_countries', filter: `user_id=eq.${userId}` },
+      onChange,
+    )
+    .subscribe();
 }
 
 export function subscribeTripVisitedCountries(groupId: string, onChange: () => void): RealtimeChannel {

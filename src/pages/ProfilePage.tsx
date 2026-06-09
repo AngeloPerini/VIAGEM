@@ -37,6 +37,7 @@ import { ExpenseChart } from '../components/ExpenseChart';
 import { TripVisitedMap } from '../components/TripVisitedMap';
 import type { TripMapCountry } from '../components/TripVisitedMap';
 import { countryLabel, normalizeCountryCode, normalizeCountryId } from '../data/countries';
+import { useVisitedCountries } from '../hooks/useVisitedCountries';
 import {
   getCurrentProfile,
   getGroupMembers,
@@ -82,10 +83,8 @@ import {
   getExpenseCategories,
 } from '../services/expenseCategoriesService';
 import {
-  getTripVisitedCountries,
-  getVisitedCountriesForGroups,
-  setTripCountryVisited,
-  subscribeTripVisitedCountries,
+  markTripCountriesVisited,
+  setUserCountryVisited,
 } from '../services/visitedCountriesService';
 import { getExpenses } from '../services/expensesService';
 import { getItineraryItems } from '../services/itineraryService';
@@ -878,8 +877,14 @@ export function ProfilePage() {
   const [tripItineraryItems, setTripItineraryItems] = useState<ItineraryItem[]>([]);
   const [tripAttractions, setTripAttractions] = useState<Attraction[]>([]);
   const [tripInfoWarning, setTripInfoWarning] = useState<string | null>(null);
-  const [visitedCountries, setVisitedCountries] = useState<VisitedCountry[]>([]);
-  const [profileVisitedCountries, setProfileVisitedCountries] = useState<VisitedCountry[]>([]);
+  const {
+    visitedCountries,
+    setVisitedCountries,
+    count: profileVisitedCountriesCount,
+    error: visitedCountriesError,
+    setError: setVisitedCountriesError,
+    refetch: refetchVisitedCountries,
+  } = useVisitedCountries();
   const [visitedCountryWarning, setVisitedCountryWarning] = useState<string | null>(null);
   const [visitedCountryActionId, setVisitedCountryActionId] = useState<string | null>(null);
   const [checklistItems, setChecklistItems] = useState<TripChecklistItem[]>([]);
@@ -1018,15 +1023,6 @@ export function ProfilePage() {
     ? Math.round((tripItineraryItems.filter((item) => item.completed).length / tripItineraryItems.length) * 100)
     : 0;
   const tripPlanningProgress = Math.round((itineraryProgress + checklistProgress + documentsProgress) / 3);
-  const profileVisitedCountriesCount = useMemo(
-    () =>
-      new Set(
-        profileVisitedCountries
-          .filter((country) => country.visited)
-          .map((country) => normalizeCountryCode(country.countryCode)),
-      ).size,
-    [profileVisitedCountries],
-  );
   const profileVisitedCountriesLabel =
     profileVisitedCountriesCount === 1
       ? '1 país visitado'
@@ -1280,48 +1276,9 @@ export function ProfilePage() {
     }
   }, [activeGroupId]);
 
-  const loadVisitedCountries = useCallback(async () => {
-    if (!activeGroupId) {
-      setVisitedCountries([]);
-      setVisitedCountryWarning(null);
-      return;
-    }
-
-    try {
-      const nextVisitedCountries = await getTripVisitedCountries(activeGroupId);
-      setVisitedCountries(nextVisitedCountries);
-      setVisitedCountryWarning(null);
-    } catch (caughtError) {
-      setVisitedCountryWarning(
-        caughtError instanceof Error
-          ? caughtError.message
-          : 'Nao foi possivel carregar os paises visitados.',
-      );
-    }
-  }, [activeGroupId]);
-
-  const loadProfileVisitedCountries = useCallback(async () => {
-    const groupIds = userGroups.map((group) => group.id);
-    if (!groupIds.length) {
-      setProfileVisitedCountries([]);
-      return;
-    }
-
-    try {
-      const nextVisitedCountries = await getVisitedCountriesForGroups(groupIds);
-      setProfileVisitedCountries(nextVisitedCountries);
-    } catch {
-      setProfileVisitedCountries([]);
-    }
-  }, [userGroups]);
-
   useEffect(() => {
     void loadProfile();
   }, [loadProfile]);
-
-  useEffect(() => {
-    void loadProfileVisitedCountries();
-  }, [loadProfileVisitedCountries]);
 
   useEffect(() => {
     setDisplayNameDraft(displayName === 'Viajante' ? '' : displayName);
@@ -1412,23 +1369,6 @@ export function ProfilePage() {
     };
   }, [activeGroupId, loadChecklist]);
 
-  useEffect(() => {
-    if (!activeGroupId) {
-      void loadVisitedCountries();
-      return undefined;
-    }
-
-    void loadVisitedCountries();
-    const channel = subscribeTripVisitedCountries(activeGroupId, () => {
-      void loadVisitedCountries();
-      void loadProfileVisitedCountries();
-    });
-
-    return () => {
-      void supabase.removeChannel(channel);
-    };
-  }, [activeGroupId, loadProfileVisitedCountries, loadVisitedCountries]);
-
   const copyToClipboard = async (value: string, label: string) => {
     await navigator.clipboard.writeText(value);
     setCopied(label);
@@ -1465,7 +1405,7 @@ export function ProfilePage() {
   };
 
   const handleToggleVisitedCountry = async (country: TripMapCountry) => {
-    if (!activeGroupId) return;
+    if (!user?.id) return;
 
     const countryCode = normalizeCountryCode(country.code);
     const currentCountry = visitedCountries.find(
@@ -1475,8 +1415,8 @@ export function ProfilePage() {
 
     const optimisticCountry: VisitedCountry = {
       id: currentCountry?.id ?? `optimistic-${countryCode}`,
-      groupId: activeGroupId,
-      userId: user?.id ?? '',
+      groupId: activeGroupId ?? '',
+      userId: user.id,
       countryCode,
       countryName: country.name,
       visited: nextVisited,
@@ -1486,19 +1426,24 @@ export function ProfilePage() {
 
     setVisitedCountryActionId(countryCode);
     setVisitedCountryWarning(null);
+    setVisitedCountriesError(null);
     setVisitedCountries((current) => {
       const withoutCountry = current.filter((item) => normalizeCountryCode(item.countryCode) !== countryCode);
       return [optimisticCountry, ...withoutCountry];
     });
 
     try {
-      const savedCountry = await setTripCountryVisited(activeGroupId, countryCode, country.name, nextVisited);
+      const savedCountry = await setUserCountryVisited(countryCode, country.name, nextVisited, {
+        source: 'manual',
+        sourceGroupId: activeGroupId ?? null,
+        sourceTripId: activeGroupId ?? null,
+      });
       setVisitedCountries((current) => {
         const withoutCountry = current.filter((item) => normalizeCountryCode(item.countryCode) !== countryCode);
-        return [savedCountry, ...withoutCountry];
+        return savedCountry.visited ? [savedCountry, ...withoutCountry] : withoutCountry;
       });
       setStatus(nextVisited ? 'País marcado como visitado.' : 'País removido dos visitados.');
-      void loadProfileVisitedCountries();
+      void refetchVisitedCountries().catch(() => null);
       window.setTimeout(() => setStatus(null), 2200);
     } catch (caughtError) {
       setVisitedCountryWarning(
@@ -1506,8 +1451,7 @@ export function ProfilePage() {
           ? caughtError.message
           : 'Nao foi possivel atualizar o pais visitado.',
       );
-      void loadVisitedCountries();
-      void loadProfileVisitedCountries();
+      void refetchVisitedCountries().catch(() => null);
     } finally {
       setVisitedCountryActionId(null);
     }
@@ -2034,11 +1978,13 @@ export function ProfilePage() {
 
     try {
       const updatedGroup = await updateTripStatus(group.id, 'completed');
+      await markTripCountriesVisited(group.id, updatedGroup.countries?.length ? updatedGroup.countries : group.countries ?? []);
       setSelectedTrip((current) => current?.id === group.id ? { ...current, status: 'completed' } : current);
       if (activeGroup?.id === group.id) setActiveGroup({ ...group, ...updatedGroup, role: group.role });
+      await refetchVisitedCountries();
       await refreshGroups({ silent: true });
       await loadProfile();
-      setStatus('Viagem marcada como realizada.');
+      setStatus('Viagem finalizada. Países adicionados ao seu mapa de visitados.');
     } catch (caughtError) {
       setError(caughtError instanceof Error ? caughtError.message : 'Nao foi possivel concluir a viagem.');
     } finally {
@@ -2057,6 +2003,10 @@ export function ProfilePage() {
       assertValidDateRange(input.startDate, input.endDate);
       const updatedGroup = await updateTrip(group.id, input);
       const mergedGroup = { ...group, ...updatedGroup, role: group.role };
+      if (input.status === 'completed') {
+        await markTripCountriesVisited(group.id, mergedGroup.countries ?? group.countries ?? []);
+        await refetchVisitedCountries();
+      }
       setSelectedTrip((current) => current?.id === group.id ? mergedGroup : current);
       if (activeGroup?.id === group.id) setActiveGroup(mergedGroup);
       await refreshGroups({ silent: true });
@@ -3458,7 +3408,7 @@ export function ProfilePage() {
               tripCountries={activeGroup?.countries ?? []}
               visitedCountries={visitedCountries}
               actionCountryId={visitedCountryActionId}
-              warning={visitedCountryWarning}
+              warning={visitedCountryWarning ?? visitedCountriesError}
               onToggleCountry={(country) => void handleToggleVisitedCountry(country)}
               onOpenTourism={() => navigateWorkspaceView('attractions')}
               onCreateTrip={() => navigateProfileSection('create-ai')}

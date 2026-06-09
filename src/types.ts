@@ -187,6 +187,9 @@ export type VisitedCountry = {
   countryName: string;
   visited: boolean;
   visitedAt?: string | null;
+  source?: string;
+  sourceGroupId?: string;
+  sourceTripId?: string;
   createdAt?: string;
   updatedAt?: string;
 };
