@@ -1,6 +1,7 @@
 import type { CreateTravelGroupInput, GroupMember, GroupRole, TravelGroup, TripStatus, UserTravelGroup } from '../types';
 import { buildPublicAppUrl } from '../config/appUrl';
 import { parseCountryInput } from '../utils/countryInput';
+import { assertValidDateRange } from '../utils/dateRange';
 import { supabase } from './supabaseClient';
 
 type TravelGroupRow = {
@@ -311,11 +312,12 @@ export async function createGroup(
   input: string | CreateTravelGroupInput,
   description?: string,
 ): Promise<UserTravelGroup> {
-  const userId = await requireUserId();
   const groupInput = normalizeCreateGroupInput(input, description);
   const trimmedName = groupInput.name.trim();
 
   if (!trimmedName) throw new Error('Informe o nome da viagem.');
+  assertValidDateRange(groupInput.startDate, groupInput.endDate);
+  const userId = await requireUserId();
 
   const extendedPayload = {
     name: trimmedName,
@@ -391,6 +393,7 @@ export async function updateTripStatus(groupId: string, status: TripStatus): Pro
 
 export async function updateTrip(groupId: string, input: UpdateTravelGroupInput): Promise<UserTravelGroup> {
   if (input.status && !isTripStatus(input.status)) throw new Error('Status da viagem invalido.');
+  assertValidDateRange(input.startDate, input.endDate);
 
   const { data, error } = await supabase
     .rpc('update_travel_group_details', {

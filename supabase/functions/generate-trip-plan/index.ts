@@ -34,6 +34,7 @@ const corsHeaders = {
 };
 const unlimitedAiTesterEmails = new Set(['r.perini351@gmail.com']);
 const DESCRIPTION_MAX_LENGTH = 2500;
+const INVALID_DATE_RANGE_MESSAGE = 'A data final não pode ser anterior à data inicial.';
 
 class InputValidationError extends Error {
   code: string;
@@ -131,6 +132,7 @@ const normalizeInput = (payload: Record<string, unknown>): TripPlanInput => {
   if (!input.groupId) throw new Error('Informe o grupo da viagem.');
   if (!input.countries.length) throw new Error('Informe pelo menos um pais.');
   if (!input.startDate || !input.endDate) throw new Error('Informe as datas da viagem.');
+  assertValidDateRange(input.startDate, input.endDate);
   if (input.description.length > DESCRIPTION_MAX_LENGTH) {
     throw new InputValidationError(
       'DESCRIPTION_TOO_LONG',
@@ -223,6 +225,9 @@ const countryAliases: Record<string, string> = {
   eua: 'united_states',
   usa: 'united_states',
   united_states: 'united_states',
+  japao: 'japan',
+  japão: 'japan',
+  japan: 'japan',
 };
 
 const defaultCitiesByCountry: Record<string, string[]> = {
@@ -256,8 +261,15 @@ const defaultAttractionsByCountry: Record<string, Array<{ name: string; city: st
   ],
   italy: [
     { name: 'Coliseu', city: 'Roma', description: 'Anfiteatro histórico da Roma Antiga.' },
+    { name: 'Fórum Romano', city: 'Roma', description: 'Sítio arqueológico central da Roma Antiga.' },
+    { name: 'Palatino', city: 'Roma', description: 'Colina histórica ligada à fundação de Roma.' },
     { name: 'Fontana di Trevi', city: 'Roma', description: 'Praça e fonte clássica para visita rápida.' },
-    { name: 'Duomo', city: 'Milão', description: 'Catedral central e mirante urbano.' },
+    { name: 'Pantheon', city: 'Roma', description: 'Templo romano preservado no centro histórico.' },
+    { name: 'Piazza Navona', city: 'Roma', description: 'Praça barroca com fontes e movimento local.' },
+    { name: 'Trastevere', city: 'Roma', description: 'Bairro histórico para jantar e caminhada noturna.' },
+    { name: 'Museus Vaticanos', city: 'Roma', description: 'Museus do Vaticano com a Capela Sistina.' },
+    { name: 'Duomo de Florença', city: 'Florença', description: 'Catedral renascentista e símbolo da cidade.' },
+    { name: 'Duomo de Milão', city: 'Milão', description: 'Catedral central e mirante urbano.' },
   ],
   switzerland: [
     { name: 'Lago de Lucerna', city: 'Lucerna', description: 'Passeio cênico junto ao lago.' },
@@ -266,7 +278,15 @@ const defaultAttractionsByCountry: Record<string, Array<{ name: string; city: st
   ],
   japan: [
     { name: 'Templo Senso-ji', city: 'Tóquio', description: 'Templo histórico em Asakusa.' },
+    { name: 'Shibuya Crossing', city: 'Tóquio', description: 'Cruzamento icônico para caminhar e fotografar.' },
+    { name: 'Tokyo Skytree', city: 'Tóquio', description: 'Torre panorâmica com vista ampla da cidade.' },
+    { name: 'Meiji Jingu', city: 'Tóquio', description: 'Santuário xintoísta em área arborizada de Harajuku.' },
+    { name: 'Ueno Park', city: 'Tóquio', description: 'Parque com museus, lago e áreas de caminhada.' },
+    { name: 'Akihabara', city: 'Tóquio', description: 'Bairro de eletrônicos, cultura pop e lojas temáticas.' },
+    { name: 'Tsukiji Outer Market', city: 'Tóquio', description: 'Mercado gastronômico para cafés, frutos do mar e snacks.' },
+    { name: 'teamLab Planets', city: 'Tóquio', description: 'Experiência imersiva de arte digital em Toyosu.' },
     { name: 'Fushimi Inari', city: 'Kyoto', description: 'Santuário famoso pelos portais vermelhos.' },
+    { name: 'Kiyomizu-dera', city: 'Kyoto', description: 'Templo com varanda de madeira e vista da cidade.' },
     { name: 'Dotonbori', city: 'Osaka', description: 'Bairro turístico para noite e gastronomia.' },
   ],
   united_states: [
@@ -396,8 +416,40 @@ const parseDateOnly = (value: string) => {
   const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
   if (!match) return null;
 
-  const date = new Date(Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3])));
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  if (
+    date.getUTCFullYear() !== year ||
+    date.getUTCMonth() !== month - 1 ||
+    date.getUTCDate() !== day
+  ) {
+    return null;
+  }
+
   return Number.isNaN(date.getTime()) ? null : date;
+};
+
+const assertValidDateRange = (startDate: string, endDate: string) => {
+  const start = parseDateOnly(startDate);
+  const end = parseDateOnly(endDate);
+
+  if (!start || !end) {
+    throw new InputValidationError('INVALID_INPUT', 'Informe datas válidas no formato YYYY-MM-DD.');
+  }
+
+  if (end < start) {
+    throw new InputValidationError('INVALID_DATE_RANGE', INVALID_DATE_RANGE_MESSAGE);
+  }
+};
+
+const isDateWithinTripRange = (dateValue: string, input: TripPlanInput) => {
+  const date = parseDateOnly(dateValue);
+  const start = parseDateOnly(input.startDate);
+  const end = parseDateOnly(input.endDate);
+
+  return Boolean(date && start && end && date >= start && date <= end);
 };
 
 const addDays = (date: Date, days: number) =>
@@ -489,19 +541,89 @@ const sanitizeCityForCountry = (city: unknown, country: string, dayNumber = 1) =
   return rawCity;
 };
 
+const getDefaultAttractionSeed = (country: string, dayNumber = 1, offset = 0) => {
+  const seeds = defaultAttractionsByCountry[countryKey(country)] ?? [];
+  if (!seeds.length) return null;
+
+  return seeds[(Math.max(1, dayNumber) - 1 + offset) % seeds.length];
+};
+
+type SupplementalSlot = {
+  time: string;
+  type: string;
+  title: (country: string, city: string, dayNumber: number) => string;
+  description: (country: string, city: string, dayNumber: number) => string;
+};
+
 const supplementalSlots = [
-  { time: '08h30', title: 'Café e planejamento do dia', type: 'alimentacao', description: 'Comece com uma refeição leve e revise deslocamentos do dia.' },
-  { time: '09h30', title: 'Ponto turístico principal', type: 'passeio', description: 'Visite a atração mais importante da região escolhida.' },
-  { time: '12h30', title: 'Almoço próximo', type: 'alimentacao', description: 'Pausa para almoço em área próxima ao roteiro da manhã.' },
-  { time: '14h30', title: 'Caminhada por bairro turístico', type: 'passeio', description: 'Agrupe atrações próximas e evite deslocamentos longos.' },
-  { time: '18h00', title: 'Retorno ao hotel e descanso', type: 'descanso', description: 'Tempo para banho, descanso e organização da noite.' },
-  { time: '20h00', title: 'Jantar ou noite livre', type: 'alimentacao', description: 'Jantar em região central ou passeio leve noturno.' },
-];
+  {
+    time: '08h30',
+    type: 'alimentacao',
+    title: (_country, city) => `Café e planejamento em ${city}`,
+    description: (_country, city) => `Comece perto de ${city} e revise reservas e deslocamentos do dia.`,
+  },
+  {
+    time: '09h30',
+    type: 'passeio',
+    title: (country, city, dayNumber) => {
+      const seed = getDefaultAttractionSeed(country, dayNumber, 0);
+      return seed ? `Visita a ${seed.name}` : `Caminhada pelo centro histórico de ${city}`;
+    },
+    description: (country, city, dayNumber) => getDefaultAttractionSeed(country, dayNumber, 0)?.description ??
+      `Explore uma área central real de ${city}, ajustando conforme reservas e deslocamento.`,
+  },
+  {
+    time: '12h30',
+    type: 'alimentacao',
+    title: (_country, city) => `Almoço em ${city}`,
+    description: (_country, city) => `Pausa para refeição perto do roteiro da manhã em ${city}.`,
+  },
+  {
+    time: '14h30',
+    type: 'passeio',
+    title: (country, city, dayNumber) => {
+      const seed = getDefaultAttractionSeed(country, dayNumber, 1);
+      return seed ? `Passeio por ${seed.name}` : `Passeio por bairro central de ${city}`;
+    },
+    description: (country, city, dayNumber) => getDefaultAttractionSeed(country, dayNumber, 1)?.description ??
+      `Agrupe pontos próximos em ${city} para evitar deslocamentos longos.`,
+  },
+  {
+    time: '18h00',
+    type: 'descanso',
+    title: (_country, city) => `Descanso antes da noite em ${city}`,
+    description: (_country, city) => `Tempo para banho, pausa e organização antes do jantar em ${city}.`,
+  },
+  {
+    time: '20h00',
+    type: 'alimentacao',
+    title: (_country, city) => `Jantar em ${city}`,
+    description: (_country, city) => `Escolha uma região movimentada e segura de ${city} para fechar o dia.`,
+  },
+] satisfies SupplementalSlot[];
 
 const compactLongTripSlots = [
-  { time: '09h00', title: 'Manhã na cidade-base', type: 'passeio', description: 'Explore a área principal com ritmo realista.' },
-  { time: '15h00', title: 'Tarde com atração próxima', type: 'passeio', description: 'Complete o dia com bairro, parque ou museu próximo.' },
-];
+  {
+    time: '09h00',
+    type: 'passeio',
+    title: (country: string, city: string, dayNumber: number) => {
+      const seed = getDefaultAttractionSeed(country, dayNumber, 0);
+      return seed ? `Manhã em ${seed.name}` : `Manhã em ${city}`;
+    },
+    description: (country: string, city: string, dayNumber: number) => getDefaultAttractionSeed(country, dayNumber, 0)?.description ??
+      `Explore ${city} com ritmo realista e pausas curtas.`,
+  },
+  {
+    time: '15h00',
+    type: 'passeio',
+    title: (country: string, city: string, dayNumber: number) => {
+      const seed = getDefaultAttractionSeed(country, dayNumber, 1);
+      return seed ? `Tarde em ${seed.name}` : `Tarde em ${city}`;
+    },
+    description: (country: string, city: string, dayNumber: number) => getDefaultAttractionSeed(country, dayNumber, 1)?.description ??
+      `Complete o dia com pontos próximos em ${city}.`,
+  },
+] satisfies SupplementalSlot[];
 
 const completeItineraryItems = (items: Record<string, unknown>[], input: TripPlanInput) => {
   const tripDays = getTripDayCount(input);
@@ -538,8 +660,8 @@ const completeItineraryItems = (items: Record<string, unknown>[], input: TripPla
         time: slot.time,
         country: dayCountry,
         city,
-        title: slot.title,
-        description: slot.description,
+        title: slot.title(dayCountry, city, dayNumber),
+        description: slot.description(dayCountry, city, dayNumber),
         type: slot.type,
         order_index: currentItems.length,
         links: [],
@@ -661,6 +783,66 @@ const isUnavoidableSingleItemDay = (item: Record<string, unknown>) => {
   return isTransportHeavy && hasLongSignal;
 };
 
+const genericPlaceholderPatterns = [
+  /ponto\s+turistico\s+principal/,
+  /ponto\s+turistico$/,
+  /atracao\s+principal/,
+  /atracao\s+local/,
+  /atividade\s+cultural/,
+  /atividade\s+sugerida/,
+  /cidade\s+escolhida/,
+  /regiao\s+escolhida/,
+  /local\s+importante/,
+  /local\s+famoso\s+da\s+cidade/,
+  /visite\s+a\s+regiao\s+escolhida/,
+  /regiao\s+principal/,
+  /bairro\s+turistico$/,
+];
+
+const hasGenericPlaceholder = (...values: unknown[]) => {
+  const text = stripDiacritics(values.map((value) => asText(value)).filter(Boolean).join(' '));
+  return Boolean(text) && genericPlaceholderPatterns.some((pattern) => pattern.test(text));
+};
+
+const usesInternationalAsCity = (value: unknown) => {
+  const key = normalizeKey(value);
+  return key === 'international' || key === 'internacional';
+};
+
+const findGenericContentIssues = (plan: Record<string, unknown>) => {
+  const issues: string[] = [];
+
+  asRecords(plan.itinerary_items).forEach((item, index) => {
+    if (hasGenericPlaceholder(item.title) || hasGenericPlaceholder(item.description) || hasGenericPlaceholder(item.city)) {
+      issues.push(`itinerary_items[${index}] generico`);
+    }
+    if (usesInternationalAsCity(item.city)) {
+      issues.push(`itinerary_items[${index}] usa international como city`);
+    }
+  });
+
+  asRecords(plan.attractions).forEach((attraction, index) => {
+    if (
+      hasGenericPlaceholder(attraction.name ?? attraction.title) ||
+      hasGenericPlaceholder(attraction.description) ||
+      hasGenericPlaceholder(attraction.city)
+    ) {
+      issues.push(`attractions[${index}] generica`);
+    }
+    if (usesInternationalAsCity(attraction.city)) {
+      issues.push(`attractions[${index}] usa international como city`);
+    }
+  });
+
+  asRecords(plan.routes).forEach((route, index) => {
+    if (usesInternationalAsCity(route.from) || usesInternationalAsCity(route.to)) {
+      issues.push(`routes[${index}] usa international como origem/destino generico`);
+    }
+  });
+
+  return issues;
+};
+
 const blockedAttractionKeywords = [
   'aeroporto',
   'airport',
@@ -743,13 +925,7 @@ const createFallbackAttractions = (input: TripPlanInput, itineraryItems: Record<
   });
 
   return input.countries.flatMap((country) => {
-    const seeds = defaultAttractionsByCountry[countryKey(country)] ?? [
-      {
-        name: `Centro turístico de ${country}`,
-        city: getDefaultCityForCountry(country),
-        description: 'Área principal para caminhada, refeições e reconhecimento local.',
-      },
-    ];
+    const seeds = defaultAttractionsByCountry[countryKey(country)] ?? [];
 
     return seeds.slice(0, 3).map((seed, index) => ({
       ...seed,
@@ -794,7 +970,9 @@ const ensurePlanShape = (value: unknown, input: TripPlanInput) => {
       .map((item, index) => {
         const inferredDay = Math.min(tripDays, Math.floor(index / 6) + 1);
         const dayNumber = Math.min(tripDays, getDayNumberFromItem(item) ?? inferredDay);
-        const date = asText(item.date) || getDateForDay(input, dayNumber);
+        const expectedDate = getDateForDay(input, dayNumber);
+        const rawDate = asText(item.date);
+        const date = rawDate && isDateWithinTripRange(rawDate, input) ? rawDate : expectedDate;
         const rawDay = asText(item.day, `Dia ${dayNumber}`);
         const day = date && !rawDay.includes(date) ? `${rawDay} - ${date}` : rawDay;
         const normalizedItem = {
@@ -1148,6 +1326,11 @@ const validateRawPlanSchema = (value: unknown) => {
     reasons.push(`attractions[${invalidAttractionIndex}] sem name/country/city`);
   }
 
+  const genericIssues = findGenericContentIssues(plan);
+  if (genericIssues.length) {
+    reasons.push(`conteudo generico proibido: ${genericIssues.slice(0, 6).join(', ')}`);
+  }
+
   return {
     ok: reasons.length === 0,
     reasons,
@@ -1166,6 +1349,11 @@ const validatePlanQuality = (plan: ReturnType<typeof ensurePlanShape>, input: Tr
 
   if (invalidCountries.length) {
     reasons.push(`paises fora da viagem: ${invalidCountries.join(', ')}`);
+  }
+
+  const genericIssues = findGenericContentIssues(plan);
+  if (genericIssues.length) {
+    reasons.push(`conteudo generico proibido: ${genericIssues.slice(0, 8).join(', ')}`);
   }
 
   const itemsByDay = new Map<number, Record<string, unknown>[]>();
@@ -1245,6 +1433,21 @@ const buildPrompt = (input: TripPlanInput, qualityFeedback?: string) => {
   const targetItems = isLongTrip
     ? Math.min(idealRange.max, Math.max(minimumItems, Math.ceil(tripDays * 1.5)))
     : Math.min(idealRange.max, Math.max(minimumItems, tripDays * 4));
+  const destinationHints = input.countries
+    .map((country) => {
+      const key = countryKey(country);
+      const cities = defaultCitiesByCountry[key] ?? [];
+      const attractions = defaultAttractionsByCountry[key] ?? [];
+      const hintParts = [
+        cities.length ? `cidades reais sugeridas: ${cities.join(', ')}` : '',
+        attractions.length
+          ? `atracoes reais conhecidas: ${attractions.map((attraction) => `${attraction.name} (${attraction.city})`).join(', ')}`
+          : '',
+      ].filter(Boolean);
+
+      return hintParts.length ? `- ${country}: ${hintParts.join('; ')}` : `- ${country}: use cidades e atracoes reais verificaveis.`;
+    })
+    .join('\n');
 
   return `
 Voce e um planejador de viagens. Responda SOMENTE JSON valido, sem markdown, sem comentario e sem texto fora do objeto.
@@ -1260,6 +1463,11 @@ Viagem:
 - Estilo: ${input.style}
 - Descricao da viagem: ${input.description || 'Nao informada'}
 
+Destinos e referencias reais:
+${destinationHints}
+- Se o usuario informou apenas pais, escolha cidades reais e populares desse pais; nunca use "Internacional" como cidade.
+- Se a descricao mencionar uma cidade especifica, priorize essa cidade e atracoes reais dela.
+
 Qualidade obrigatoria:
 - Gere entre ${minimumItems} e ${targetItems} itinerary_items, distribuidos pelos ${tripDays} dias.
 - ${isLongTrip ? 'Viagem longa: use roteiro compacto com 1 a 3 blocos por dia; cada bloco pode resumir meio-dia ou uma cidade-base, e os dias principais podem ter mais detalhes.' : 'Cada dia completo deve ter manha, almoco, tarde e noite.'}
@@ -1268,6 +1476,11 @@ Qualidade obrigatoria:
 - Agrupe atracoes proximas no mesmo dia e evite zigue-zague.
 - ${isLongTrip ? 'Em viagem longa, nenhum dia pode ficar sem item; use itens resumidos por periodo quando necessario.' : 'Dias completos devem ter entre 4 e 8 blocos quando possivel.'}
 - Nao ultrapasse ${targetItems} itinerary_items; para viagem longa, mantenha descricoes objetivas para evitar resposta gigante.
+- Use nomes reais de pontos turisticos, bairros, museus, parques, pracinhas, estacoes ou aeroportos quando forem relevantes.
+- O titulo de cada itinerary_item deve ser especifico: "Visita ao Senso-ji", "Coliseu e Forum Romano", "Shibuya Crossing", "Pantheon", "Chegada ao aeroporto de Haneda".
+- Se nao souber atracoes reais suficientes para o destino, gere menos itens, mas nunca use placeholders genericos.
+- Nunca use como titulo, cidade, atracao, rota ou descricao: "Ponto turistico principal", "atracao principal", "cidade escolhida", "regiao escolhida", "local importante", "atividade cultural", "atividade sugerida", "local famoso da cidade", "Visite a regiao escolhida".
+- Nunca use "international" ou "Internacional" como city. Para voo internacional, use city real de chegada ou deixe city como aeroporto/cidade real.
 
 Ritmo:
 - economica: transporte publico e atracoes baratas/gratuitas.
@@ -1280,10 +1493,10 @@ Categorias de despesas: Hospedagem, Transporte, Passeios, Alimentacao, Comprinha
 
 Despesas: gere 6 a 10 gastos aproximados compativeis com roteiro. Use currency e amount na moeda local correta: Inglaterra/Reino Unido GBP, Suica CHF, Japao JPY, Estados Unidos USD, Zona Euro EUR, Brasil BRL. Se houver duvida, use EUR para zona do euro e BRL apenas para Brasil.
 Attractions: inclua apenas atracoes reais do roteiro: museus, pracas, mirantes, parques, bairros turisticos e experiencias. Nao inclua hotel, aeroporto, metro, refeicoes ou deslocamentos.
-Routes: inclua rotas uteis entre cidades-base/aeroportos/estacoes ou trechos de estrada.
-Validacao final: remova duplicados, remova Brasil/paises fora dos allowedCountries, converta voo de origem Brasil para "international" e complete dias fracos.
+Routes: inclua rotas uteis entre cidades-base/aeroportos/estacoes ou trechos de estrada. Exemplos bons: "Aeroporto de Haneda -> Shinjuku", "Tokyo -> Kyoto", "Roma -> Florenca", "Florenca -> Veneza". Nunca retorne "international -> Tokyo"; use "Chegada ao aeroporto" ou uma origem real.
+Validacao final: remova duplicados, remova Brasil/paises fora dos allowedCountries, converta apenas country de voo de origem Brasil para "international", complete dias fracos e remova qualquer placeholder generico.
 
-${qualityFeedback ? `A geracao anterior foi rejeitada por qualidade: ${qualityFeedback}. Refaça corrigindo esses pontos, com mais blocos por dia e sem paises fora da viagem.` : ''}
+${qualityFeedback ? `A geracao anterior foi rejeitada por qualidade: ${qualityFeedback}. Refaça corrigindo esses pontos, com nomes reais, cidades reais, rotas legiveis e sem placeholders genericos.` : ''}
 
 Retorne exatamente este objeto:
 {
@@ -1998,16 +2211,22 @@ Deno.serve(async (req) => {
     }
 
     if (error instanceof AiQualityError) {
+      const hasGenericContent = error.reasons.some((reason) => stripDiacritics(reason).includes('generico'));
+      const errorCode = hasGenericContent ? 'AI_QUALITY_FAILED' : 'VALIDATION_FAILED';
+      const responseMessage = hasGenericContent
+        ? 'A prévia gerada ficou genérica demais. Tente informar cidades ou mais detalhes da viagem.'
+        : message;
+
       logAiEvent('warn', 'quality_failed', {
         group_id: input.groupId,
         user_id: user.id,
-        error_code: 'VALIDATION_FAILED',
+        error_code: errorCode,
         reasons: error.reasons,
       });
 
       return errorResponse(
-        'VALIDATION_FAILED',
-        message,
+        errorCode,
+        responseMessage,
         422,
         { reasons: error.reasons },
       );

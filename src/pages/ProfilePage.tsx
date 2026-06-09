@@ -121,6 +121,7 @@ import {
   formatRange,
 } from '../utils/money';
 import { parseCountryInput } from '../utils/countryInput';
+import { INVALID_DATE_RANGE_MESSAGE, assertValidDateRange, isDateRangeInvalid } from '../utils/dateRange';
 import { inferExpenseCategoryIconId } from '../utils/expenseCategoryIcons';
 
 const emptyStats: UserStats = {
@@ -535,6 +536,7 @@ function TripDetailsModal({
     travelStyle: group.travelStyle ?? 'intermediaria',
     status,
   });
+  const isDraftDateRangeInvalid = isDateRangeInvalid(draft.startDate, draft.endDate);
 
   useEffect(() => {
     setIsEditing(false);
@@ -552,9 +554,12 @@ function TripDetailsModal({
 
   const handleEditSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (isDraftDateRangeInvalid) return;
+
     setIsSaving(true);
 
     try {
+      assertValidDateRange(draft.startDate, draft.endDate);
       await onUpdate(group, {
         name: draft.name,
         description: draft.description,
@@ -661,8 +666,14 @@ function TripDetailsModal({
                 <input
                   type="date"
                   value={draft.endDate}
+                  min={draft.startDate || undefined}
+                  aria-invalid={isDraftDateRangeInvalid}
                   onChange={(event) => setDraft((current) => ({ ...current, endDate: event.target.value }))}
-                  className="h-11 w-full rounded-2xl border border-slate-200 px-4 font-semibold outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-100"
+                  className={`h-11 w-full rounded-2xl border px-4 font-semibold outline-none focus:ring-4 ${
+                    isDraftDateRangeInvalid
+                      ? 'border-rose-300 focus:border-rose-400 focus:ring-rose-100'
+                      : 'border-slate-200 focus:border-teal-400 focus:ring-teal-100'
+                  }`}
                 />
               </label>
               <label className="block">
@@ -691,10 +702,15 @@ function TripDetailsModal({
                 </select>
               </label>
             </div>
+            {isDraftDateRangeInvalid ? (
+              <p className="rounded-2xl bg-rose-50 px-4 py-3 text-sm font-bold text-rose-700">
+                {INVALID_DATE_RANGE_MESSAGE}
+              </p>
+            ) : null}
             <div className="grid gap-2 sm:grid-cols-2">
               <button
                 type="submit"
-                disabled={isSaving}
+                disabled={isSaving || isDraftDateRangeInvalid}
                 className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl bg-slate-950 px-4 text-sm font-black text-white transition hover:bg-teal-700 disabled:opacity-60"
               >
                 {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
@@ -1042,6 +1058,8 @@ export function ProfilePage() {
   const shouldShowCreateTripForm = !activeGroup || showCreateTripForm;
   const parsedTripCountries = () => parseCountryInput(tripCountries);
   const isTripDescriptionTooLong = tripDescription.length > TRIP_DESCRIPTION_MAX_LENGTH;
+  const isTripDateRangeInvalid = isDateRangeInvalid(tripStartDate, tripEndDate);
+  const isActiveTripDateRangeInvalid = isDateRangeInvalid(activeGroup?.startDate, activeGroup?.endDate);
 
   const validateDescriptionLength = (description: string) => {
     if (description.length > TRIP_DESCRIPTION_MAX_LENGTH) {
@@ -1080,6 +1098,7 @@ export function ProfilePage() {
         TIMEOUT: caughtError.message || 'A OpenAI demorou demais para responder. Tente gerar novamente.',
         FORBIDDEN: 'Você não participa desta viagem ou o group_id não pertence ao seu usuário.',
         AI_GENERATION_FAILED: caughtError.message || 'A IA não concluiu a prévia. Tente gerar novamente.',
+        INVALID_DATE_RANGE: INVALID_DATE_RANGE_MESSAGE,
       };
       const details = [
         caughtError.code,
@@ -1094,6 +1113,7 @@ export function ProfilePage() {
   };
 
   const openAIReview = async (input: TripAIInput, group: UserTravelGroup) => {
+    assertValidDateRange(input.startDate, input.endDate);
     setActiveGroup(group);
     const plan = await generateTripPlan(input);
     setAiFailedGroup(null);
@@ -1670,6 +1690,7 @@ export function ProfilePage() {
 
     try {
       validateDescriptionLength(tripDescription);
+      assertValidDateRange(tripStartDate, tripEndDate);
       const countries = parsedTripCountries();
 
       const group = await createGroup({
@@ -1705,6 +1726,7 @@ export function ProfilePage() {
         : [];
       if (!countries.length) throw new Error(t('ai.missingCountries'));
       if (!activeGroup.startDate || !activeGroup.endDate) throw new Error(t('ai.missingDates'));
+      assertValidDateRange(activeGroup.startDate, activeGroup.endDate);
       const input: TripAIInput = {
         tripName: activeGroup.name,
         countries,
@@ -1747,6 +1769,7 @@ export function ProfilePage() {
     setIsGeneratingAI(true);
 
     try {
+      assertValidDateRange(aiRetryInput.startDate, aiRetryInput.endDate);
       await openAIReview(aiRetryInput, aiFailedGroup);
     } catch (caughtError) {
       console.error('Falha ao tentar gerar novamente a previa com IA', {
@@ -1960,6 +1983,7 @@ export function ProfilePage() {
     setStatus(null);
 
     try {
+      assertValidDateRange(input.startDate, input.endDate);
       const updatedGroup = await updateTrip(group.id, input);
       const mergedGroup = { ...group, ...updatedGroup, role: group.role };
       setSelectedTrip((current) => current?.id === group.id ? mergedGroup : current);
@@ -2172,8 +2196,14 @@ export function ProfilePage() {
             <input
               type="date"
               value={tripEndDate}
+              min={tripStartDate || undefined}
+              aria-invalid={isTripDateRangeInvalid}
               onChange={(event) => setTripEndDate(event.target.value)}
-              className="h-12 w-full rounded-2xl border border-slate-200 px-4 font-semibold outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-100"
+              className={`h-12 w-full rounded-2xl border px-4 font-semibold outline-none focus:ring-4 ${
+                isTripDateRangeInvalid
+                  ? 'border-rose-300 focus:border-rose-400 focus:ring-rose-100'
+                  : 'border-slate-200 focus:border-teal-400 focus:ring-teal-100'
+              }`}
             />
           </label>
           <label className="block">
@@ -2189,9 +2219,14 @@ export function ProfilePage() {
             </select>
           </label>
         </div>
+        {isTripDateRangeInvalid ? (
+          <p className="rounded-2xl bg-rose-50 px-4 py-3 text-sm font-bold text-rose-700">
+            {INVALID_DATE_RANGE_MESSAGE}
+          </p>
+        ) : null}
         <button
           type="submit"
-          disabled={isCreatingTrip || isTripDescriptionTooLong}
+          disabled={isCreatingTrip || isTripDescriptionTooLong || isTripDateRangeInvalid}
           className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-slate-950 px-5 font-black text-white transition hover:bg-teal-700 disabled:cursor-not-allowed disabled:opacity-70"
         >
           <Plus className="h-5 w-5" />
@@ -2269,14 +2304,14 @@ export function ProfilePage() {
             <button
               type="button"
               onClick={() => void handleGenerateActiveTripPreview()}
-              disabled={isGeneratingAI || aiGenerationBlocked}
+              disabled={isGeneratingAI || aiGenerationBlocked || isActiveTripDateRangeInvalid}
               className="mt-4 inline-flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-teal-700 px-5 font-black text-white transition hover:bg-teal-800 disabled:cursor-not-allowed disabled:opacity-70 sm:w-auto"
             >
               {isGeneratingAI ? <Loader2 className="h-5 w-5 animate-spin" /> : <Sparkles className="h-5 w-5" />}
               {isGeneratingAI ? t('profile.generatingAI') : t('profile.generateAI')}
             </button>
             <p className="mt-3 rounded-2xl bg-white px-4 py-3 text-sm font-bold text-slate-600">
-              {aiUsageLabel}
+              {isActiveTripDateRangeInvalid ? INVALID_DATE_RANGE_MESSAGE : aiUsageLabel}
             </p>
           </div>
           <button
@@ -3288,7 +3323,7 @@ export function ProfilePage() {
                       <button
                         type="button"
                         onClick={() => void handleRetryAI()}
-                        disabled={isGeneratingAI || aiGenerationBlocked}
+                        disabled={isGeneratingAI || aiGenerationBlocked || isDateRangeInvalid(aiRetryInput.startDate, aiRetryInput.endDate)}
                         className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl bg-teal-700 px-5 font-black text-white transition hover:bg-teal-800 disabled:cursor-not-allowed disabled:opacity-70"
                       >
                         {isGeneratingAI ? <Loader2 className="h-5 w-5 animate-spin" /> : <Sparkles className="h-5 w-5" />}

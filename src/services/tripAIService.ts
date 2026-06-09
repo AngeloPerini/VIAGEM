@@ -14,6 +14,7 @@ import type {
   TravelCurrencyCode,
 } from '../types';
 import { normalizeCountryId } from '../data/countries';
+import { assertValidDateRange } from '../utils/dateRange';
 import { normalizeLinks } from '../utils/links';
 import { supabase } from './supabaseClient';
 
@@ -175,6 +176,25 @@ const normalizeRoute = (value: unknown): TripAIRoute => {
     estimatedCost: asString(record.estimatedCost || record.estimated_cost || record.cost || record.value),
     notes: asString(record.notes),
   };
+};
+
+const genericPlaceholderPatterns = [
+  /ponto\s+tur[ií]stico\s+principal/i,
+  /ponto\s+tur[ií]stico$/i,
+  /atra[cç][aã]o\s+principal/i,
+  /atra[cç][aã]o\s+local/i,
+  /atividade\s+cultural/i,
+  /atividade\s+sugerida/i,
+  /cidade\s+escolhida/i,
+  /regi[aã]o\s+escolhida/i,
+  /local\s+importante/i,
+  /local\s+famoso\s+da\s+cidade/i,
+  /visite\s+a\s+regi[aã]o\s+escolhida/i,
+];
+
+const isGenericPlaceholderText = (value: unknown) => {
+  const text = asString(value);
+  return Boolean(text) && genericPlaceholderPatterns.some((pattern) => pattern.test(text));
 };
 
 const normalizeItineraryItem = (value: unknown): ItineraryItem => {
@@ -370,6 +390,38 @@ export const normalizeTripAIPlan = (value: unknown): TripAIPlan => {
   };
 };
 
+const findTripAIQualityIssues = (plan: TripAIPlan) => {
+  const issues = new Set<string>();
+
+  plan.itinerary_items.forEach((item) => {
+    if (isGenericPlaceholderText(item.title) || isGenericPlaceholderText(item.description) || isGenericPlaceholderText(item.city)) {
+      issues.add('roteiro contém títulos ou descrições genéricas');
+    }
+    if (normalizeKeyPart(item.city) === 'international') {
+      issues.add('roteiro usa international como cidade');
+    }
+  });
+
+  plan.attractions.forEach((attraction) => {
+    if (isGenericPlaceholderText(attraction.name) || isGenericPlaceholderText(attraction.description) || isGenericPlaceholderText(attraction.city)) {
+      issues.add('pontos turísticos genéricos');
+    }
+    if (normalizeKeyPart(attraction.city) === 'international') {
+      issues.add('ponto turístico usa international como cidade');
+    }
+  });
+
+  plan.routes.forEach((route) => {
+    const from = normalizeKeyPart(route.from);
+    const to = normalizeKeyPart(route.to);
+    if ((from === 'international' || from === 'internacional') && to) {
+      issues.add('rota usa international como origem genérica');
+    }
+  });
+
+  return [...issues];
+};
+
 const parseFunctionError = async (error: unknown) => {
   const context = (error as { context?: Response })?.context;
   if (context) {
@@ -403,6 +455,8 @@ const parseFunctionError = async (error: unknown) => {
 };
 
 export async function generateTripPlan(input: TripAIInput): Promise<TripAIPlan> {
+  assertValidDateRange(input.startDate, input.endDate);
+
   const { data, error } = await supabase.functions.invoke('generate-trip-plan', {
     body: input,
   });
@@ -441,7 +495,20 @@ export async function generateTripPlan(input: TripAIInput): Promise<TripAIPlan> 
     });
   }
 
-  return normalizeTripAIPlan(data);
+  const plan = normalizeTripAIPlan(data);
+  const qualityIssues = findTripAIQualityIssues(plan);
+  if (qualityIssues.length) {
+    throw new TripAIFunctionError(
+      'A prévia gerada ficou genérica demais. Tente informar cidades ou mais detalhes da viagem.',
+      {
+        status: 422,
+        code: 'AI_QUALITY_FAILED',
+        body: { issues: qualityIssues },
+      },
+    );
+  }
+
+  return plan;
 }
 
 async function requireCurrentUserId() {
@@ -516,6 +583,19 @@ export async function updateTripGenerationFeedback(
 }
 
 export async function applyTripPlan(review: TripAIReviewState, plan: TripAIPlan, feedback?: string) {
+  assertValidDateRange(review.input.startDate, review.input.endDate);
+  const qualityIssues = findTripAIQualityIssues(plan);
+  if (qualityIssues.length) {
+    throw new TripAIFunctionError(
+      'A prévia gerada ficou genérica demais. Tente informar cidades ou mais detalhes da viagem.',
+      {
+        status: 422,
+        code: 'AI_QUALITY_FAILED',
+        body: { issues: qualityIssues },
+      },
+    );
+  }
+
   const userId = await requireCurrentUserId();
   const { groupId } = review.input;
   const scopedPlan = scopePlanToAllowedCountries(plan, review.input.countries);
