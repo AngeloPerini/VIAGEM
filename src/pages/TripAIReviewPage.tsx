@@ -61,6 +61,24 @@ const navigateTo = (path: string) => {
   window.dispatchEvent(new PopStateEvent('popstate'));
 };
 
+export const TRIP_AI_APPLY_NOTICE_KEY = 'tripflow-ai-apply-notice-v1';
+
+const getApplySuccessMessage = (result: Awaited<ReturnType<typeof applyTripPlan>>) => {
+  if (result.documents.failed) {
+    return 'Roteiro aplicado, mas alguns documentos não foram adicionados.';
+  }
+
+  if (result.documents.created > 0) {
+    return 'Roteiro aplicado com sucesso. Documentos necessários foram adicionados ao checklist.';
+  }
+
+  if (result.documents.attempted > 0) {
+    return 'Roteiro aplicado com sucesso. Os documentos sugeridos já estavam no checklist.';
+  }
+
+  return 'Roteiro aplicado com sucesso.';
+};
+
 const createDocument = (): TripAIDocument => ({ title: 'Documento', detail: '' });
 
 const createRoute = (): TripAIRoute => ({
@@ -788,9 +806,11 @@ export function TripAIReviewPage() {
         return;
       }
 
-      await applyTripPlan(review, plan, isEditingPlan ? feedback || 'Roteiro editado antes de aplicar.' : feedback);
+      const result = await applyTripPlan(review, plan, isEditingPlan ? feedback || 'Roteiro editado antes de aplicar.' : feedback);
+      const successMessage = getApplySuccessMessage(result);
       clearTripAIReview();
-      setStatus('Roteiro aplicado com sucesso.');
+      setStatus(successMessage);
+      sessionStorage.setItem(TRIP_AI_APPLY_NOTICE_KEY, successMessage);
       navigateTo('/dashboard');
     } catch (caughtError) {
       setError(caughtError instanceof Error ? caughtError.message : 'Nao foi possivel aplicar o roteiro.');

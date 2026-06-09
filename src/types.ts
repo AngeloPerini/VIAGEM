@@ -248,6 +248,8 @@ export type TripAIInput = {
 export type TripAIDocument = {
   title: string;
   detail: string;
+  required?: boolean;
+  category?: string;
 };
 
 export type TripAIRoute = {

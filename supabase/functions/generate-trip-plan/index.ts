@@ -1057,7 +1057,12 @@ const createFallbackPlan = (input: TripPlanInput, warning: string) =>
   ensurePlanShape({
     summary: `Prévia estruturada para ${input.tripName}.`,
     documents: [
-      { title: 'Documento de viagem', detail: 'Confira passaporte, vistos, reservas e seguro antes do embarque.' },
+      {
+        name: 'Documento de viagem',
+        description: 'Confira passaporte, vistos, reservas e seguro antes do embarque. Verifique a exigência atual antes da viagem.',
+        required: true,
+        category: 'Documentos',
+      },
     ],
     routes: input.countries.length > 1
       ? input.countries.slice(0, -1).map((country, index) => ({
@@ -1496,10 +1501,28 @@ const ensurePlanShape = (value: unknown, input: TripPlanInput) => {
     itineraryWasSupplemented ? 'Alguns dias foram complementados automaticamente para evitar roteiro vazio.' : '',
     normalizedExpenses.length ? '' : 'Despesas aproximadas foram complementadas por categoria.',
   ].filter(Boolean);
+  const documents = uniqueByKey(
+    asRecords(plan.documents)
+      .map((document) => {
+        const name = asText(document.name ?? document.title, 'Documento');
+        const description = asText(document.description ?? document.detail ?? document.notes);
+        return {
+          ...document,
+          name,
+          title: name,
+          description,
+          detail: description,
+          required: document.required === false ? false : true,
+          category: 'Documentos',
+        };
+      })
+      .filter((document) => asText(document.name)),
+    (document) => normalizeKey(document.name ?? document.title),
+  );
 
   return {
     summary: asText(plan.summary, `Prévia de roteiro para ${input.tripName}.`),
-    documents: asRecords(plan.documents),
+    documents,
     routes: asRecords(plan.routes),
     itinerary_items: itineraryItems,
     expenses,
@@ -1895,7 +1918,7 @@ Categorias de despesas: Hospedagem, Transporte, Passeios, Alimentacao, Comprinha
 Despesas: gere 6 a 10 gastos aproximados compativeis com roteiro. Use estimated_cost/amount apenas como estimativa revisavel. Use currency e amount na moeda local correta: Inglaterra/Reino Unido GBP, Suica CHF, Japao JPY, Estados Unidos USD, Zona Euro EUR, Brasil BRL. Se houver duvida, use EUR para zona do euro e BRL apenas para Brasil.
 Attractions: inclua apenas atracoes reais do roteiro: museus, pracas, mirantes, parques, bairros turisticos e experiencias. Nao inclua hotel, aeroporto, metro, refeicoes ou deslocamentos.
 Routes: inclua rotas uteis entre cidades-base/aeroportos/estacoes ou trechos de estrada. Exemplos bons: "Aeroporto de Haneda -> Shinjuku", "Tokyo -> Kyoto", "Roma -> Florenca", "Florenca -> Veneza". Nunca retorne "international -> Tokyo"; use "Chegada ao aeroporto" ou uma origem real.
-Documentos: use linguagem cautelosa quando a regra legal puder mudar: "verifique a exigencia atual antes da viagem".
+Documentos: retorne documentos especificos para o destino, inclua category "Documentos" e use linguagem cautelosa quando a regra legal puder mudar: "verifique a exigencia atual antes da viagem". Evite afirmacoes legais absolutas sem base atualizada.
 Validacao final: remova duplicados, remova Brasil/paises fora dos allowedCountries, converta apenas country de voo de origem Brasil para "international", complete dias fracos e remova qualquer placeholder generico.
 
 ${qualityFeedback ? `A geracao anterior foi rejeitada por qualidade: ${qualityFeedback}. Refaça corrigindo esses pontos, com nomes reais, cidades reais, rotas legiveis e sem placeholders genericos.` : ''}
@@ -1927,7 +1950,7 @@ Retorne exatamente este objeto:
     }
   ],
   "documents": [
-    { "name": "string", "required": true, "description": "string" }
+    { "name": "string", "description": "string", "required": true, "category": "Documentos" }
   ],
   "routes": [
     { "from": "string", "to": "string", "transport_type": "string", "duration": "string", "description": "string", "estimated_cost": 0, "currency": "BRL, EUR, USD, JPY, CHF ou GBP" }

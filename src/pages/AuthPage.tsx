@@ -8,7 +8,6 @@ import {
   Lock,
   Mail,
   Route,
-  Sparkles,
   Ticket,
   UserPlus,
 } from 'lucide-react';
@@ -282,12 +281,12 @@ export function AuthPage({ initialInviteCode }: AuthPageProps) {
           </div>
           <div className="absolute bottom-6 left-8 right-8 rounded-2xl border border-white/25 bg-white/82 p-5 text-[#0b1c30] shadow-[0_18px_44px_rgba(2,6,23,0.2)] backdrop-blur-xl xl:p-6">
             <div className="mb-2 flex items-center gap-3">
-              <Sparkles className="h-5 w-5 fill-[#006b57] text-[#006b57]" aria-hidden="true" />
-              <span className="text-xs font-bold uppercase tracking-[0.2em]">AI Prediction</span>
+              <Route className="h-5 w-5 text-[#006b57]" aria-hidden="true" />
+              <span className="text-xs font-bold uppercase tracking-[0.2em]">Planejamento integrado</span>
             </div>
-            <h2 className="text-xl font-bold leading-tight xl:text-2xl">Seu proximo destino esta esperando.</h2>
+            <h2 className="text-xl font-bold leading-tight xl:text-2xl">Seu proximo destino, organizado do início ao fim.</h2>
             <p className="mt-2 text-sm leading-6 text-[#45464d]">
-              Otimize sua logistica e reduza custos em ate 22% com o gerenciamento inteligente da TripFlow.
+              Reúna roteiro, gastos, documentos e checklist em um só espaço para a viagem ativa.
             </p>
           </div>
         </aside>

@@ -212,6 +212,21 @@ const getRelativeTimeLabel = (item: ItineraryItem | null, selectedDay: CalendarD
   return 'em andamento';
 };
 
+const getDayTimeEstimate = (items: ItineraryItem[]) => {
+  const sortedMinutes = items
+    .map((item) => parseTimeMinutes(item.time))
+    .filter((minutes): minutes is number => minutes !== null)
+    .sort((a, b) => a - b);
+
+  if (sortedMinutes.length >= 2) {
+    const durationHours = Math.max(1, Math.round((sortedMinutes[sortedMinutes.length - 1] - sortedMinutes[0]) / 60));
+    return `${durationHours}h em agenda`;
+  }
+
+  if (items.length) return `${items.length} bloco${items.length === 1 ? '' : 's'} planejado${items.length === 1 ? '' : 's'}`;
+  return 'Sem atividades';
+};
+
 const normalizeDayId = (day: string) => day.trim() || 'Sem dia';
 
 const extractDateKeyFromDay = (day: string) => {
@@ -637,11 +652,9 @@ export function ItineraryPage({
   const nextActivityIcon = nextActivity ? typeIcons[nextActivity.type] : Sparkles;
   const NextActivityIcon = nextActivityIcon;
   const currentLocation = nextActivity?.city || selectedDayItems.find((item) => item.city)?.city || selectedFilterCities[0] || countrySelectLabel;
-  const aiSuggestion = nextActivity
-    ? `Revise ${nextActivity.title}${nextActivity.city ? ` em ${nextActivity.city}` : ''} antes de sair. O TripFlow recomenda confirmar horario, deslocamento e links uteis do item.`
-    : selectedDay?.itemCount
-      ? 'Todas as atividades deste dia estao concluidas. Use este momento para revisar o proximo dia do roteiro.'
-      : 'Adicione atividades reais ao dia selecionado para receber sugestoes contextuais sem acionar IA automaticamente.';
+  const selectedDayPendingCount = selectedDay ? selectedDay.itemCount - selectedDay.completedCount : 0;
+  const selectedDayLocation = selectedDayItems.find((item) => item.city)?.city || countrySelectLabel;
+  const selectedDayTimeEstimate = getDayTimeEstimate(selectedDayItems);
 
   const toggleExpanded = (id: string) => {
     setExpandedItems((current) => {
@@ -758,7 +771,7 @@ export function ItineraryPage({
           <h1 className="text-lg font-semibold tracking-tight text-[#0b1c30] md:text-xl">{itineraryTitle}</h1>
           <p className="mt-2 flex flex-wrap items-center gap-2 text-sm font-medium text-[#45464d] md:text-base">
             <MapPin className="h-5 w-5 text-[#007c68]" />
-            <span>{filteredItems.length} atividades planejadas • Itinerario TripFlow AI</span>
+            <span>{filteredItems.length} atividades planejadas • Roteiro da viagem</span>
           </p>
         </div>
 
@@ -1006,19 +1019,35 @@ export function ItineraryPage({
         </motion.section>
 
         <aside className="space-y-6 lg:sticky lg:top-24 lg:self-start">
-          <section className="rounded-2xl border border-[#48fdd3]/30 bg-gradient-to-br from-white to-[#d8fbf4]/45 p-6 shadow-sm">
+          <section className="rounded-2xl border border-[#dfe5ee] bg-white p-6 shadow-sm">
             <div className="mb-4 flex items-center gap-2">
-              <Sparkles className="h-5 w-5 text-[#007c68]" />
-              <h2 className="text-base font-semibold text-[#0b1c30]">TripFlow AI Magic</h2>
+              <Route className="h-5 w-5 text-[#007c68]" />
+              <h2 className="text-base font-semibold text-[#0b1c30]">Resumo do dia</h2>
             </div>
-            <p className="text-sm font-medium leading-6 text-[#45464d]">"{aiSuggestion}"</p>
-            <button
-              type="button"
-              onClick={() => setSyncWarning('Sugestao calculada localmente. Nenhuma IA ou Edge Function foi acionada automaticamente.')}
-              className="mt-5 h-11 w-full rounded-xl border border-[#48fdd3]/40 bg-[#007c68]/10 text-sm font-semibold text-[#007c68] transition hover:bg-[#007c68]/15"
-            >
-              Ajustar Roteiro
-            </button>
+            <dl className="space-y-3 text-sm">
+              <div className="flex items-center justify-between gap-4">
+                <dt className="font-medium text-[#667085]">Concluídas</dt>
+                <dd className="font-black text-[#0b1c30]">{selectedDay?.completedCount ?? 0}</dd>
+              </div>
+              <div className="flex items-center justify-between gap-4">
+                <dt className="font-medium text-[#667085]">Pendentes</dt>
+                <dd className="font-black text-[#0b1c30]">{Math.max(0, selectedDayPendingCount)}</dd>
+              </div>
+              <div className="flex items-start justify-between gap-4">
+                <dt className="font-medium text-[#667085]">Próxima</dt>
+                <dd className="min-w-0 max-w-[13rem] text-right font-black text-[#0b1c30]">
+                  {nextActivity?.title ?? 'Nenhuma atividade pendente'}
+                </dd>
+              </div>
+              <div className="flex items-start justify-between gap-4">
+                <dt className="font-medium text-[#667085]">Local</dt>
+                <dd className="min-w-0 max-w-[13rem] text-right font-black text-[#0b1c30]">{selectedDayLocation}</dd>
+              </div>
+              <div className="flex items-center justify-between gap-4">
+                <dt className="font-medium text-[#667085]">Tempo</dt>
+                <dd className="font-black text-[#0b1c30]">{selectedDayTimeEstimate}</dd>
+              </div>
+            </dl>
           </section>
 
           <section className="relative h-64 overflow-hidden rounded-2xl border border-[#c6c6cd] bg-[#063f43] text-white shadow-sm">

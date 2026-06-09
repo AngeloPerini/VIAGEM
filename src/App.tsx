@@ -8,9 +8,9 @@ import {
   FileText,
   Plus,
   ReceiptText,
-  Sparkles,
   Trash2,
   WalletCards,
+  X,
 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { ExpenseCategoryModal } from './components/ExpenseCategoryModal';
@@ -27,7 +27,7 @@ import { AuthPage } from './pages/AuthPage';
 import { InvitePage } from './pages/InvitePage';
 import { AttractionsPage } from './pages/AttractionsPage';
 import { ProfilePage } from './pages/ProfilePage';
-import { TripAIReviewPage } from './pages/TripAIReviewPage';
+import { TRIP_AI_APPLY_NOTICE_KEY, TripAIReviewPage } from './pages/TripAIReviewPage';
 import { getPendingInviteToken } from './services/groupsService';
 import {
   appendExchangeRateHistory,
@@ -311,9 +311,18 @@ function TravelWorkspace({ groupId }: { groupId: string }) {
   const [failedQuoteCurrencies, setFailedQuoteCurrencies] = useState<TravelCurrencyCode[]>([]);
   const [expenseSyncWarning, setExpenseSyncWarning] = useState<string | null>(null);
   const [categorySyncWarning, setCategorySyncWarning] = useState<string | null>(null);
+  const [workspaceNotice, setWorkspaceNotice] = useState<string | null>(null);
   const [isExpenseLoading, setIsExpenseLoading] = useState(false);
   const [isExpenseSaving, setIsExpenseSaving] = useState(false);
   const [isCategorySaving, setIsCategorySaving] = useState(false);
+
+  useEffect(() => {
+    const notice = sessionStorage.getItem(TRIP_AI_APPLY_NOTICE_KEY);
+    if (!notice) return;
+
+    setWorkspaceNotice(notice);
+    sessionStorage.removeItem(TRIP_AI_APPLY_NOTICE_KEY);
+  }, [groupId]);
 
   useEffect(() => {
     let active = true;
@@ -682,9 +691,10 @@ function TravelWorkspace({ groupId }: { groupId: string }) {
   const topCategoryShare = topExpenseCategory && rangeMidpoint(filteredGrandTotal.real) > 0
     ? Math.round((topExpenseCategory.totalReal / rangeMidpoint(filteredGrandTotal.real)) * 100)
     : 0;
-  const tripflowAiInsight = filteredExpenses.length && topExpenseCategory
-    ? `${topExpenseCategory.category.name} concentra ${topCategoryShare}% dos gastos filtrados. Revise os próximos lançamentos dessa categoria antes de assumir novos compromissos.`
-    : 'Adicione gastos reais para o TripFlow destacar oportunidades de economia sem acionar IA automaticamente.';
+  const latestExchangeRate = Object.values(exchangeRates)
+    .filter((rate): rate is NonNullable<typeof rate> => Boolean(rate?.updatedAt))
+    .sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt))[0] ?? null;
+  const latestQuoteLabel = latestExchangeRate?.updatedAt ? formatExpenseDate(latestExchangeRate.updatedAt) : 'Cotação indisponível';
   const canManageExpenses = activeGroup?.role === 'owner' || activeGroup?.role === 'member';
   const categoryDeleteTargets = useMemo(
     () =>
@@ -978,6 +988,29 @@ function TravelWorkspace({ groupId }: { groupId: string }) {
       />
 
       <div className="flex w-full flex-col gap-6 px-4 py-6 sm:px-6 lg:px-10 xl:px-12">
+        {workspaceNotice ? (
+          <motion.div
+            className="flex items-start gap-3 rounded-2xl border border-[#bfe8de] bg-white px-4 py-3 text-sm font-semibold text-[#0b1326] shadow-[0_10px_28px_rgba(15,23,42,0.06)]"
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+          >
+            {workspaceNotice.includes('mas alguns') ? (
+              <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-600" />
+            ) : (
+              <FileText className="mt-0.5 h-5 w-5 shrink-0 text-[#007c68]" />
+            )}
+            <span className="min-w-0 flex-1">{workspaceNotice}</span>
+            <button
+              type="button"
+              aria-label="Fechar aviso"
+              onClick={() => setWorkspaceNotice(null)}
+              className="grid h-8 w-8 shrink-0 place-items-center rounded-xl text-[#667085] transition hover:bg-[#eef8f6] hover:text-[#007c68]"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </motion.div>
+        ) : null}
+
         <AnimatePresence mode="wait">
           {activeView === 'profile' ? (
             <ProfilePage key="profile" />
@@ -1575,21 +1608,38 @@ function TravelWorkspace({ groupId }: { groupId: string }) {
                 <div className="relative flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
                   <div className="flex min-w-0 gap-4">
                     <span className="grid h-12 w-12 shrink-0 place-items-center rounded-full bg-[#007c68] text-white">
-                      <Sparkles className="h-5 w-5" />
+                      <ReceiptText className="h-5 w-5" />
                     </span>
                     <div className="min-w-0">
-                      <h2 className="text-xl font-black md:text-2xl">Insight do TripFlow AI</h2>
-                      <p className="mt-1.5 max-w-4xl text-sm font-semibold leading-6 text-[#9ca7bd] md:text-base">
-                        {tripflowAiInsight}
-                      </p>
+                      <h2 className="text-xl font-black md:text-2xl">Resumo financeiro</h2>
+                      <dl className="mt-3 grid gap-x-8 gap-y-2 text-sm font-semibold text-[#c8d0dd] sm:grid-cols-2 xl:grid-cols-4">
+                        <div>
+                          <dt className="text-[#7f8aa2]">Maior categoria</dt>
+                          <dd className="mt-1 text-white">
+                            {topExpenseCategory ? `${topExpenseCategory.category.name} (${topCategoryShare}%)` : 'Sem gastos'}
+                          </dd>
+                        </div>
+                        <div>
+                          <dt className="text-[#7f8aa2]">Total filtrado</dt>
+                          <dd className="mt-1 text-white">{selectedTotalLabel}</dd>
+                        </div>
+                        <div>
+                          <dt className="text-[#7f8aa2]">Transações</dt>
+                          <dd className="mt-1 text-white">{filteredExpenses.length}</dd>
+                        </div>
+                        <div>
+                          <dt className="text-[#7f8aa2]">Última cotação</dt>
+                          <dd className="mt-1 text-white">{latestQuoteLabel}</dd>
+                        </div>
+                      </dl>
                     </div>
                   </div>
                   <button
                     type="button"
-                    onClick={() => setExpenseSyncWarning('Insight calculado localmente. Nenhuma IA ou Edge Function foi acionada automaticamente.')}
+                    onClick={handleExportExpensesPdf}
                     className="inline-flex h-11 shrink-0 items-center justify-center rounded-full bg-white px-6 text-sm font-bold text-black transition hover:bg-[#eef8f6] md:h-12 md:px-7"
                   >
-                    Otimizar Agora
+                    Exportar PDF
                   </button>
                 </div>
               </section>

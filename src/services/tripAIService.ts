@@ -89,6 +89,16 @@ export class TripAIFunctionError extends Error {
   }
 }
 
+export type ApplyTripPlanResult = {
+  documents: {
+    attempted: number;
+    created: number;
+    skipped: number;
+    failed: boolean;
+    errorMessage?: string;
+  };
+};
+
 const stripDiacritics = (value: string) =>
   value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
 
@@ -158,11 +168,13 @@ const getDefaultCurrencyForCountry = (country: CountryId): TravelCurrencyCode =>
 const normalizeLinkArray = (value: unknown): LinkItem[] => normalizeLinks(asArray<LinkItem>(value));
 
 const normalizeDocument = (value: unknown): TripAIDocument => {
-  if (typeof value === 'string') return { title: value, detail: '' };
+  if (typeof value === 'string') return { title: value, detail: '', required: true, category: 'Documentos' };
   const record = asRecord(value);
   return {
     title: asString(record.title || record.name, 'Documento'),
     detail: asString(record.detail || record.description || record.notes),
+    required: record.required === undefined ? true : Boolean(record.required),
+    category: asString(record.category, 'Documentos') || 'Documentos',
   };
 };
 
@@ -302,6 +314,21 @@ const uniqueByKey = <T>(items: T[], getKey: (item: T) => string) => {
   });
 };
 
+const documentTitleKey = (value: unknown) => {
+  const key = normalizeKeyPart(value);
+  if (!key) return '';
+  if (key.includes('passaport')) return 'passaporte';
+  if (key.includes('seguro') && (key.includes('viagem') || key.includes('travel'))) return 'seguro viagem';
+  if (key.includes('hosped') || key.includes('hotel') || key.includes('reserva hospedagem')) return 'comprovante hospedagem';
+  if (key.includes('comprovante') && (key.includes('financeiro') || key.includes('fundos') || key.includes('renda'))) return 'comprovante financeiro';
+  if (key.includes('passagem') && (key.includes('retorno') || key.includes('volta'))) return 'passagem retorno';
+  if (key.includes('esim') || key.includes('chip') || key.includes('sim internacional')) return 'esim chip internacional';
+  if (key.includes('etias')) return 'etias';
+  if (key.includes('visto') || key.includes('visa')) return 'visto';
+  if (key.includes('cnh') || key.includes('pid') || key.includes('permissao internacional')) return 'permissao internacional dirigir';
+  return key;
+};
+
 export const dedupeItineraryItems = (items: ItineraryItem[]) =>
   uniqueByKey(items, itineraryItemKey);
 
@@ -310,6 +337,9 @@ export const dedupeAttractions = (items: Attraction[]) =>
 
 export const dedupeExpenses = (items: Expense[]) =>
   uniqueByKey(items, expenseKey);
+
+const dedupeDocuments = (items: TripAIDocument[]) =>
+  uniqueByKey(items, (document) => documentTitleKey(document.title));
 
 const getAllowedCountryIds = (countries: string[]) =>
   new Set(countries.map((country) => normalizeCountry(country)).filter((country) => country !== 'international'));
@@ -571,6 +601,80 @@ const attractionPayload = (attraction: Attraction, groupId: string, userId: stri
   order_index: orderIndex,
 });
 
+type TripChecklistDocumentRow = {
+  id: string;
+  title: string;
+  category: string | null;
+  checked: boolean | null;
+};
+
+const checklistDocumentPayload = (document: TripAIDocument, groupId: string, userId: string) => {
+  const detail = document.detail.trim();
+  const sourceNote = document.required === false
+    ? 'Checklist recomendado pela IA.'
+    : 'Documento sugerido pela IA para preparar a viagem.';
+
+  return {
+    group_id: groupId,
+    created_by: userId,
+    assigned_to: null,
+    title: document.title.trim(),
+    category: 'Documentos',
+    notes: [sourceNote, detail].filter(Boolean).join(' '),
+    quantity: 1,
+    checked: false,
+  };
+};
+
+async function syncTripPlanDocuments(groupId: string, userId: string, documents: TripAIDocument[]) {
+  const suggestedDocuments = dedupeDocuments(documents)
+    .filter((document) => document.title.trim())
+    .filter((document) => documentTitleKey(document.title));
+
+  const result: ApplyTripPlanResult['documents'] = {
+    attempted: suggestedDocuments.length,
+    created: 0,
+    skipped: 0,
+    failed: false,
+  };
+
+  if (!suggestedDocuments.length) return result;
+
+  const { data: existingRows, error: existingError } = await supabase
+    .from('trip_checklist_items')
+    .select('id,title,category,checked')
+    .eq('group_id', groupId);
+
+  if (existingError) throw existingError;
+
+  const existingKeys = new Set(
+    ((existingRows ?? []) as TripChecklistDocumentRow[])
+      .map((item) => documentTitleKey(item.title))
+      .filter(Boolean),
+  );
+
+  const documentsToInsert = suggestedDocuments.filter((document) => {
+    const key = documentTitleKey(document.title);
+    if (existingKeys.has(key)) {
+      result.skipped += 1;
+      return false;
+    }
+    existingKeys.add(key);
+    return true;
+  });
+
+  if (!documentsToInsert.length) return result;
+
+  const { error: insertError } = await supabase
+    .from('trip_checklist_items')
+    .insert(documentsToInsert.map((document) => checklistDocumentPayload(document, groupId, userId)));
+
+  if (insertError) throw insertError;
+
+  result.created = documentsToInsert.length;
+  return result;
+}
+
 export async function updateTripGenerationFeedback(
   generationId: string | undefined,
   status: 'applied' | 'rejected' | 'failed',
@@ -586,7 +690,7 @@ export async function updateTripGenerationFeedback(
   if (error) throw error;
 }
 
-export async function applyTripPlan(review: TripAIReviewState, plan: TripAIPlan, feedback?: string) {
+export async function applyTripPlan(review: TripAIReviewState, plan: TripAIPlan, feedback?: string): Promise<ApplyTripPlanResult> {
   assertValidDateRange(review.input.startDate, review.input.endDate);
   const qualityIssues = findTripAIQualityIssues(plan);
   if (qualityIssues.length) {
@@ -727,7 +831,34 @@ export async function applyTripPlan(review: TripAIReviewState, plan: TripAIPlan,
 
   if (failedResult?.error) throw failedResult.error;
 
+  const applyResult: ApplyTripPlanResult = {
+    documents: {
+      attempted: scopedPlan.documents.length,
+      created: 0,
+      skipped: scopedPlan.documents.length,
+      failed: false,
+    },
+  };
+
+  try {
+    applyResult.documents = await syncTripPlanDocuments(groupId, userId, scopedPlan.documents);
+  } catch (error) {
+    console.error('Falha ao salvar documentos sugeridos pela IA no checklist', {
+      groupId,
+      generationId: plan.generationId,
+      message: error instanceof Error ? error.message : 'Erro desconhecido',
+    });
+    applyResult.documents = {
+      attempted: scopedPlan.documents.length,
+      created: 0,
+      skipped: 0,
+      failed: true,
+      errorMessage: error instanceof Error ? error.message : 'Nao foi possivel salvar documentos no checklist.',
+    };
+  }
+
   await updateTripGenerationFeedback(plan.generationId, 'applied', feedback);
+  return applyResult;
 }
 
 export function storeTripAIReview(review: TripAIReviewState) {
