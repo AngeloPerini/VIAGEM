@@ -5,6 +5,7 @@ type TripStyle = 'economica' | 'intermediaria' | 'confortavel';
 type TripPlanInput = {
   tripName: string;
   countries: string[];
+  cities: string[];
   description: string;
   startDate: string;
   endDate: string;
@@ -27,12 +28,67 @@ type QuotaResult = {
   ai_generations_limit: number;
 };
 
+type DestinationRow = {
+  country_code: string;
+  country_name: string;
+  city_name: string | null;
+  overview: string;
+  best_months: string | null;
+  language: string | null;
+  currency: string | null;
+};
+
+type AttractionContextRow = {
+  country_code: string;
+  country_name: string;
+  city_name: string;
+  name: string;
+  category: string;
+  description: string;
+  suggested_duration_minutes: number | null;
+  estimated_cost: number | null;
+  currency: string | null;
+  best_time_to_visit: string | null;
+  official_url: string | null;
+};
+
+type TransportContextRow = {
+  country_code: string;
+  city_from: string | null;
+  city_to: string | null;
+  transport_type: string;
+  duration_text: string | null;
+  description: string;
+  estimated_cost: number | null;
+  currency: string | null;
+};
+
+type TravelDocumentContextRow = {
+  country_code: string;
+  country_name: string;
+  document_name: string;
+  description: string;
+  required: boolean;
+};
+
+type DestinationContext = {
+  destinations: DestinationRow[];
+  attractions: AttractionContextRow[];
+  transportTips: TransportContextRow[];
+  documents: TravelDocumentContextRow[];
+  countryCodes: string[];
+  selectedCities: string[];
+  mentionedCities: string[];
+  onlyCountryProvided: boolean;
+};
+
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 };
 const unlimitedAiTesterEmails = new Set(['r.perini351@gmail.com']);
+const PROMPT_VERSION = 'tripflow-ai-rag-v2';
 const DESCRIPTION_MAX_LENGTH = 2500;
 const INVALID_DATE_RANGE_MESSAGE = 'A data final não pode ser anterior à data inicial.';
 
@@ -114,13 +170,31 @@ const normalizeCountryList = (value: unknown) => {
     });
 };
 
+const normalizeTextList = (value: unknown) => {
+  const rawValues = Array.isArray(value) ? value : value ? [value] : [];
+  const seen = new Set<string>();
+
+  return rawValues
+    .flatMap((item) => String(item).split(/[,\n;/|]+/))
+    .map((item) => item.trim())
+    .filter((item) => {
+      if (!item) return false;
+      const key = item.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+};
+
 const normalizeInput = (payload: Record<string, unknown>): TripPlanInput => {
   const countries = normalizeCountryList(payload.countries);
+  const cities = normalizeTextList(payload.cities ?? payload.cityNames ?? payload.city);
 
   const style = isTripStyle(payload.style) ? payload.style : 'intermediaria';
   const input = {
     tripName: String(payload.tripName ?? '').trim(),
     countries,
+    cities,
     description: String(payload.description ?? '').trim(),
     startDate: String(payload.startDate ?? '').trim(),
     endDate: String(payload.endDate ?? '').trim(),
@@ -235,10 +309,10 @@ const defaultCitiesByCountry: Record<string, string[]> = {
   scotland: ['Edimburgo', 'Stirling', 'Glasgow'],
   united_kingdom: ['Londres', 'Edimburgo', 'York'],
   great_britain: ['Londres', 'Edimburgo', 'York'],
-  france: ['Paris', 'Versalhes', 'Lyon'],
-  italy: ['Roma', 'Florença', 'Milão'],
-  switzerland: ['Zurique', 'Lucerna', 'Interlaken'],
-  japan: ['Tóquio', 'Kyoto', 'Osaka'],
+  france: ['Paris', 'Nice'],
+  italy: ['Roma', 'Florença', 'Veneza', 'Milão'],
+  switzerland: ['Zurique', 'Lucerna', 'Interlaken', 'Zermatt'],
+  japan: ['Tokyo', 'Kyoto', 'Osaka'],
   united_states: ['Nova York', 'Washington', 'Boston'],
   brazil: ['São Paulo', 'Rio de Janeiro', 'Brasília'],
 };
@@ -277,14 +351,14 @@ const defaultAttractionsByCountry: Record<string, Array<{ name: string; city: st
     { name: 'Harder Kulm', city: 'Interlaken', description: 'Mirante alpino acessível por funicular.' },
   ],
   japan: [
-    { name: 'Templo Senso-ji', city: 'Tóquio', description: 'Templo histórico em Asakusa.' },
-    { name: 'Shibuya Crossing', city: 'Tóquio', description: 'Cruzamento icônico para caminhar e fotografar.' },
-    { name: 'Tokyo Skytree', city: 'Tóquio', description: 'Torre panorâmica com vista ampla da cidade.' },
-    { name: 'Meiji Jingu', city: 'Tóquio', description: 'Santuário xintoísta em área arborizada de Harajuku.' },
-    { name: 'Ueno Park', city: 'Tóquio', description: 'Parque com museus, lago e áreas de caminhada.' },
-    { name: 'Akihabara', city: 'Tóquio', description: 'Bairro de eletrônicos, cultura pop e lojas temáticas.' },
-    { name: 'Tsukiji Outer Market', city: 'Tóquio', description: 'Mercado gastronômico para cafés, frutos do mar e snacks.' },
-    { name: 'teamLab Planets', city: 'Tóquio', description: 'Experiência imersiva de arte digital em Toyosu.' },
+    { name: 'Senso-ji', city: 'Tokyo', description: 'Templo histórico em Asakusa.' },
+    { name: 'Shibuya Crossing', city: 'Tokyo', description: 'Cruzamento icônico para caminhar e fotografar.' },
+    { name: 'Tokyo Skytree', city: 'Tokyo', description: 'Torre panorâmica com vista ampla da cidade.' },
+    { name: 'Meiji Jingu', city: 'Tokyo', description: 'Santuário xintoísta em área arborizada de Harajuku.' },
+    { name: 'Ueno Park', city: 'Tokyo', description: 'Parque com museus, lago e áreas de caminhada.' },
+    { name: 'Akihabara', city: 'Tokyo', description: 'Bairro de eletrônicos, cultura pop e lojas temáticas.' },
+    { name: 'Tsukiji Outer Market', city: 'Tokyo', description: 'Mercado gastronômico para cafés, frutos do mar e snacks.' },
+    { name: 'teamLab Planets', city: 'Tokyo', description: 'Experiência imersiva de arte digital em Toyosu.' },
     { name: 'Fushimi Inari', city: 'Kyoto', description: 'Santuário famoso pelos portais vermelhos.' },
     { name: 'Kiyomizu-dera', city: 'Kyoto', description: 'Templo com varanda de madeira e vista da cidade.' },
     { name: 'Dotonbori', city: 'Osaka', description: 'Bairro turístico para noite e gastronomia.' },
@@ -320,6 +394,36 @@ const countryKey = (value: unknown) => {
   return countryAliases[key] ?? key;
 };
 
+const cityAliases: Record<string, string> = {
+  toquio: 'tokyo',
+  tokyo: 'tokyo',
+  kyoto: 'kyoto',
+  osaka: 'osaka',
+  roma: 'roma',
+  rome: 'roma',
+  florenca: 'florenca',
+  florence: 'florenca',
+  veneza: 'veneza',
+  venice: 'veneza',
+  milao: 'milao',
+  milan: 'milao',
+  paris: 'paris',
+  nice: 'nice',
+  zurique: 'zurique',
+  zurich: 'zurique',
+  lucerna: 'lucerna',
+  lucerne: 'lucerna',
+  interlaken: 'interlaken',
+  zermatt: 'zermatt',
+  rio_de_janeiro: 'rio_de_janeiro',
+  sao_paulo: 'sao_paulo',
+};
+
+const cityKey = (value: unknown) => {
+  const key = normalizeKey(value);
+  return cityAliases[key] ?? key;
+};
+
 const normalizeCurrencyCode = (value: unknown) => {
   const code = asText(value, 'EUR').toUpperCase();
   return ['BRL', 'EUR', 'USD', 'JPY', 'CHF', 'GBP'].includes(code) ? code : 'EUR';
@@ -333,6 +437,256 @@ const currencyForCountry = (country: string) => {
   if (key === 'united_states') return 'USD';
   if (key === 'brazil') return 'BRL';
   return 'EUR';
+};
+
+const uniqueTexts = (items: string[]) => {
+  const seen = new Set<string>();
+  return items.filter((item) => {
+    const key = cityKey(item);
+    if (!key || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+};
+
+const compactPromptText = (value: unknown, maxLength = 180) => {
+  const text = asText(value).replace(/\s+/g, ' ');
+  return text.length > maxLength ? `${text.slice(0, Math.max(0, maxLength - 3))}...` : text;
+};
+
+const citySortValue = (countryCode: string, city: string) => {
+  const preferred = defaultCitiesByCountry[countryCode] ?? [];
+  const index = preferred.findIndex((preferredCity) => cityKey(preferredCity) === cityKey(city));
+  return index >= 0 ? index : 1000;
+};
+
+const getCityBudgetPerCountry = (input: TripPlanInput) => {
+  const tripDays = getTripDayCount(input);
+  const countryCount = Math.max(1, input.countries.length);
+  const daysPerCountry = Math.max(1, Math.ceil(tripDays / countryCount));
+
+  if (daysPerCountry <= 3) return 1;
+  if (daysPerCountry <= 6) return 2;
+  if (daysPerCountry <= 10) return 3;
+  return 4;
+};
+
+const emptyDestinationContext = (input: TripPlanInput): DestinationContext => ({
+  destinations: [],
+  attractions: [],
+  transportTips: [],
+  documents: [],
+  countryCodes: input.countries.map(countryKey).filter(Boolean),
+  selectedCities: [],
+  mentionedCities: input.cities,
+  onlyCountryProvided: input.cities.length === 0,
+});
+
+const fetchDestinationContext = async (
+  adminSupabase: ReturnType<typeof createClient>,
+  input: TripPlanInput,
+): Promise<DestinationContext> => {
+  const countryCodes = [...new Set(input.countries.map(countryKey).filter(Boolean))];
+  if (!countryCodes.length) return emptyDestinationContext(input);
+
+  const [
+    destinationsResult,
+    attractionsResult,
+    transportResult,
+    documentsResult,
+  ] = await Promise.all([
+    adminSupabase
+      .from('ai_destinations')
+      .select('country_code,country_name,city_name,overview,best_months,language,currency')
+      .in('country_code', countryCodes),
+    adminSupabase
+      .from('ai_attractions')
+      .select('country_code,country_name,city_name,name,category,description,suggested_duration_minutes,estimated_cost,currency,best_time_to_visit,official_url')
+      .in('country_code', countryCodes),
+    adminSupabase
+      .from('ai_transport_tips')
+      .select('country_code,city_from,city_to,transport_type,duration_text,description,estimated_cost,currency')
+      .in('country_code', countryCodes),
+    adminSupabase
+      .from('ai_travel_documents')
+      .select('country_code,country_name,document_name,description,required')
+      .in('country_code', countryCodes),
+  ]);
+
+  const contextErrors = [
+    destinationsResult.error,
+    attractionsResult.error,
+    transportResult.error,
+    documentsResult.error,
+  ].filter(Boolean);
+
+  if (contextErrors.length) {
+    throw new Error(`Nao foi possivel buscar contexto real de destinos: ${contextErrors.map((error) => error?.message).join('; ')}`);
+  }
+
+  const destinations = (destinationsResult.data ?? []) as DestinationRow[];
+  const attractions = (attractionsResult.data ?? []) as AttractionContextRow[];
+  const transportTips = (transportResult.data ?? []) as TransportContextRow[];
+  const documents = (documentsResult.data ?? []) as TravelDocumentContextRow[];
+  const userText = normalizeKey([
+    input.tripName,
+    input.description,
+    ...input.cities,
+  ].join(' '));
+  const requestedCityKeys = new Set(input.cities.map(cityKey));
+  const allCityRows = destinations
+    .filter((destination) => asText(destination.city_name))
+    .sort((a, b) => {
+      const countryComparison = a.country_code.localeCompare(b.country_code);
+      if (countryComparison !== 0) return countryComparison;
+
+      const cityA = asText(a.city_name);
+      const cityB = asText(b.city_name);
+      const orderA = citySortValue(a.country_code, cityA);
+      const orderB = citySortValue(b.country_code, cityB);
+      if (orderA !== orderB) return orderA - orderB;
+      return cityA.localeCompare(cityB);
+    });
+
+  const mentionedCities = uniqueTexts(
+    allCityRows
+      .map((destination) => asText(destination.city_name))
+      .filter((city) => {
+        const key = cityKey(city);
+        return requestedCityKeys.has(key) || (Boolean(key) && userText.includes(key));
+      }),
+  );
+  const mentionedCityKeys = new Set(mentionedCities.map(cityKey));
+  const selectedCities = uniqueTexts(
+    countryCodes.flatMap((countryCode) => {
+      const countryCities = allCityRows
+        .filter((destination) => destination.country_code === countryCode)
+        .map((destination) => asText(destination.city_name))
+        .filter(Boolean);
+      const mentionedForCountry = countryCities.filter((city) => mentionedCityKeys.has(cityKey(city)));
+      if (mentionedForCountry.length) return mentionedForCountry;
+      return countryCities.slice(0, getCityBudgetPerCountry(input));
+    }),
+  );
+  const selectedCityKeys = new Set(selectedCities.map(cityKey));
+  const relevantAttractions = attractions
+    .filter((attraction) => !selectedCityKeys.size || selectedCityKeys.has(cityKey(attraction.city_name)))
+    .sort((a, b) => {
+      const countryComparison = a.country_code.localeCompare(b.country_code);
+      if (countryComparison !== 0) return countryComparison;
+
+      const orderA = citySortValue(a.country_code, a.city_name);
+      const orderB = citySortValue(b.country_code, b.city_name);
+      if (orderA !== orderB) return orderA - orderB;
+      return a.name.localeCompare(b.name);
+    })
+    .slice(0, 90);
+
+  return {
+    destinations,
+    attractions: relevantAttractions,
+    transportTips: transportTips.slice(0, 35),
+    documents,
+    countryCodes,
+    selectedCities,
+    mentionedCities,
+    onlyCountryProvided: input.cities.length === 0 && mentionedCities.length === 0,
+  };
+};
+
+const getDestinationContextWarnings = (context: DestinationContext) => {
+  const warnings: string[] = [];
+
+  if (context.onlyCountryProvided && context.selectedCities.length) {
+    warnings.push('Você informou apenas o país. A IA sugeriu cidades principais para a viagem.');
+  }
+
+  if (!context.destinations.length && !context.attractions.length) {
+    warnings.push('A base local de destinos nao trouxe contexto suficiente; revise cidades e detalhes antes de aplicar.');
+  }
+
+  return warnings;
+};
+
+const buildDestinationSummary = (input: TripPlanInput, context: DestinationContext) => {
+  const citySummary = context.selectedCities.length ? `; cidades: ${context.selectedCities.join(', ')}` : '';
+  return compactPromptText(`${input.countries.join(', ')}${citySummary}`, 500) || 'Destino nao informado';
+};
+
+const buildDestinationContextPrompt = (input: TripPlanInput, context: DestinationContext) => {
+  if (!context.destinations.length && !context.attractions.length) {
+    return input.countries
+      .map((country) => {
+        const key = countryKey(country);
+        const cities = defaultCitiesByCountry[key] ?? [];
+        const attractions = defaultAttractionsByCountry[key] ?? [];
+        const hintParts = [
+          cities.length ? `cidades reais sugeridas: ${cities.join(', ')}` : '',
+          attractions.length
+            ? `atracoes reais conhecidas: ${attractions.map((attraction) => `${attraction.name} (${attraction.city})`).join(', ')}`
+            : '',
+        ].filter(Boolean);
+
+        return hintParts.length ? `- ${country}: ${hintParts.join('; ')}` : `- ${country}: use cidades e atracoes reais verificaveis.`;
+      })
+      .join('\n');
+  }
+
+  const selectedCityKeys = new Set(context.selectedCities.map(cityKey));
+  const destinationLines = context.destinations
+    .filter((destination) => !destination.city_name || !selectedCityKeys.size || selectedCityKeys.has(cityKey(destination.city_name)))
+    .map((destination) => {
+      const city = destination.city_name ? `${destination.city_name}, ` : '';
+      const facts = [
+        destination.best_months ? `melhores meses: ${destination.best_months}` : '',
+        destination.language ? `idioma: ${destination.language}` : '',
+        destination.currency ? `moeda: ${destination.currency}` : '',
+      ].filter(Boolean).join('; ');
+
+      return `- ${city}${destination.country_name}: ${compactPromptText(destination.overview)}${facts ? ` (${facts})` : ''}`;
+    })
+    .join('\n');
+  const attractionLines = context.attractions
+    .map((attraction) => {
+      const cost = attraction.estimated_cost == null
+        ? ''
+        : `; custo aprox.: ${attraction.estimated_cost} ${attraction.currency ?? currencyForCountry(attraction.country_code)}`;
+      const duration = attraction.suggested_duration_minutes ? `; duração: ${attraction.suggested_duration_minutes} min` : '';
+      const bestTime = attraction.best_time_to_visit ? `; melhor horario: ${attraction.best_time_to_visit}` : '';
+      return `- ${attraction.name} (${attraction.city_name}, ${attraction.country_name}; ${attraction.category}${duration}${cost}${bestTime}): ${compactPromptText(attraction.description)}`;
+    })
+    .join('\n');
+  const transportLines = context.transportTips
+    .map((tip) => {
+      const route = [tip.city_from, tip.city_to].filter(Boolean).join(' -> ') || tip.country_code;
+      const cost = tip.estimated_cost == null ? '' : `; custo aprox.: ${tip.estimated_cost} ${tip.currency ?? currencyForCountry(tip.country_code)}`;
+      return `- ${route}: ${tip.transport_type}${tip.duration_text ? `, ${tip.duration_text}` : ''}${cost}. ${compactPromptText(tip.description)}`;
+    })
+    .join('\n');
+  const documentLines = context.documents
+    .map((document) =>
+      `- ${document.country_name}: ${document.document_name} (${document.required ? 'geralmente obrigatorio' : 'checklist/recomendado'}) - ${compactPromptText(document.description)}`,
+    )
+    .join('\n');
+  const selectedCitiesLine = context.selectedCities.length
+    ? `Cidades priorizadas para esta duracao: ${context.selectedCities.join(', ')}.`
+    : 'Cidades priorizadas: use apenas cidades reais do contexto.';
+  const countryOnlyLine = context.onlyCountryProvided
+    ? 'O usuario informou apenas pais. Sugira cidades principais coerentes com a duracao, sem usar cidade generica.'
+    : 'O usuario informou ou sugeriu cidade no texto; priorize as cidades mencionadas quando existirem no contexto.';
+
+  return [
+    selectedCitiesLine,
+    countryOnlyLine,
+    'Destinos:',
+    destinationLines || '- Sem resumo de destino cadastrado.',
+    'Atracoes reais disponiveis:',
+    attractionLines || '- Sem atracoes cadastradas para o recorte; gere menos itens e use apenas nomes reais que voce tenha alta confianca.',
+    'Rotas e transportes reais:',
+    transportLines || '- Sem rotas cadastradas; use somente rotas com origem e destino reais.',
+    'Documentos/checklist por destino:',
+    documentLines || '- Inclua documentos gerais com linguagem de verificacao atualizada.',
+  ].join('\n');
 };
 
 const buildCountryMap = (input: TripPlanInput) => {
@@ -792,11 +1146,15 @@ const genericPlaceholderPatterns = [
   /atividade\s+sugerida/,
   /cidade\s+escolhida/,
   /regiao\s+escolhida/,
+  /ponto\s+importante/,
+  /passeio\s+importante/,
+  /destino\s+principal/,
   /local\s+importante/,
   /local\s+famoso\s+da\s+cidade/,
   /visite\s+a\s+regiao\s+escolhida/,
   /regiao\s+principal/,
   /bairro\s+turistico$/,
+  /international\s*->/,
 ];
 
 const hasGenericPlaceholder = (...values: unknown[]) => {
@@ -937,6 +1295,56 @@ const createFallbackAttractions = (input: TripPlanInput, itineraryItems: Record<
   });
 };
 
+const flattenStructuredDays = (plan: Record<string, unknown>) =>
+  asRecords(plan.days).flatMap((dayRecord) => {
+    const dayNumber = Number(dayRecord.day_number ?? dayRecord.dayNumber ?? 1);
+    const dayLabel = Number.isFinite(dayNumber) && dayNumber > 0 ? `Dia ${dayNumber}` : asText(dayRecord.day, 'Dia 1');
+    const date = asText(dayRecord.date);
+    const dayCity = asText(dayRecord.city);
+    const dayCountry = asText(dayRecord.country);
+
+    return asRecords(dayRecord.activities).map((activity, index) => ({
+      day: dayLabel,
+      date,
+      time: asText(activity.time),
+      country: asText(activity.country, dayCountry),
+      city: asText(activity.city, dayCity),
+      title: asText(activity.title),
+      description: asText(activity.description || activity.details),
+      type: asText(activity.type || activity.category, 'passeio'),
+      order_index: Number(activity.order_index ?? activity.orderIndex ?? index),
+      links: safeArray(activity.links ?? activity.useful_links),
+    }));
+  });
+
+const normalizeExternalPlanShape = (value: unknown) => {
+  const plan = asRecord(value);
+  const itineraryItems = asRecords(plan.itinerary_items);
+
+  return {
+    ...plan,
+    summary: asText(plan.summary || plan.trip_summary),
+    itinerary_items: itineraryItems.length ? itineraryItems : flattenStructuredDays(plan),
+    routes: asRecords(plan.routes).map((route) => ({
+      ...route,
+      transport: asText(route.transport || route.transport_type),
+      estimatedCost: asText(route.estimatedCost || route.estimated_cost || route.cost),
+      notes: asText(route.notes || route.description),
+    })),
+    expenses: asRecords(plan.expenses).map((expense) => ({
+      ...expense,
+      title: asText(expense.title || expense.description || expense.category),
+      detail: asText(expense.detail || expense.details || expense.description),
+      amount: Number(expense.amount ?? expense.estimated_cost ?? expense.value ?? 0),
+    })),
+    attractions: asRecords(plan.attractions).map((attraction) => ({
+      ...attraction,
+      day: asText(attraction.day || (attraction.suggested_day ? `Dia ${attraction.suggested_day}` : '')),
+      time: asText(attraction.time || attraction.suggested_time),
+    })),
+  };
+};
+
 const findInvalidCountries = (plan: Record<string, unknown>, input: TripPlanInput) => {
   const countryMap = buildCountryMap(input);
   const invalid = new Set<string>();
@@ -958,7 +1366,7 @@ const findInvalidCountries = (plan: Record<string, unknown>, input: TripPlanInpu
 };
 
 const ensurePlanShape = (value: unknown, input: TripPlanInput) => {
-  const plan = asRecord(value);
+  const plan = normalizeExternalPlanShape(value);
   const countryMap = buildCountryMap(input);
   const fallbackCountry = input.countries[0] ?? 'international';
   const tripDays = getTripDayCount(input);
@@ -1285,7 +1693,7 @@ class ProfileSyncError extends Error {
 }
 
 const validateRawPlanSchema = (value: unknown) => {
-  const plan = asRecord(value);
+  const plan = normalizeExternalPlanShape(value);
   const reasons: string[] = [];
   const objectKeys = Object.keys(plan);
 
@@ -1425,7 +1833,11 @@ const isUsableCompactLongTripPlan = (plan: ReturnType<typeof ensurePlanShape>, i
   return missingDays.length === 0 && singleItemDays.length <= Math.max(2, Math.floor(tripDays * 0.75));
 };
 
-const buildPrompt = (input: TripPlanInput, qualityFeedback?: string) => {
+const buildPrompt = (
+  input: TripPlanInput,
+  destinationContext: DestinationContext,
+  qualityFeedback?: string,
+) => {
   const tripDays = getTripDayCount(input);
   const minimumItems = getMinimumItineraryItems(input);
   const idealRange = getIdealItineraryRange(input);
@@ -1433,29 +1845,16 @@ const buildPrompt = (input: TripPlanInput, qualityFeedback?: string) => {
   const targetItems = isLongTrip
     ? Math.min(idealRange.max, Math.max(minimumItems, Math.ceil(tripDays * 1.5)))
     : Math.min(idealRange.max, Math.max(minimumItems, tripDays * 4));
-  const destinationHints = input.countries
-    .map((country) => {
-      const key = countryKey(country);
-      const cities = defaultCitiesByCountry[key] ?? [];
-      const attractions = defaultAttractionsByCountry[key] ?? [];
-      const hintParts = [
-        cities.length ? `cidades reais sugeridas: ${cities.join(', ')}` : '',
-        attractions.length
-          ? `atracoes reais conhecidas: ${attractions.map((attraction) => `${attraction.name} (${attraction.city})`).join(', ')}`
-          : '',
-      ].filter(Boolean);
-
-      return hintParts.length ? `- ${country}: ${hintParts.join('; ')}` : `- ${country}: use cidades e atracoes reais verificaveis.`;
-    })
-    .join('\n');
+  const destinationContextPrompt = buildDestinationContextPrompt(input, destinationContext);
 
   return `
-Voce e um planejador de viagens. Responda SOMENTE JSON valido, sem markdown, sem comentario e sem texto fora do objeto.
-Use frases curtas. Nao inclua links. Descricoes com ate 120 caracteres.
+Voce e um planejador de viagens especialista. Responda SOMENTE JSON valido, sem markdown, sem comentario e sem texto fora do objeto.
+Use o contexto real fornecido como fonte principal. Use frases curtas. Descricoes com ate 160 caracteres.
 
 Viagem:
 - Nome: ${input.tripName}
 - allowedCountries: ${input.countries.join(', ')}
+- Cidades informadas ou extraidas do usuario: ${input.cities.length ? input.cities.join(', ') : 'Nao informadas'}
 - itinerary_items.country, expenses.country e attractions.country devem usar SOMENTE allowedCountries.
 - Excecao: voo internacional pode usar country "international"; esse valor nunca e destino nem filtro principal.
 - Brasil/Brazil so pode aparecer como destino se estiver em allowedCountries. Se o usuario mencionar saida/origem Brasil, trate como voo internacional com country "international"; nao crie Brasil em attractions, expenses, filtros ou paises da viagem.
@@ -1463,10 +1862,12 @@ Viagem:
 - Estilo: ${input.style}
 - Descricao da viagem: ${input.description || 'Nao informada'}
 
-Destinos e referencias reais:
-${destinationHints}
+Contexto real de destinos, atracoes, documentos, transportes e custos:
+${destinationContextPrompt}
+
 - Se o usuario informou apenas pais, escolha cidades reais e populares desse pais; nunca use "Internacional" como cidade.
 - Se a descricao mencionar uma cidade especifica, priorize essa cidade e atracoes reais dela.
+- Se o contexto nao tiver dados suficientes para muitos blocos, gere menos itens com nomes reais; nunca complete com texto vago.
 
 Qualidade obrigatoria:
 - Gere entre ${minimumItems} e ${targetItems} itinerary_items, distribuidos pelos ${tripDays} dias.
@@ -1479,7 +1880,7 @@ Qualidade obrigatoria:
 - Use nomes reais de pontos turisticos, bairros, museus, parques, pracinhas, estacoes ou aeroportos quando forem relevantes.
 - O titulo de cada itinerary_item deve ser especifico: "Visita ao Senso-ji", "Coliseu e Forum Romano", "Shibuya Crossing", "Pantheon", "Chegada ao aeroporto de Haneda".
 - Se nao souber atracoes reais suficientes para o destino, gere menos itens, mas nunca use placeholders genericos.
-- Nunca use como titulo, cidade, atracao, rota ou descricao: "Ponto turistico principal", "atracao principal", "cidade escolhida", "regiao escolhida", "local importante", "atividade cultural", "atividade sugerida", "local famoso da cidade", "Visite a regiao escolhida".
+- Nunca use como titulo, cidade, atracao, rota ou descricao: "Ponto turistico principal", "atracao principal", "cidade escolhida", "regiao escolhida", "ponto importante", "passeio importante", "destino principal", "local importante", "atividade cultural", "atividade sugerida", "local famoso da cidade", "Visite a regiao escolhida".
 - Nunca use "international" ou "Internacional" como city. Para voo internacional, use city real de chegada ou deixe city como aeroporto/cidade real.
 
 Ritmo:
@@ -1491,55 +1892,63 @@ Ritmo:
 Tipos permitidos: chegada, hospedagem, passeio, transporte, alimentacao, voo, trem, motorhome, descanso, compras, documento, outro.
 Categorias de despesas: Hospedagem, Transporte, Passeios, Alimentacao, Comprinhas, Documentos, Seguro, Outros.
 
-Despesas: gere 6 a 10 gastos aproximados compativeis com roteiro. Use currency e amount na moeda local correta: Inglaterra/Reino Unido GBP, Suica CHF, Japao JPY, Estados Unidos USD, Zona Euro EUR, Brasil BRL. Se houver duvida, use EUR para zona do euro e BRL apenas para Brasil.
+Despesas: gere 6 a 10 gastos aproximados compativeis com roteiro. Use estimated_cost/amount apenas como estimativa revisavel. Use currency e amount na moeda local correta: Inglaterra/Reino Unido GBP, Suica CHF, Japao JPY, Estados Unidos USD, Zona Euro EUR, Brasil BRL. Se houver duvida, use EUR para zona do euro e BRL apenas para Brasil.
 Attractions: inclua apenas atracoes reais do roteiro: museus, pracas, mirantes, parques, bairros turisticos e experiencias. Nao inclua hotel, aeroporto, metro, refeicoes ou deslocamentos.
 Routes: inclua rotas uteis entre cidades-base/aeroportos/estacoes ou trechos de estrada. Exemplos bons: "Aeroporto de Haneda -> Shinjuku", "Tokyo -> Kyoto", "Roma -> Florenca", "Florenca -> Veneza". Nunca retorne "international -> Tokyo"; use "Chegada ao aeroporto" ou uma origem real.
+Documentos: use linguagem cautelosa quando a regra legal puder mudar: "verifique a exigencia atual antes da viagem".
 Validacao final: remova duplicados, remova Brasil/paises fora dos allowedCountries, converta apenas country de voo de origem Brasil para "international", complete dias fracos e remova qualquer placeholder generico.
 
 ${qualityFeedback ? `A geracao anterior foi rejeitada por qualidade: ${qualityFeedback}. Refaça corrigindo esses pontos, com nomes reais, cidades reais, rotas legiveis e sem placeholders genericos.` : ''}
 
 Retorne exatamente este objeto:
 {
-  "summary": "string",
+  "trip_summary": "string",
+  "days": [
+    {
+      "day_number": 1,
+      "date": "YYYY-MM-DD",
+      "city": "cidade real",
+      "country": "um dos allowedCountries",
+      "activities": [
+        {
+          "time": "09:00",
+          "title": "nome real e especifico",
+          "category": "um dos tipos permitidos",
+          "city": "cidade real",
+          "country": "um dos allowedCountries ou international apenas em voo",
+          "location": "nome real do local, bairro, estacao ou aeroporto",
+          "description": "string",
+          "details": "string",
+          "estimated_cost": 0,
+          "currency": "BRL, EUR, USD, JPY, CHF ou GBP",
+          "useful_links": []
+        }
+      ]
+    }
+  ],
   "documents": [
-    { "title": "string", "detail": "string" }
+    { "name": "string", "required": true, "description": "string" }
   ],
   "routes": [
-    { "from": "string", "to": "string", "transport": "string", "duration": "string", "estimatedCost": "string", "notes": "string" }
-  ],
-  "itinerary_items": [
-    {
-      "day": "Dia 1",
-      "date": "2026-01-01",
-      "time": "09h00",
-      "country": "um dos allowedCountries ou international apenas em voo",
-      "city": "string",
-      "title": "string",
-      "description": "string",
-      "type": "um dos tipos permitidos",
-      "order_index": 0
-    }
+    { "from": "string", "to": "string", "transport_type": "string", "duration": "string", "description": "string", "estimated_cost": 0, "currency": "BRL, EUR, USD, JPY, CHF ou GBP" }
   ],
   "expenses": [
     {
       "category": "uma das categorias permitidas",
-      "country": "um dos allowedCountries ou international apenas em transporte internacional",
+      "description": "string",
+      "estimated_cost": 0,
       "currency": "BRL, EUR, USD, JPY, CHF ou GBP",
-      "amount": 0,
-      "title": "string",
-      "detail": "Aproximado / planejado",
-      "euro": { "min": 0, "max": 0 },
-      "real": { "min": 0, "max": 0 }
+      "country": "um dos allowedCountries ou international apenas em transporte internacional"
     }
   ],
   "attractions": [
     {
       "name": "string",
-      "country": "um dos allowedCountries",
       "city": "string",
-      "day": "Dia 1",
-      "time": "09h00",
-      "description": "string"
+      "country": "um dos allowedCountries",
+      "description": "string",
+      "suggested_day": 1,
+      "suggested_time": "10:00"
     }
   ],
   "warnings": ["string"]
@@ -1551,6 +1960,7 @@ const generatePlanWithAI = async (
   apiKey: string,
   model: string,
   input: TripPlanInput,
+  destinationContext: DestinationContext,
   qualityFeedback?: string,
   context: { groupId: string; userId: string; attempt: number } = {
     groupId: input.groupId,
@@ -1582,7 +1992,7 @@ const generatePlanWithAI = async (
             role: 'system',
             content: 'Voce gera apenas JSON valido para planejamento de viagem. Nao retorne texto fora do JSON.',
           },
-          { role: 'user', content: buildPrompt(input, qualityFeedback) },
+          { role: 'user', content: buildPrompt(input, destinationContext, qualityFeedback) },
         ],
       }),
     });
@@ -1749,9 +2159,36 @@ Deno.serve(async (req) => {
     group_id: input.groupId,
     user_id: user.id,
     countries: input.countries,
+    cities: input.cities,
     start_date: input.startDate,
     end_date: input.endDate,
   });
+
+  let activeModel = 'pending';
+  let destinationContext = emptyDestinationContext(input);
+  let destinationSummary = buildDestinationSummary(input, destinationContext);
+
+  const logGenerationStatus = async (status: string, errorMessage?: string) => {
+    try {
+      await adminSupabase.from('ai_generation_logs').insert({
+        group_id: input.groupId,
+        user_id: user.id,
+        request_type: 'trip_plan_preview',
+        destination_summary: destinationSummary,
+        prompt_version: PROMPT_VERSION,
+        model: activeModel,
+        status,
+        error_message: errorMessage ? compactPromptText(errorMessage, 1000) : null,
+      });
+    } catch (error) {
+      logAiEvent('error', 'safe_generation_log_insert_failed', {
+        group_id: input.groupId,
+        user_id: user.id,
+        error_code: 'AI_GENERATION_LOG_INSERT_FAILED',
+        message: getErrorMessage(error),
+      });
+    }
+  };
 
   const logFailedGeneration = async (feedback: string) => {
     try {
@@ -1771,6 +2208,8 @@ Deno.serve(async (req) => {
       });
       // Logging must never hide the original generation error.
     }
+
+    await logGenerationStatus('failed', feedback);
   };
 
   const ensureQuotaProfile = async () => {
@@ -1882,6 +2321,8 @@ Deno.serve(async (req) => {
         limit,
       });
 
+      await logGenerationStatus('blocked', 'AI_GENERATION_LIMIT_REACHED');
+
       return errorResponse(
         'AI_GENERATION_LIMIT_REACHED',
         'Você atingiu o limite gratuito de 3 gerações de viagem com IA.',
@@ -1901,6 +2342,8 @@ Deno.serve(async (req) => {
         last_ai_generation_at: profile.last_ai_generation_at,
       });
 
+      await logGenerationStatus('blocked', 'AI_GENERATION_COOLDOWN');
+
       return errorResponse(
         'AI_GENERATION_COOLDOWN',
         'Aguarde alguns segundos antes de gerar novamente.',
@@ -1908,6 +2351,7 @@ Deno.serve(async (req) => {
       );
     }
 
+    activeModel = Deno.env.get('AI_MODEL') ?? 'gpt-4.1-mini';
     const apiKey = Deno.env.get('OPENAI_API_KEY') ?? Deno.env.get('AI_API_KEY');
     if (!apiKey) {
       await logFailedGeneration('IA ainda nao configurada no servidor.');
@@ -1924,7 +2368,25 @@ Deno.serve(async (req) => {
       );
     }
 
-    const model = Deno.env.get('AI_MODEL') ?? 'gpt-4.1-mini';
+    const model = activeModel;
+    destinationContext = await fetchDestinationContext(adminSupabase, input);
+    destinationSummary = buildDestinationSummary(input, destinationContext);
+    const contextWarnings = getDestinationContextWarnings(destinationContext);
+
+    logAiEvent('info', 'destination_context_loaded', {
+      group_id: input.groupId,
+      user_id: user.id,
+      destination_summary: destinationSummary,
+      destinations: destinationContext.destinations.length,
+      selected_cities: destinationContext.selectedCities,
+      mentioned_cities: destinationContext.mentionedCities,
+      attractions: destinationContext.attractions.length,
+      transport_tips: destinationContext.transportTips.length,
+      documents: destinationContext.documents.length,
+      only_country_provided: destinationContext.onlyCountryProvided,
+    });
+    await logGenerationStatus('started');
+
     const functionStartedAt = Date.now();
     const functionBudgetMs = getFunctionBudgetMs();
     let output: ReturnType<typeof ensurePlanShape> | null = null;
@@ -1963,24 +2425,19 @@ Deno.serve(async (req) => {
 
       let rawOutput: unknown;
       try {
-        rawOutput = await generatePlanWithAI(apiKey, model, input, qualityFeedback, {
+        rawOutput = await generatePlanWithAI(apiKey, model, input, destinationContext, qualityFeedback, {
           groupId: input.groupId,
           userId: user.id,
           attempt,
         });
       } catch (error) {
         if (error instanceof AiTimeoutError) {
-          logAiEvent('warn', 'openai_timeout_fallback_plan', {
+          logAiEvent('warn', 'openai_timeout_without_preview', {
             group_id: input.groupId,
             user_id: user.id,
             attempt,
             timeout_ms: error.timeoutMs,
           });
-          output = createFallbackPlan(
-            input,
-            'A OpenAI demorou demais; foi gerada uma prévia estruturada para revisão.',
-          );
-          break;
         }
 
         throw error;
@@ -2002,6 +2459,9 @@ Deno.serve(async (req) => {
       }
 
       const candidate = ensurePlanShape(rawOutput, input);
+      if (contextWarnings.length) {
+        candidate.warnings = [...new Set([...candidate.warnings, ...contextWarnings])];
+      }
       const quality = validatePlanQuality(candidate, input);
 
       if (quality.ok) {
@@ -2064,6 +2524,8 @@ Deno.serve(async (req) => {
       .single();
 
     if (insertError) throw new SupabaseInsertError(insertError);
+
+    await logGenerationStatus('generated');
 
     let quotaResult: QuotaResult | null = null;
     let quotaWarning: Record<string, unknown> | null = null;

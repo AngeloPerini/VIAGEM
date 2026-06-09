@@ -36,7 +36,7 @@ import type { LanguageCode } from '../i18n';
 import { ExpenseChart } from '../components/ExpenseChart';
 import { TripVisitedMap } from '../components/TripVisitedMap';
 import type { TripMapCountry } from '../components/TripVisitedMap';
-import { countryLabel, normalizeCountryCode } from '../data/countries';
+import { countryLabel, normalizeCountryCode, normalizeCountryId } from '../data/countries';
 import {
   getCurrentProfile,
   getGroupMembers,
@@ -309,6 +309,42 @@ const TRIP_DESCRIPTION_MAX_LENGTH = 2500;
 const TRIP_DESCRIPTION_TOO_LONG_MESSAGE = 'A descrição está muito longa. Resuma para até 2500 caracteres.';
 const TRIP_DESCRIPTION_PLACEHOLDER =
   'Descreva sua viagem, preferências, cidades desejadas, ritmo, orçamento, restrições, transporte, hospedagem e qualquer detalhe importante.';
+
+type AiGenerationPhase = 'destination-context' | 'itinerary' | 'validation';
+
+const aiGenerationPhaseMessages: Record<AiGenerationPhase, string> = {
+  'destination-context': 'Buscando informações do destino...',
+  itinerary: 'Montando roteiro com IA...',
+  validation: 'Validando roteiro...',
+};
+
+const aiCityHintsByCountry: Record<string, string[]> = {
+  japan: ['Tokyo', 'Tóquio', 'Kyoto', 'Osaka'],
+  italy: ['Roma', 'Rome', 'Florença', 'Florence', 'Veneza', 'Venice', 'Milão', 'Milan'],
+  france: ['Paris', 'Nice'],
+  switzerland: ['Zurique', 'Zurich', 'Lucerna', 'Lucerne', 'Interlaken', 'Zermatt'],
+  brazil: ['Rio de Janeiro', 'São Paulo', 'Sao Paulo'],
+};
+
+const normalizeAIHintText = (value: string) =>
+  value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+
+const hasKnownCityHint = (countries: string[], text: string) => {
+  const normalizedText = normalizeAIHintText(text);
+
+  return countries.some((country) => {
+    const countryKey = normalizeCountryId(country);
+    const cityHints = aiCityHintsByCountry[countryKey] ?? [];
+    return cityHints.some((city) => normalizedText.includes(normalizeAIHintText(city)));
+  });
+};
+
+const getCountryOnlyAIHint = (input: Pick<TripAIInput, 'tripName' | 'countries' | 'description'>) => {
+  if (!input.countries.length) return null;
+  const searchableText = `${input.tripName} ${input.description}`;
+  if (hasKnownCityHint(input.countries, searchableText)) return null;
+  return 'Você informou apenas o país. A IA vai sugerir cidades principais para a viagem.';
+};
 
 const createEmptyChecklistDraft = (): TripChecklistItemInput => ({
   title: '',
@@ -868,6 +904,7 @@ export function ProfilePage() {
   const [isInviting, setIsInviting] = useState(false);
   const [isCreatingTrip, setIsCreatingTrip] = useState(false);
   const [isGeneratingAI, setIsGeneratingAI] = useState(false);
+  const [aiGenerationPhase, setAiGenerationPhase] = useState<AiGenerationPhase | null>(null);
   const [aiFailedGroup, setAiFailedGroup] = useState<UserTravelGroup | null>(null);
   const [aiRetryInput, setAiRetryInput] = useState<TripAIInput | null>(null);
   const [recentlyCreatedTripId, setRecentlyCreatedTripId] = useState<string | null>(null);
@@ -1060,6 +1097,22 @@ export function ProfilePage() {
   const isTripDescriptionTooLong = tripDescription.length > TRIP_DESCRIPTION_MAX_LENGTH;
   const isTripDateRangeInvalid = isDateRangeInvalid(tripStartDate, tripEndDate);
   const isActiveTripDateRangeInvalid = isDateRangeInvalid(activeGroup?.startDate, activeGroup?.endDate);
+  const aiGenerationMessage = aiGenerationPhase ? aiGenerationPhaseMessages[aiGenerationPhase] : null;
+  const createTripCountryOnlyAIHint = getCountryOnlyAIHint({
+    tripName,
+    countries: parsedTripCountries(),
+    description: tripDescription,
+  });
+  const activeTripCountryOnlyAIHint = activeGroup
+    ? getCountryOnlyAIHint({
+        tripName: activeGroup.name,
+        countries: activeGroup.countries?.length
+          ? activeGroup.countries.flatMap((country) => parseCountryInput(country))
+          : [],
+        description: activeGroup.description ?? '',
+      })
+    : null;
+  const retryCountryOnlyAIHint = aiRetryInput ? getCountryOnlyAIHint(aiRetryInput) : null;
 
   const validateDescriptionLength = (description: string) => {
     if (description.length > TRIP_DESCRIPTION_MAX_LENGTH) {
@@ -1112,10 +1165,26 @@ export function ProfilePage() {
     return caughtError instanceof Error ? caughtError.message : 'Nao foi possivel gerar a previa com IA.';
   };
 
+  const generateTripPlanWithPhases = async (input: TripAIInput) => {
+    setAiGenerationPhase('destination-context');
+    const timers = [
+      window.setTimeout(() => setAiGenerationPhase('itinerary'), 900),
+      window.setTimeout(() => setAiGenerationPhase('validation'), 2400),
+    ];
+
+    try {
+      const plan = await generateTripPlan(input);
+      setAiGenerationPhase('validation');
+      return plan;
+    } finally {
+      timers.forEach((timer) => window.clearTimeout(timer));
+    }
+  };
+
   const openAIReview = async (input: TripAIInput, group: UserTravelGroup) => {
     assertValidDateRange(input.startDate, input.endDate);
     setActiveGroup(group);
-    const plan = await generateTripPlan(input);
+    const plan = await generateTripPlanWithPhases(input);
     setAiFailedGroup(null);
     setAiRetryInput(null);
     setShowCreateTripForm(false);
@@ -1758,6 +1827,7 @@ export function ProfilePage() {
       setError(formatAIError(caughtError));
     } finally {
       setIsGeneratingAI(false);
+      setAiGenerationPhase(null);
     }
   };
 
@@ -1781,6 +1851,7 @@ export function ProfilePage() {
       setError(formatAIError(caughtError));
     } finally {
       setIsGeneratingAI(false);
+      setAiGenerationPhase(null);
     }
   };
 
@@ -2181,6 +2252,11 @@ export function ProfilePage() {
             <span className="shrink-0">{tripDescription.length} / {TRIP_DESCRIPTION_MAX_LENGTH}</span>
           </span>
         </label>
+        {createTripCountryOnlyAIHint ? (
+          <p className="rounded-2xl bg-sky-50 px-4 py-3 text-sm font-bold text-sky-800">
+            {createTripCountryOnlyAIHint}
+          </p>
+        ) : null}
         <div className="grid gap-4 md:grid-cols-3">
           <label className="block">
             <span className="mb-2 block text-sm font-bold text-slate-600">{t('profile.startDate')}</span>
@@ -2308,8 +2384,18 @@ export function ProfilePage() {
               className="mt-4 inline-flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-teal-700 px-5 font-black text-white transition hover:bg-teal-800 disabled:cursor-not-allowed disabled:opacity-70 sm:w-auto"
             >
               {isGeneratingAI ? <Loader2 className="h-5 w-5 animate-spin" /> : <Sparkles className="h-5 w-5" />}
-              {isGeneratingAI ? t('profile.generatingAI') : t('profile.generateAI')}
+              {isGeneratingAI ? aiGenerationMessage ?? t('profile.generatingAI') : t('profile.generateAI')}
             </button>
+            {isGeneratingAI && aiGenerationMessage ? (
+              <p className="mt-3 rounded-2xl bg-white px-4 py-3 text-sm font-black text-teal-800">
+                {aiGenerationMessage}
+              </p>
+            ) : null}
+            {!isGeneratingAI && activeTripCountryOnlyAIHint ? (
+              <p className="mt-3 rounded-2xl bg-sky-50 px-4 py-3 text-sm font-bold text-sky-800">
+                {activeTripCountryOnlyAIHint}
+              </p>
+            ) : null}
             <p className="mt-3 rounded-2xl bg-white px-4 py-3 text-sm font-bold text-slate-600">
               {isActiveTripDateRangeInvalid ? INVALID_DATE_RANGE_MESSAGE : aiUsageLabel}
             </p>
@@ -3318,6 +3404,11 @@ export function ProfilePage() {
                       <p className="mt-2 text-sm font-bold leading-6 text-amber-900">
                         {t('ai.retryOrManual', { tripName: aiFailedGroup.name })}
                       </p>
+                      {(isGeneratingAI && aiGenerationMessage) || retryCountryOnlyAIHint ? (
+                        <p className="mt-3 rounded-2xl bg-white/80 px-4 py-3 text-sm font-black text-amber-900">
+                          {isGeneratingAI && aiGenerationMessage ? aiGenerationMessage : retryCountryOnlyAIHint}
+                        </p>
+                      ) : null}
                     </div>
                     <div className="grid gap-2 sm:grid-cols-2 lg:min-w-[25rem]">
                       <button

@@ -187,9 +187,13 @@ const genericPlaceholderPatterns = [
   /atividade\s+sugerida/i,
   /cidade\s+escolhida/i,
   /regi[aã]o\s+escolhida/i,
+  /ponto\s+importante/i,
+  /passeio\s+importante/i,
+  /destino\s+principal/i,
   /local\s+importante/i,
   /local\s+famoso\s+da\s+cidade/i,
   /visite\s+a\s+regi[aã]o\s+escolhida/i,
+  /international\s*->/i,
 ];
 
 const isGenericPlaceholderText = (value: unknown) => {
