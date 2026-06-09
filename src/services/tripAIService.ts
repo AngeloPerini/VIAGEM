@@ -412,6 +412,7 @@ export const normalizeTripAIPlan = (value: unknown): TripAIPlan => {
 
   return {
     generationId: asString(record.generationId) || undefined,
+    intentSummary: asString(record.intentSummary || record.intent_summary || record.interpreted_intent) || undefined,
     summary: asString(record.summary, 'Previa de viagem gerada com IA.'),
     documents: asArray<unknown>(record.documents).map(normalizeDocument),
     routes: asArray<unknown>(record.routes).map(normalizeRoute),

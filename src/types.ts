@@ -266,6 +266,7 @@ export type TripAIRoute = {
 
 export type TripAIPlan = {
   generationId?: string;
+  intentSummary?: string;
   summary: string;
   documents: TripAIDocument[];
   routes: TripAIRoute[];

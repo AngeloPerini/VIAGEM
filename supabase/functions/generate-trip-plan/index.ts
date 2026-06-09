@@ -71,6 +71,24 @@ type TravelDocumentContextRow = {
   required: boolean;
 };
 
+type TravelIntent = {
+  summary: string;
+  requiredCities: string[];
+  preferredCities: string[];
+  preferredRegions: string[];
+  interests: string[];
+  requiredCityKeys: string[];
+  preferredCityKeys: string[];
+  allowedCityKeys: string[];
+  blockedCityKeys: string[];
+  blockedTerms: string[];
+  requiredTerms: string[];
+  isBrazilDomestic: boolean;
+  isBeachTrip: boolean;
+  isBrazilNortheastBeaches: boolean;
+  isAlagoasBeaches: boolean;
+};
+
 type DestinationContext = {
   destinations: DestinationRow[];
   attractions: AttractionContextRow[];
@@ -80,6 +98,7 @@ type DestinationContext = {
   selectedCities: string[];
   mentionedCities: string[];
   onlyCountryProvided: boolean;
+  intent: TravelIntent;
 };
 
 const corsHeaders = {
@@ -88,7 +107,7 @@ const corsHeaders = {
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 };
 const unlimitedAiTesterEmails = new Set(['r.perini351@gmail.com']);
-const PROMPT_VERSION = 'tripflow-ai-rag-v2';
+const PROMPT_VERSION = 'tripflow-ai-rag-v3-intent';
 const DESCRIPTION_MAX_LENGTH = 2500;
 const INVALID_DATE_RANGE_MESSAGE = 'A data final não pode ser anterior à data inicial.';
 
@@ -314,7 +333,7 @@ const defaultCitiesByCountry: Record<string, string[]> = {
   switzerland: ['Zurique', 'Lucerna', 'Interlaken', 'Zermatt'],
   japan: ['Tokyo', 'Kyoto', 'Osaka'],
   united_states: ['Nova York', 'Washington', 'Boston'],
-  brazil: ['São Paulo', 'Rio de Janeiro', 'Brasília'],
+  brazil: ['Salvador', 'Recife', 'Fortaleza', 'Maceió', 'Natal'],
 };
 
 const defaultAttractionsByCountry: Record<string, Array<{ name: string; city: string; description: string }>> = {
@@ -369,9 +388,11 @@ const defaultAttractionsByCountry: Record<string, Array<{ name: string; city: st
     { name: 'National Mall', city: 'Washington', description: 'Eixo de monumentos e museus.' },
   ],
   brazil: [
-    { name: 'Avenida Paulista', city: 'São Paulo', description: 'Região cultural e gastronômica.' },
-    { name: 'Cristo Redentor', city: 'Rio de Janeiro', description: 'Mirante e atração icônica.' },
-    { name: 'Praça dos Três Poderes', city: 'Brasília', description: 'Conjunto arquitetônico e cívico.' },
+    { name: 'Pelourinho', city: 'Salvador', description: 'Centro histórico com caminhada cultural e gastronomia baiana.' },
+    { name: 'Recife Antigo', city: 'Recife', description: 'Bairro histórico para passeio a pé, cultura e restaurantes.' },
+    { name: 'Praia do Futuro', city: 'Fortaleza', description: 'Praia urbana conhecida por barracas estruturadas e banho de mar.' },
+    { name: 'Ponta Verde', city: 'Maceió', description: 'Orla de água clara para caminhada, praia e restaurantes.' },
+    { name: 'Ponta Negra', city: 'Natal', description: 'Praia urbana com vista para o Morro do Careca.' },
   ],
 };
 
@@ -382,6 +403,15 @@ const brazilCityKeys = new Set([
   'salvador',
   'recife',
   'fortaleza',
+  'maceio',
+  'natal',
+  'joao_pessoa',
+  'aracaju',
+  'sao_luis',
+  'maragogi',
+  'sao_miguel_dos_milagres',
+  'ipojuca',
+  'jijoca_de_jericoacoara',
   'curitiba',
   'belo_horizonte',
   'porto_alegre',
@@ -417,6 +447,22 @@ const cityAliases: Record<string, string> = {
   zermatt: 'zermatt',
   rio_de_janeiro: 'rio_de_janeiro',
   sao_paulo: 'sao_paulo',
+  brasilia: 'brasilia',
+  maceio: 'maceio',
+  salvador: 'salvador',
+  recife: 'recife',
+  fortaleza: 'fortaleza',
+  natal: 'natal',
+  joao_pessoa: 'joao_pessoa',
+  aracaju: 'aracaju',
+  sao_luis: 'sao_luis',
+  maragogi: 'maragogi',
+  porto_de_galinhas: 'porto_de_galinhas',
+  sao_miguel_dos_milagres: 'sao_miguel_dos_milagres',
+  praia_do_gunga: 'praia_do_gunga',
+  praia_do_frances: 'praia_do_frances',
+  jericoacoara: 'jijoca_de_jericoacoara',
+  jeri: 'jijoca_de_jericoacoara',
 };
 
 const cityKey = (value: unknown) => {
@@ -454,6 +500,262 @@ const compactPromptText = (value: unknown, maxLength = 180) => {
   return text.length > maxLength ? `${text.slice(0, Math.max(0, maxLength - 3))}...` : text;
 };
 
+const brazilNortheastBeachCities = [
+  'Maceió',
+  'Maragogi',
+  'São Miguel dos Milagres',
+  'Porto de Galinhas',
+  'Recife',
+  'Salvador',
+  'Fortaleza',
+  'Natal',
+  'João Pessoa',
+  'Aracaju',
+];
+
+const alagoasBeachCities = [
+  'Maceió',
+  'Maragogi',
+  'São Miguel dos Milagres',
+  'Praia do Gunga',
+  'Praia do Francês',
+];
+
+const brazilNortheastBeachAttractions = [
+  { name: 'Ponta Verde', city: 'Maceió', description: 'Orla urbana de água clara para praia, caminhada e restaurantes.' },
+  { name: 'Praia de Pajuçara', city: 'Maceió', description: 'Praia central com jangadas e piscinas naturais em dias adequados.' },
+  { name: 'Piscinas naturais de Maragogi', city: 'Maragogi', description: 'Passeio de barco para piscinas naturais com maré baixa.' },
+  { name: 'São Miguel dos Milagres', city: 'São Miguel dos Milagres', description: 'Trecho da Rota Ecológica com praias calmas e pousadas charmosas.' },
+  { name: 'Praia do Gunga', city: 'Roteiro', description: 'Praia ao sul de Maceió com falésias e encontro de lagoa e mar.' },
+  { name: 'Praia do Francês', city: 'Marechal Deodoro', description: 'Praia próxima a Maceió com mar azul e boa estrutura.' },
+  { name: 'Porto de Galinhas', city: 'Ipojuca', description: 'Vila praiana famosa por piscinas naturais e passeios de jangada.' },
+  { name: 'Praia do Futuro', city: 'Fortaleza', description: 'Praia urbana com barracas estruturadas para banho e refeições.' },
+  { name: 'Ponta Negra', city: 'Natal', description: 'Praia urbana com vista para o Morro do Careca.' },
+  { name: 'Pelourinho', city: 'Salvador', description: 'Centro histórico para combinar cultura baiana e litoral.' },
+];
+
+const brazilNortheastBlockedCityLabels = [
+  'São Paulo',
+  'Rio de Janeiro',
+  'Brasília',
+  'Curitiba',
+  'Belo Horizonte',
+  'Porto Alegre',
+  'Gramado',
+  'Foz do Iguaçu',
+  'Bonito',
+];
+
+const brazilNortheastBlockedTermLabels = [
+  ...brazilNortheastBlockedCityLabels,
+  'Cristo Redentor',
+  'Avenida Paulista',
+  'Praça dos Três Poderes',
+  'Congresso Nacional',
+  'Copacabana',
+  'Ipanema',
+  'Pão de Açúcar',
+];
+
+const beachIntentTerms = [
+  'praia',
+  'praias',
+  'litoral',
+  'mar',
+  'costa',
+  'piscina natural',
+  'piscinas naturais',
+  'beach',
+  'beaches',
+];
+
+const northeastIntentTerms = [
+  'nordeste',
+  'nordestino',
+  'alagoas',
+  'bahia',
+  'pernambuco',
+  'ceara',
+  'rio grande do norte',
+  'paraiba',
+  'sergipe',
+  'maranhao',
+  'piaui',
+];
+
+const knownIntentCities = uniqueTexts([
+  ...Object.values(defaultCitiesByCountry).flat(),
+  ...brazilNortheastBeachCities,
+  ...alagoasBeachCities,
+  'Tokyo',
+  'Kyoto',
+  'Osaka',
+  'Paris',
+  'Nice',
+]);
+
+const containsIntentTerm = (textKey: string, terms: string[]) =>
+  terms.some((term) => textKey.includes(normalizeKey(term)));
+
+const getInputIntentTextKey = (input: TripPlanInput) =>
+  normalizeKey([
+    input.tripName,
+    input.description,
+    ...input.countries,
+    ...input.cities,
+  ].join(' '));
+
+const inferCitiesFromIntentText = (input: TripPlanInput, textKey = getInputIntentTextKey(input)) =>
+  uniqueTexts([
+    ...input.cities,
+    ...knownIntentCities.filter((city) => {
+      const key = cityKey(city);
+      return key && textKey.includes(key);
+    }),
+  ]);
+
+const getIntentFallbackCities = (intent: TravelIntent, countryCode: string, input?: TripPlanInput) => {
+  if (countryCode !== 'brazil' || !intent.isBrazilNortheastBeaches) return [];
+
+  const cityBudget = input ? Math.max(3, getCityBudgetPerCountry(input)) : 5;
+  const preferred = intent.isAlagoasBeaches ? alagoasBeachCities : brazilNortheastBeachCities;
+  return uniqueTexts([...intent.requiredCities, ...preferred]).slice(0, cityBudget);
+};
+
+const getIntentFallbackAttractions = (intent: TravelIntent, countryCode: string) => {
+  if (countryCode !== 'brazil' || !intent.isBrazilNortheastBeaches) return [];
+  const preferredCityKeys = new Set(getIntentFallbackCities(intent, countryCode).map(cityKey));
+
+  if (!preferredCityKeys.size) return brazilNortheastBeachAttractions;
+
+  return brazilNortheastBeachAttractions.filter((attraction) =>
+    preferredCityKeys.has(cityKey(attraction.city)) ||
+    intent.allowedCityKeys.includes(cityKey(attraction.city)) ||
+    intent.requiredTerms.some((term) => normalizeKey(`${attraction.name} ${attraction.description}`).includes(term))
+  );
+};
+
+const extractTravelIntent = (input: TripPlanInput): TravelIntent => {
+  const textKey = getInputIntentTextKey(input);
+  const countryCodes = input.countries.map(countryKey).filter(Boolean);
+  const isBrazilDomestic = countryCodes.includes('brazil');
+  const isBeachTrip = containsIntentTerm(textKey, beachIntentTerms);
+  const isNortheast = containsIntentTerm(textKey, northeastIntentTerms) ||
+    brazilNortheastBeachCities.some((city) => textKey.includes(cityKey(city)));
+  const isAlagoasBeaches = isBrazilDomestic && isBeachTrip && (
+    textKey.includes('alagoas') ||
+    alagoasBeachCities.some((city) => textKey.includes(cityKey(city)))
+  );
+  const isBrazilNortheastBeaches = isBrazilDomestic && isBeachTrip && (isNortheast || isAlagoasBeaches);
+  const requiredCities = inferCitiesFromIntentText(input, textKey);
+  const preferredCities = isBrazilNortheastBeaches
+    ? uniqueTexts([...(isAlagoasBeaches ? alagoasBeachCities : brazilNortheastBeachCities)])
+    : [];
+  const interests = [
+    isBeachTrip ? 'praias e litoral' : '',
+    containsIntentTerm(textKey, ['museu', 'museus', 'arte', 'historia', 'história']) ? 'museus e cultura' : '',
+    containsIntentTerm(textKey, ['gastronomia', 'comida', 'restaurante']) ? 'gastronomia' : '',
+  ].filter(Boolean);
+  const preferredRegions = [
+    isBrazilNortheastBeaches ? 'Nordeste brasileiro' : '',
+    isAlagoasBeaches ? 'Alagoas' : '',
+  ].filter(Boolean);
+  const allowedCityKeys = uniqueTexts([
+    ...preferredCities,
+    ...requiredCities,
+    ...brazilNortheastBeachAttractions.map((attraction) => attraction.city),
+  ]).map(cityKey);
+  const requiredTerms = isBrazilNortheastBeaches
+    ? [
+        ...beachIntentTerms.map(normalizeKey),
+        'maragogi',
+        'maceio',
+        'piscinas_naturais',
+        'porto_de_galinhas',
+        'sao_miguel_dos_milagres',
+      ]
+    : [];
+  const summary = (() => {
+    if (isAlagoasBeaches) {
+      return 'Praias de Alagoas, priorizando Maceió, Maragogi, São Miguel dos Milagres e praias próximas.';
+    }
+
+    if (isBrazilNortheastBeaches) {
+      return 'Praias do Nordeste brasileiro, com foco em litoral, mar, piscinas naturais e cidades costeiras.';
+    }
+
+    if (requiredCities.length && interests.length) {
+      return `Roteiro focado em ${requiredCities.join(', ')} para ${interests.join(', ')}.`;
+    }
+
+    if (requiredCities.length) {
+      return `Roteiro focado nas cidades mencionadas: ${requiredCities.join(', ')}.`;
+    }
+
+    if (input.description) {
+      return compactPromptText(input.description, 180);
+    }
+
+    return 'Roteiro coerente com os países, cidades, datas e estilo informados pelo usuário.';
+  })();
+
+  return {
+    summary,
+    requiredCities,
+    preferredCities,
+    preferredRegions,
+    interests,
+    requiredCityKeys: requiredCities.map(cityKey).filter(Boolean),
+    preferredCityKeys: preferredCities.map(cityKey).filter(Boolean),
+    allowedCityKeys: allowedCityKeys.filter(Boolean),
+    blockedCityKeys: isBrazilNortheastBeaches ? brazilNortheastBlockedCityLabels.map(cityKey) : [],
+    blockedTerms: isBrazilNortheastBeaches ? brazilNortheastBlockedTermLabels.map(normalizeKey) : [],
+    requiredTerms,
+    isBrazilDomestic,
+    isBeachTrip,
+    isBrazilNortheastBeaches,
+    isAlagoasBeaches,
+  };
+};
+
+const buildIntentContextLines = (intent: TravelIntent) => {
+  const lines = [`Interpretacao da descricao: ${intent.summary}`];
+
+  if (intent.preferredRegions.length) lines.push(`Regioes preferidas: ${intent.preferredRegions.join(', ')}.`);
+  if (intent.requiredCities.length) lines.push(`Cidades mencionadas pelo usuario: ${intent.requiredCities.join(', ')}.`);
+  if (intent.preferredCities.length) lines.push(`Cidades coerentes com a intencao: ${intent.preferredCities.join(', ')}.`);
+
+  if (intent.isBrazilNortheastBeaches) {
+    lines.push('Regra de contexto: para praias do Nordeste, use cidades litoraneas do Nordeste; nao substitua por Rio de Janeiro, Sao Paulo, Brasilia ou atracoes civicas do Sudeste/Centro-Oeste.');
+    lines.push(`Atracoes coerentes com essa intencao: ${brazilNortheastBeachAttractions.map((attraction) => `${attraction.name} (${attraction.city})`).join(', ')}.`);
+  }
+
+  return lines.join('\n');
+};
+
+const buildTravelIntentPrompt = (intent: TravelIntent) => {
+  const lines = [
+    `Resumo interpretado da intencao do usuario: ${intent.summary}`,
+    'A descricao do usuario tem prioridade sobre destinos padrao. Se houver conflito entre defaults e descricao, siga a descricao.',
+  ];
+
+  if (intent.requiredCities.length) {
+    lines.push(`Cidades obrigatorias ou citadas: ${intent.requiredCities.join(', ')}. Inclua essas cidades no roteiro quando pertencerem aos allowedCountries.`);
+  }
+
+  if (intent.isBrazilNortheastBeaches) {
+    lines.push('O usuario pediu praias do Nordeste brasileiro. O roteiro deve ser litoraneo/nordestino e mencionar praias, mar, piscinas naturais ou orla.');
+    lines.push(`Priorize: ${(intent.isAlagoasBeaches ? alagoasBeachCities : brazilNortheastBeachCities).join(', ')}.`);
+    lines.push(`Nao use como destino, atracao ou bloco principal: ${brazilNortheastBlockedTermLabels.join(', ')}.`);
+  }
+
+  if (intent.isAlagoasBeaches) {
+    lines.push('Como a intencao aponta para Alagoas, priorize Maceio, Maragogi, Sao Miguel dos Milagres, Praia do Gunga e Praia do Frances.');
+  }
+
+  return lines.join('\n');
+};
+
 const citySortValue = (countryCode: string, city: string) => {
   const preferred = defaultCitiesByCountry[countryCode] ?? [];
   const index = preferred.findIndex((preferredCity) => cityKey(preferredCity) === cityKey(city));
@@ -471,22 +773,31 @@ const getCityBudgetPerCountry = (input: TripPlanInput) => {
   return 4;
 };
 
-const emptyDestinationContext = (input: TripPlanInput): DestinationContext => ({
-  destinations: [],
-  attractions: [],
-  transportTips: [],
-  documents: [],
-  countryCodes: input.countries.map(countryKey).filter(Boolean),
-  selectedCities: [],
-  mentionedCities: input.cities,
-  onlyCountryProvided: input.cities.length === 0,
-});
+const emptyDestinationContext = (input: TripPlanInput): DestinationContext => {
+  const intent = extractTravelIntent(input);
+
+  return {
+    destinations: [],
+    attractions: [],
+    transportTips: [],
+    documents: [],
+    countryCodes: input.countries.map(countryKey).filter(Boolean),
+    selectedCities: uniqueTexts([
+      ...input.cities,
+      ...input.countries.flatMap((country) => getIntentFallbackCities(intent, countryKey(country), input)),
+    ]),
+    mentionedCities: intent.requiredCities,
+    onlyCountryProvided: input.cities.length === 0,
+    intent,
+  };
+};
 
 const fetchDestinationContext = async (
   adminSupabase: ReturnType<typeof createClient>,
   input: TripPlanInput,
 ): Promise<DestinationContext> => {
   const countryCodes = [...new Set(input.countries.map(countryKey).filter(Boolean))];
+  const intent = extractTravelIntent(input);
   if (!countryCodes.length) return emptyDestinationContext(input);
 
   const [
@@ -533,7 +844,11 @@ const fetchDestinationContext = async (
     input.description,
     ...input.cities,
   ].join(' '));
-  const requestedCityKeys = new Set(input.cities.map(cityKey));
+  const requestedCityKeys = new Set([
+    ...input.cities.map(cityKey),
+    ...intent.requiredCityKeys,
+    ...intent.preferredCityKeys,
+  ].filter(Boolean));
   const allCityRows = destinations
     .filter((destination) => asText(destination.city_name))
     .sort((a, b) => {
@@ -548,23 +863,29 @@ const fetchDestinationContext = async (
       return cityA.localeCompare(cityB);
     });
 
-  const mentionedCities = uniqueTexts(
-    allCityRows
+  const mentionedCities = uniqueTexts([
+    ...intent.requiredCities,
+    ...allCityRows
       .map((destination) => asText(destination.city_name))
       .filter((city) => {
         const key = cityKey(city);
         return requestedCityKeys.has(key) || (Boolean(key) && userText.includes(key));
       }),
-  );
+  ]);
   const mentionedCityKeys = new Set(mentionedCities.map(cityKey));
   const selectedCities = uniqueTexts(
     countryCodes.flatMap((countryCode) => {
+      const intentFallbackCities = getIntentFallbackCities(intent, countryCode, input);
       const countryCities = allCityRows
         .filter((destination) => destination.country_code === countryCode)
         .map((destination) => asText(destination.city_name))
         .filter(Boolean);
-      const mentionedForCountry = countryCities.filter((city) => mentionedCityKeys.has(cityKey(city)));
+      const mentionedForCountry = countryCities.filter((city) =>
+        mentionedCityKeys.has(cityKey(city)) ||
+        intent.allowedCityKeys.includes(cityKey(city))
+      );
       if (mentionedForCountry.length) return mentionedForCountry;
+      if (intentFallbackCities.length) return intentFallbackCities;
       return countryCities.slice(0, getCityBudgetPerCountry(input));
     }),
   );
@@ -591,6 +912,7 @@ const fetchDestinationContext = async (
     selectedCities,
     mentionedCities,
     onlyCountryProvided: input.cities.length === 0 && mentionedCities.length === 0,
+    intent,
   };
 };
 
@@ -614,12 +936,17 @@ const buildDestinationSummary = (input: TripPlanInput, context: DestinationConte
 };
 
 const buildDestinationContextPrompt = (input: TripPlanInput, context: DestinationContext) => {
+  const intentContext = buildIntentContextLines(context.intent);
+
   if (!context.destinations.length && !context.attractions.length) {
-    return input.countries
+    const countryLines = input.countries
       .map((country) => {
         const key = countryKey(country);
-        const cities = defaultCitiesByCountry[key] ?? [];
-        const attractions = defaultAttractionsByCountry[key] ?? [];
+        const intentCities = getIntentFallbackCities(context.intent, key, input);
+        const explicitCities = input.cities.length ? input.cities : [];
+        const cities = intentCities.length ? intentCities : explicitCities.length ? explicitCities : defaultCitiesByCountry[key] ?? [];
+        const intentAttractions = getIntentFallbackAttractions(context.intent, key);
+        const attractions = intentAttractions.length ? intentAttractions : defaultAttractionsByCountry[key] ?? [];
         const hintParts = [
           cities.length ? `cidades reais sugeridas: ${cities.join(', ')}` : '',
           attractions.length
@@ -630,6 +957,8 @@ const buildDestinationContextPrompt = (input: TripPlanInput, context: Destinatio
         return hintParts.length ? `- ${country}: ${hintParts.join('; ')}` : `- ${country}: use cidades e atracoes reais verificaveis.`;
       })
       .join('\n');
+
+    return [intentContext, countryLines].join('\n');
   }
 
   const selectedCityKeys = new Set(context.selectedCities.map(cityKey));
@@ -676,6 +1005,7 @@ const buildDestinationContextPrompt = (input: TripPlanInput, context: Destinatio
     : 'O usuario informou ou sugeriu cidade no texto; priorize as cidades mencionadas quando existirem no contexto.';
 
   return [
+    intentContext,
     selectedCitiesLine,
     countryOnlyLine,
     'Destinos:',
@@ -1329,6 +1659,7 @@ const normalizeExternalPlanShape = (value: unknown) => {
   return {
     ...plan,
     summary: asText(plan.summary || plan.trip_summary),
+    intent_summary: asText(plan.intent_summary || plan.intentSummary || plan.interpreted_intent || plan.intent),
     itinerary_items: itineraryItems.length ? itineraryItems : flattenStructuredDays(plan),
     routes: asRecords(plan.routes).map((route) => ({
       ...route,
@@ -1372,6 +1703,7 @@ const findInvalidCountries = (plan: Record<string, unknown>, input: TripPlanInpu
 
 const ensurePlanShape = (value: unknown, input: TripPlanInput) => {
   const plan = normalizeExternalPlanShape(value);
+  const intent = extractTravelIntent(input);
   const countryMap = buildCountryMap(input);
   const fallbackCountry = input.countries[0] ?? 'international';
   const tripDays = getTripDayCount(input);
@@ -1521,6 +1853,7 @@ const ensurePlanShape = (value: unknown, input: TripPlanInput) => {
   );
 
   return {
+    intent_summary: asText(plan.intent_summary, intent.summary),
     summary: asText(plan.summary, `Prévia de roteiro para ${input.tripName}.`),
     documents,
     routes: asRecords(plan.routes),
@@ -1768,11 +2101,114 @@ const validateRawPlanSchema = (value: unknown) => {
   };
 };
 
+const buildPlanIntentSearchText = (plan: ReturnType<typeof ensurePlanShape>) =>
+  normalizeKey([
+    ...plan.itinerary_items.flatMap((item) => [
+      item.day,
+      item.country,
+      item.city,
+      item.title,
+      item.description,
+      item.type,
+    ].map(asText)),
+    ...plan.attractions.flatMap((attraction) => {
+      const record = asRecord(attraction);
+      return [
+        record.name,
+        record.country,
+        record.city,
+        record.description,
+      ].map(asText);
+    }),
+    ...plan.routes.flatMap((route) => {
+      const record = asRecord(route);
+      return [
+        record.from,
+        record.to,
+        record.transport,
+        record.transport_type,
+        record.duration,
+        record.description,
+        record.notes,
+      ].map(asText);
+    }),
+    ...plan.expenses.flatMap((expense) => {
+      const record = asRecord(expense);
+      return [
+        record.category,
+        record.country,
+        record.title,
+        record.description,
+        record.detail,
+      ].map(asText);
+    }),
+  ].join(' '));
+
+const findPlanMatches = (planTextKey: string, labels: string[]) =>
+  uniqueTexts(labels.filter((label) => {
+    const normalized = normalizeKey(label);
+    const cityNormalized = cityKey(label);
+    return (normalized && planTextKey.includes(normalized)) ||
+      (cityNormalized && planTextKey.includes(cityNormalized));
+  }));
+
+const validatePlanAgainstIntent = (plan: ReturnType<typeof ensurePlanShape>, input: TripPlanInput) => {
+  const intent = extractTravelIntent(input);
+  const reasons: string[] = [];
+  const planTextKey = buildPlanIntentSearchText(plan);
+
+  intent.requiredCityKeys.forEach((requiredCityKey, index) => {
+    const label = intent.requiredCities[index] ?? requiredCityKey;
+    if (!planTextKey.includes(requiredCityKey)) {
+      reasons.push(`intencao da descricao ignorada: cidade mencionada ausente no roteiro (${label})`);
+    }
+  });
+
+  if (intent.isBrazilNortheastBeaches) {
+    const blockedMatches = findPlanMatches(planTextKey, brazilNortheastBlockedTermLabels);
+    if (blockedMatches.length) {
+      reasons.push(`intencao da descricao ignorada: roteiro de praias do Nordeste incluiu destino/atracao fora do foco (${blockedMatches.join(', ')})`);
+    }
+
+    const northeastSpecificMatches = findPlanMatches(planTextKey, [
+      ...brazilNortheastBeachCities,
+      ...alagoasBeachCities,
+      ...brazilNortheastBeachAttractions.map((attraction) => attraction.name),
+    ]);
+    if (northeastSpecificMatches.length < 2) {
+      reasons.push('intencao da descricao ignorada: roteiro de praias do Nordeste precisa citar cidades ou praias coerentes do Nordeste');
+    }
+
+    const beachSignalMatches = findPlanMatches(planTextKey, beachIntentTerms);
+    if (!beachSignalMatches.length) {
+      reasons.push('intencao da descricao ignorada: roteiro deveria focar em praias, litoral, mar ou piscinas naturais');
+    }
+  }
+
+  if (intent.isAlagoasBeaches) {
+    const alagoasMatches = findPlanMatches(planTextKey, [
+      ...alagoasBeachCities,
+      'Ponta Verde',
+      'Pajuçara',
+      'Piscinas naturais de Maragogi',
+    ]);
+
+    if (alagoasMatches.length < 2) {
+      reasons.push('intencao da descricao ignorada: roteiro de praias de Alagoas deve priorizar Maceio, Maragogi, Sao Miguel dos Milagres, Gunga ou Frances');
+    }
+  }
+
+  return reasons;
+};
+
 const validatePlanQuality = (plan: ReturnType<typeof ensurePlanShape>, input: TripPlanInput) => {
   const reasons: string[] = [];
   const tripDays = getTripDayCount(input);
   const minimumItems = getMinimumItineraryItems(input);
   const invalidCountries = findInvalidCountries(plan, input);
+  const intentIssues = validatePlanAgainstIntent(plan, input);
+
+  reasons.push(...intentIssues);
 
   if (plan.itinerary_items.length < minimumItems) {
     reasons.push(`roteiro tem ${plan.itinerary_items.length} itens, minimo esperado ${minimumItems}`);
@@ -1869,6 +2305,7 @@ const buildPrompt = (
     ? Math.min(idealRange.max, Math.max(minimumItems, Math.ceil(tripDays * 1.5)))
     : Math.min(idealRange.max, Math.max(minimumItems, tripDays * 4));
   const destinationContextPrompt = buildDestinationContextPrompt(input, destinationContext);
+  const intentPrompt = buildTravelIntentPrompt(destinationContext.intent);
 
   return `
 Voce e um planejador de viagens especialista. Responda SOMENTE JSON valido, sem markdown, sem comentario e sem texto fora do objeto.
@@ -1885,11 +2322,15 @@ Viagem:
 - Estilo: ${input.style}
 - Descricao da viagem: ${input.description || 'Nao informada'}
 
+Interpretacao obrigatoria da intencao:
+${intentPrompt}
+
 Contexto real de destinos, atracoes, documentos, transportes e custos:
 ${destinationContextPrompt}
 
 - Se o usuario informou apenas pais, escolha cidades reais e populares desse pais; nunca use "Internacional" como cidade.
 - Se a descricao mencionar uma cidade especifica, priorize essa cidade e atracoes reais dela.
+- Se a descricao mencionar tema, regiao ou experiencia (ex.: praias do Nordeste, museus em Paris, Tokyo/Kyoto), esse tema/regiao/cidade deve guiar o roteiro inteiro.
 - Se o contexto nao tiver dados suficientes para muitos blocos, gere menos itens com nomes reais; nunca complete com texto vago.
 
 Qualidade obrigatoria:
@@ -1925,6 +2366,7 @@ ${qualityFeedback ? `A geracao anterior foi rejeitada por qualidade: ${qualityFe
 
 Retorne exatamente este objeto:
 {
+  "intent_summary": "frase curta em portugues explicando como voce interpretou a descricao do usuario",
   "trip_summary": "string",
   "days": [
     {
@@ -2400,6 +2842,9 @@ Deno.serve(async (req) => {
       group_id: input.groupId,
       user_id: user.id,
       destination_summary: destinationSummary,
+      intent_summary: destinationContext.intent.summary,
+      intent_regions: destinationContext.intent.preferredRegions,
+      intent_interests: destinationContext.intent.interests,
       destinations: destinationContext.destinations.length,
       selected_cities: destinationContext.selectedCities,
       mentioned_cities: destinationContext.mentionedCities,
@@ -2697,9 +3142,15 @@ Deno.serve(async (req) => {
 
     if (error instanceof AiQualityError) {
       const hasGenericContent = error.reasons.some((reason) => stripDiacritics(reason).includes('generico'));
-      const errorCode = hasGenericContent ? 'AI_QUALITY_FAILED' : 'VALIDATION_FAILED';
+      const hasIntentMismatch = error.reasons.some((reason) => {
+        const normalizedReason = stripDiacritics(reason);
+        return normalizedReason.includes('intencao') || normalizedReason.includes('descricao');
+      });
+      const errorCode = hasGenericContent ? 'AI_QUALITY_FAILED' : hasIntentMismatch ? 'AI_INTENT_MISMATCH' : 'VALIDATION_FAILED';
       const responseMessage = hasGenericContent
         ? 'A prévia gerada ficou genérica demais. Tente informar cidades ou mais detalhes da viagem.'
+        : hasIntentMismatch
+          ? 'A IA não conseguiu montar uma prévia coerente com a descrição da viagem. Tente reforçar região, cidades ou interesses principais.'
         : message;
 
       logAiEvent('warn', 'quality_failed', {

@@ -879,6 +879,20 @@ export function TripAIReviewPage() {
           </div>
         </section>
 
+        {plan.intentSummary ? (
+          <section className="flex flex-col gap-3 rounded-2xl border border-teal-100 bg-white/95 p-4 text-slate-800 shadow-lg shadow-slate-900/5 md:flex-row md:items-start">
+            <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-teal-700 text-white">
+              <Sparkles className="h-5 w-5" />
+            </span>
+            <div>
+              <p className="text-sm font-black uppercase tracking-[0.18em] text-teal-700">Intenção interpretada</p>
+              <p className="mt-1 text-base font-bold leading-7 text-slate-700">
+                A IA interpretou sua viagem como: {plan.intentSummary}
+              </p>
+            </div>
+          </section>
+        ) : null}
+
         {(status || error) ? (
           <p className="rounded-2xl border border-white/80 bg-white/90 px-4 py-3 text-sm font-bold text-slate-700 shadow-lg shadow-slate-900/5">
             {error ?? status}
