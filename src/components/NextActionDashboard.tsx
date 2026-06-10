@@ -185,10 +185,10 @@ function BottomCard({
   title: string;
 }) {
   return (
-    <section className="relative min-h-[360px] rounded-xl border border-[#e0e5ee] bg-white p-6 shadow-[0_10px_28px_rgba(15,23,42,0.055)]">
+    <section className="relative min-h-[360px] rounded-xl border border-[#e0e5ee] bg-white p-6 shadow-[0_10px_28px_rgba(15,23,42,0.055)] dark:border-slate-700 dark:bg-slate-900 dark:shadow-black/30">
       <div className="mb-6 flex items-center justify-between gap-4">
-        <h2 className="text-xl font-bold leading-tight text-[#070d1f]">{title}</h2>
-        {action ?? (Icon ? <Icon className="h-6 w-6 text-[#171a26]" /> : null)}
+        <h2 className="text-xl font-bold leading-tight text-[#070d1f] dark:text-slate-50">{title}</h2>
+        {action ?? (Icon ? <Icon className="h-6 w-6 text-[#171a26] dark:text-slate-200" /> : null)}
       </div>
       {children}
     </section>
@@ -197,9 +197,9 @@ function BottomCard({
 
 function EmptyState({ title, description }: { title: string; description: string }) {
   return (
-    <div className="rounded-[14px] border border-dashed border-[#d8e0ec] bg-[#f7f9fe] px-4 py-5">
-      <p className="text-sm font-black text-[#0b1326]">{title}</p>
-      <p className="mt-1 text-sm font-medium leading-6 text-[#6b7285]">{description}</p>
+    <div className="rounded-[14px] border border-dashed border-[#d8e0ec] bg-[#f7f9fe] px-4 py-5 dark:border-slate-600 dark:bg-slate-800/75">
+      <p className="text-sm font-black text-[#0b1326] dark:text-slate-50">{title}</p>
+      <p className="mt-1 text-sm font-medium leading-6 text-[#6b7285] dark:text-slate-300">{description}</p>
     </div>
   );
 }
@@ -239,9 +239,9 @@ function PreparationRing({ detail, value }: { detail: string; value: number }) {
   return (
     <div
       className="grid h-[4.6rem] w-[4.6rem] shrink-0 place-items-center rounded-full"
-      style={{ background: `conic-gradient(#00816d ${roundedValue * 3.6}deg, #e7edf6 0deg)` }}
+      style={{ background: `conic-gradient(#10b981 ${roundedValue * 3.6}deg, #334155 0deg)` }}
     >
-      <div className="grid h-[3.55rem] w-[3.55rem] place-items-center rounded-full bg-white text-xl font-black text-[#0b1326]">
+      <div className="grid h-[3.55rem] w-[3.55rem] place-items-center rounded-full bg-white text-xl font-black text-[#0b1326] dark:bg-slate-900 dark:text-slate-50">
         {detail}
       </div>
     </div>
@@ -274,63 +274,63 @@ function PreparationStatusCard({
     : 'Nenhuma pendência crítica para esta semana';
 
   return (
-    <section className="relative min-h-[360px] rounded-xl border border-[#e0e5ee] bg-white p-5 shadow-[0_14px_34px_rgba(15,23,42,0.07)] md:p-6">
+    <section className="relative min-h-[360px] rounded-xl border border-[#e0e5ee] bg-white p-5 shadow-[0_14px_34px_rgba(15,23,42,0.07)] md:p-6 dark:border-slate-700 dark:bg-slate-900 dark:shadow-black/30">
       <div className="flex items-center gap-4">
-        <span className="grid h-12 w-12 shrink-0 place-items-center rounded-full bg-[#ddf5ef] text-[#00816d]">
+        <span className="grid h-12 w-12 shrink-0 place-items-center rounded-full bg-[#ddf5ef] text-[#00816d] dark:bg-emerald-500/15 dark:text-emerald-300">
           <WalletCards className="h-6 w-6" />
         </span>
         <div className="min-w-0">
-          <h2 className="text-xl font-black leading-tight text-[#070d1f]">Status dos Preparativos</h2>
-          <p className="mt-1 text-sm font-medium leading-5 text-[#667085]">Acompanhe o andamento antes da viagem</p>
+          <h2 className="text-xl font-black leading-tight text-[#070d1f] dark:text-slate-50">Status dos Preparativos</h2>
+          <p className="mt-1 text-sm font-medium leading-5 text-[#667085] dark:text-slate-300">Acompanhe o andamento antes da viagem</p>
         </div>
       </div>
 
-      <div className="my-5 h-px bg-[#e0e5ee]" />
+      <div className="my-5 h-px bg-[#e0e5ee] dark:bg-slate-700" />
 
       <div className="grid gap-5 sm:grid-cols-2">
         <div className="flex items-center gap-4">
           <PreparationRing detail={`${Math.round(checklistProgress)}%`} value={checklistProgress} />
           <div>
-            <p className="text-lg font-black text-[#0b1326]">Checklist</p>
-            <p className="text-sm font-medium text-[#667085]">de conclusão</p>
+            <p className="text-lg font-black text-[#0b1326] dark:text-slate-50">Checklist</p>
+            <p className="text-sm font-medium text-[#667085] dark:text-slate-300">de conclusão</p>
           </div>
         </div>
-        <div className="flex items-center gap-4 border-[#dfe5ee] sm:border-l sm:pl-5">
+        <div className="flex items-center gap-4 border-[#dfe5ee] sm:border-l sm:pl-5 dark:border-slate-700">
           <PreparationRing
             detail={`${completedDocumentsCount}/${documentItemsCount}`}
             value={documentsProgress}
           />
           <div>
-            <p className="text-lg font-black text-[#0b1326]">Docs</p>
-            <p className="text-sm font-medium text-[#667085]">documentos prontos</p>
+            <p className="text-lg font-black text-[#0b1326] dark:text-slate-50">Docs</p>
+            <p className="text-sm font-medium text-[#667085] dark:text-slate-300">documentos prontos</p>
           </div>
         </div>
       </div>
 
-      <div className="mt-5 rounded-xl bg-gradient-to-r from-[#eef9f5] to-[#f5faf8] p-4">
+      <div className="mt-5 rounded-xl bg-gradient-to-r from-[#eef9f5] to-[#f5faf8] p-4 dark:from-emerald-500/15 dark:to-teal-500/10">
         <div className="flex items-center justify-between gap-4">
           <div className="flex min-w-0 items-center gap-3">
-            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-white text-[#00816d] shadow-sm">
+            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-white text-[#00816d] shadow-sm dark:bg-slate-950 dark:text-emerald-300">
               <Plane className="h-5 w-5" />
             </span>
-            <p className="truncate text-base font-black text-[#0b1326]">Pronto para viajar</p>
+            <p className="truncate text-base font-black text-[#0b1326] dark:text-slate-50">Pronto para viajar</p>
           </div>
-          <span className="text-base font-black text-[#00816d]">{readinessPercent}%</span>
+          <span className="text-base font-black text-[#00816d] dark:text-emerald-300">{readinessPercent}%</span>
         </div>
-        <div className="mt-3 h-2 overflow-hidden rounded-full bg-[#e0e7ef]">
-          <div className="h-full rounded-full bg-[#00816d]" style={{ width: `${readinessPercent}%` }} />
+        <div className="mt-3 h-2 overflow-hidden rounded-full bg-[#e0e7ef] dark:bg-slate-700">
+          <div className="h-full rounded-full bg-[#00816d] dark:bg-emerald-400" style={{ width: `${readinessPercent}%` }} />
         </div>
       </div>
 
-      <div className="mt-4 rounded-xl bg-gradient-to-r from-[#fff1f1] to-[#fff8f6] p-4">
+      <div className="mt-4 rounded-xl bg-gradient-to-r from-[#fff1f1] to-[#fff8f6] p-4 dark:from-rose-500/15 dark:to-amber-500/10">
         <div className="flex items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <span className="grid h-9 w-9 place-items-center rounded-full bg-white text-[#dc2626] shadow-sm">
+            <span className="grid h-9 w-9 place-items-center rounded-full bg-white text-[#dc2626] shadow-sm dark:bg-slate-950 dark:text-rose-300">
               <FileWarning className="h-5 w-5" />
             </span>
-            <p className="text-base font-black text-[#0b1326]">Pendências</p>
+            <p className="text-base font-black text-[#0b1326] dark:text-slate-50">Pendências</p>
           </div>
-          <span className="rounded-lg bg-[#ffe0e0] px-3 py-1 text-base font-black text-[#dc2626]">
+          <span className="rounded-lg bg-[#ffe0e0] px-3 py-1 text-base font-black text-[#dc2626] dark:bg-rose-400/15 dark:text-rose-200">
             {pendingPreparationCount}
           </span>
         </div>
@@ -341,19 +341,19 @@ function PreparationStatusCard({
                 key={item.id}
                 type="button"
                 onClick={onOpenChecklist}
-                className="inline-flex min-h-9 max-w-full items-center gap-2 rounded-[7px] border border-[#cfd8e7] bg-white px-3 py-1.5 text-sm font-medium text-[#2c3242]"
+                className="inline-flex min-h-9 max-w-full items-center gap-2 rounded-[7px] border border-[#cfd8e7] bg-white px-3 py-1.5 text-sm font-medium text-[#2c3242] dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200"
               >
                 <FileWarning className="h-4 w-4 shrink-0" />
                 <span className="truncate">{item.title || item.category}</span>
               </button>
             ))
           ) : (
-            <span className="inline-flex min-h-9 items-center rounded-[7px] border border-[#cfd8e7] bg-white px-3 py-1.5 text-sm font-medium text-[#2c3242]">
+            <span className="inline-flex min-h-9 items-center rounded-[7px] border border-[#cfd8e7] bg-white px-3 py-1.5 text-sm font-medium text-[#2c3242] dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200">
               Tudo em dia
             </span>
           )}
         </div>
-        <div className="mt-4 border-t border-[#ead6d6] pt-3 text-sm font-medium text-[#667085]">
+        <div className="mt-4 border-t border-[#ead6d6] pt-3 text-sm font-medium text-[#667085] dark:border-slate-700 dark:text-slate-300">
           {criticalText}
         </div>
       </div>
@@ -362,7 +362,7 @@ function PreparationStatusCard({
         <button
           type="button"
           onClick={onOpenChecklist}
-          className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-[#00816d] px-5 text-sm font-black text-white shadow-[0_12px_24px_rgba(0,129,109,0.22)] transition hover:bg-[#006b57]"
+          className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-[#00816d] px-5 text-sm font-black text-white shadow-[0_12px_24px_rgba(0,129,109,0.22)] transition hover:bg-[#006b57] dark:bg-emerald-400 dark:text-emerald-950 dark:hover:bg-emerald-300"
         >
           Ver checklist
           <ArrowRight className="h-4 w-4" />
@@ -582,16 +582,16 @@ export function NextActionDashboard({
       exit={{ opacity: 0, y: -10 }}
     >
       <header className="pt-1">
-        <h1 className="text-[2.1rem] font-black leading-tight text-[#0b1326] md:text-[2.55rem]">
+        <h1 className="text-[2.1rem] font-black leading-tight text-[#0b1326] md:text-[2.55rem] dark:text-slate-50">
           Olá, {firstName}
         </h1>
-        <p className="mt-2 max-w-3xl text-base font-medium leading-7 text-[#202431] md:text-lg">
+        <p className="mt-2 max-w-3xl text-base font-medium leading-7 text-[#202431] md:text-lg dark:text-slate-300">
           {activeGroup
             ? `Bem-vindo de volta. Seu roteiro para ${tripCountries} está ${Math.round(travelReadiness)}% concluído.`
             : 'Bem-vindo de volta. Crie sua primeira viagem para começar o planejamento.'}
         </p>
         {planningStatusMessage ? (
-          <p className="mt-3 inline-flex items-center gap-2 rounded-full bg-white px-4 py-2 text-sm font-semibold text-[#667085] shadow-sm">
+          <p className="mt-3 inline-flex items-center gap-2 rounded-full bg-white px-4 py-2 text-sm font-semibold text-[#667085] shadow-sm dark:border dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300">
             {isPlanningLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
             {planningStatusMessage}
           </p>
@@ -603,7 +603,7 @@ export function NextActionDashboard({
           <img src={dashboardHeroImage} alt="" className="absolute inset-0 h-full w-full object-cover" />
           <div className="absolute inset-0 bg-black/28" />
           <div className="relative flex min-h-[16rem] flex-col justify-center p-6 md:min-h-[19rem] md:p-8">
-            <span className="mb-5 inline-flex w-fit items-center rounded-full bg-[#56f5d0] px-4 py-2 text-sm font-medium uppercase text-[#006b57]">
+            <span className="mb-5 inline-flex w-fit items-center rounded-full bg-[#56f5d0] px-4 py-2 text-sm font-black uppercase text-[#05352f]">
               Próxima ação
             </span>
             <div className="max-w-2xl">
@@ -615,7 +615,7 @@ export function NextActionDashboard({
               <button
                 type="button"
                 onClick={() => handleTarget(nextAction.target)}
-                className="mt-5 inline-flex h-12 min-w-64 items-center justify-center rounded-lg bg-black px-8 text-base font-black text-white shadow-[0_12px_24px_rgba(0,0,0,0.2)] transition hover:bg-[#111827]"
+                className="mt-5 inline-flex h-12 min-w-64 items-center justify-center rounded-lg bg-black px-8 text-base font-black text-white shadow-[0_12px_24px_rgba(0,0,0,0.2)] transition hover:bg-[#111827] dark:bg-emerald-400 dark:text-emerald-950 dark:hover:bg-emerald-300"
               >
                 {nextAction.cta}
               </button>
@@ -652,8 +652,8 @@ export function NextActionDashboard({
         </article>
       </section>
 
-      <section className="grid items-center gap-6 rounded-xl border border-[#dfe5ee] bg-white p-6 shadow-[0_10px_26px_rgba(15,23,42,0.05)] lg:grid-cols-[auto_minmax(0,1fr)_170px_140px_auto]">
-        <span className="grid h-16 w-16 place-items-center rounded-full bg-[#dbe8ff] text-[#0b1326]">
+      <section className="grid items-center gap-6 rounded-xl border border-[#dfe5ee] bg-white p-6 shadow-[0_10px_26px_rgba(15,23,42,0.05)] lg:grid-cols-[auto_minmax(0,1fr)_170px_140px_auto] dark:border-slate-700 dark:bg-slate-900 dark:shadow-black/30">
+        <span className="grid h-16 w-16 place-items-center rounded-full bg-[#dbe8ff] text-[#0b1326] dark:bg-sky-400/15 dark:text-sky-200">
           <PlaneTakeoff className="h-8 w-8" />
         </span>
         <div className="min-w-0">
@@ -664,7 +664,7 @@ export function NextActionDashboard({
                 const group = userGroups.find((item) => item.id === event.target.value);
                 if (group) setActiveGroup(group);
               }}
-              className="max-w-full bg-transparent text-xl font-black text-[#070d1f] outline-none"
+              className="max-w-full bg-transparent text-xl font-black text-[#070d1f] outline-none dark:text-slate-50"
             >
               {userGroups.map((group) => (
                 <option key={group.id} value={group.id}>
@@ -673,22 +673,22 @@ export function NextActionDashboard({
               ))}
             </select>
           ) : (
-            <h2 className="truncate text-xl font-black text-[#070d1f]">
+            <h2 className="truncate text-xl font-black text-[#070d1f] dark:text-slate-50">
               {activeGroup?.name ?? 'Sem viagem ativa'}
             </h2>
           )}
-          <p className="mt-1 flex items-center gap-2 text-base font-medium text-[#2c3242]">
-            <MapPin className="h-4 w-4 text-[#007c68]" />
+          <p className="mt-1 flex items-center gap-2 text-base font-medium text-[#2c3242] dark:text-slate-300">
+            <MapPin className="h-4 w-4 text-[#007c68] dark:text-emerald-300" />
             <span>{tripCountries}</span>
           </p>
         </div>
-        <div className="border-[#e4e8f0] lg:border-l lg:pl-10">
-          <p className="text-base font-medium uppercase text-[#2c3242]">Período</p>
-          <p className="mt-2 text-base font-medium text-[#0b1326]">{formatTripPeriod(activeGroup?.startDate, activeGroup?.endDate)}</p>
+        <div className="border-[#e4e8f0] lg:border-l lg:pl-10 dark:border-slate-700">
+          <p className="text-base font-medium uppercase text-[#2c3242] dark:text-slate-400">Período</p>
+          <p className="mt-2 text-base font-medium text-[#0b1326] dark:text-slate-100">{formatTripPeriod(activeGroup?.startDate, activeGroup?.endDate)}</p>
         </div>
         <div>
-          <p className="text-base font-medium uppercase text-[#2c3242]">Duração</p>
-          <p className="mt-2 text-base font-medium text-[#0b1326]">
+          <p className="text-base font-medium uppercase text-[#2c3242] dark:text-slate-400">Duração</p>
+          <p className="mt-2 text-base font-medium text-[#0b1326] dark:text-slate-100">
             {tripDayCount ? `${tripDayCount} dias` : 'A definir'}
           </p>
         </div>
@@ -697,14 +697,14 @@ export function NextActionDashboard({
             type="button"
             aria-label="Editar viagem"
             onClick={() => onNavigateToProfilePath('/perfil/viagem')}
-            className="inline-flex h-14 w-14 items-center justify-center rounded-xl border border-[#0b1326]/40 bg-white text-[#0b1326] transition hover:bg-[#f3f6fb]"
+            className="inline-flex h-14 w-14 items-center justify-center rounded-xl border border-[#0b1326]/40 bg-white text-[#0b1326] transition hover:bg-[#f3f6fb] dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700"
           >
             <Edit3 className="h-6 w-6" />
           </button>
           <button
             type="button"
             onClick={() => onNavigate('itinerary')}
-            className="inline-flex h-14 items-center justify-center gap-3 rounded-xl bg-black px-7 text-base font-semibold text-white transition hover:bg-[#111827]"
+            className="inline-flex h-14 items-center justify-center gap-3 rounded-xl bg-black px-7 text-base font-semibold text-white transition hover:bg-[#111827] dark:bg-emerald-400 dark:text-emerald-950 dark:hover:bg-emerald-300"
           >
             Ver Roteiro
             <ArrowRight className="h-5 w-5" />
@@ -719,14 +719,14 @@ export function NextActionDashboard({
               {activityHighlights.slice(0, 3).map((item, index) => (
                 <div key={item.id} className="grid grid-cols-[24px_minmax(0,1fr)] gap-4">
                   <div className="flex flex-col items-center">
-                    <span className={`mt-1 h-4 w-4 rounded-full ${index === 0 ? 'bg-[#007c68]' : 'bg-[#dce8ff]'}`} />
+                    <span className={`mt-1 h-4 w-4 rounded-full ${index === 0 ? 'bg-[#007c68] dark:bg-emerald-400' : 'bg-[#dce8ff] dark:bg-slate-600'}`} />
                     {index < Math.min(activityHighlights.length, 3) - 1 ? (
-                      <span className="h-14 w-px bg-[#dfe5ee]" />
+                      <span className="h-14 w-px bg-[#dfe5ee] dark:bg-slate-700" />
                     ) : null}
                   </div>
                   <div className="pb-7">
-                    <p className="text-base font-medium leading-6 text-[#1f2430]">{item.title}</p>
-                    <p className="mt-1 text-sm font-medium leading-5 text-[#2c3242]">
+                    <p className="text-base font-medium leading-6 text-[#1f2430] dark:text-slate-100">{item.title}</p>
+                    <p className="mt-1 text-sm font-medium leading-5 text-[#2c3242] dark:text-slate-300">
                       {getLocationLabel(item)} {item.time ? `• ${item.time}` : ''}
                     </p>
                   </div>
@@ -759,7 +759,7 @@ export function NextActionDashboard({
               type="button"
               aria-label="Convidar membro"
               onClick={() => onNavigateToProfilePath('/perfil/viagem')}
-              className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-[#c6cedc] text-[#171a26]"
+              className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-[#c6cedc] text-[#171a26] dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800"
             >
               <UserPlus className="h-6 w-6" />
             </button>
@@ -774,13 +774,13 @@ export function NextActionDashboard({
                     {member.profile?.avatarUrl ? (
                       <img src={member.profile.avatarUrl} alt="" className="h-11 w-11 rounded-full object-cover" />
                     ) : (
-                      <span className="grid h-11 w-11 place-items-center rounded-full bg-[#dce8ff] text-base font-semibold text-[#7a879d]">
+                      <span className="grid h-11 w-11 place-items-center rounded-full bg-[#dce8ff] text-base font-semibold text-[#7a879d] dark:bg-slate-800 dark:text-slate-300">
                         {getInitials(name)}
                       </span>
                     )}
                     <div className="min-w-0">
-                      <p className="truncate text-base font-medium text-[#1f2430]">{name}</p>
-                      <p className="text-sm font-medium text-[#007c68]">{roleLabel(member.role)}</p>
+                      <p className="truncate text-base font-medium text-[#1f2430] dark:text-slate-100">{name}</p>
+                      <p className="text-sm font-medium text-[#007c68] dark:text-emerald-300">{roleLabel(member.role)}</p>
                     </div>
                   </div>
                 );
@@ -792,7 +792,7 @@ export function NextActionDashboard({
           <button
             type="button"
             onClick={() => onNavigateToProfilePath('/perfil/viagem')}
-            className="mt-7 inline-flex h-10 w-full items-center justify-center rounded-lg border border-[#c6cedc] bg-white text-sm font-semibold text-[#0b1326] transition hover:bg-[#f3f6fb]"
+            className="mt-7 inline-flex h-10 w-full items-center justify-center rounded-lg border border-[#c6cedc] bg-white text-sm font-semibold text-[#0b1326] transition hover:bg-[#f3f6fb] dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700"
           >
             Convidar Membro
           </button>
@@ -807,7 +807,7 @@ export function NextActionDashboard({
                 event.preventDefault();
                 onNavigate('expenses');
               }}
-              className="whitespace-nowrap text-base font-medium text-[#006b57]"
+              className="whitespace-nowrap text-base font-medium text-[#006b57] dark:text-emerald-300"
             >
               Ver tudo
             </a>
@@ -817,17 +817,17 @@ export function NextActionDashboard({
             {recentExpenses.length ? (
               recentExpenses.slice(0, 3).map((expense) => (
                 <div key={expense.id} className="grid grid-cols-[44px_minmax(0,1fr)_auto] items-center gap-3">
-                  <span className="grid h-11 w-11 place-items-center rounded-full bg-[#dce8ff] text-[#0b1326]">
+                  <span className="grid h-11 w-11 place-items-center rounded-full bg-[#dce8ff] text-[#0b1326] dark:bg-slate-800 dark:text-slate-100">
                     <Plane className="h-5 w-5" />
                   </span>
                   <div className="min-w-0">
-                    <p className="truncate text-base font-medium text-[#1f2430]">{expense.title}</p>
-                    <p className="text-sm font-medium text-[#2c3242]">
+                    <p className="truncate text-base font-medium text-[#1f2430] dark:text-slate-100">{expense.title}</p>
+                    <p className="text-sm font-medium text-[#2c3242] dark:text-slate-300">
                       {getCategoryLabel(categories, expense.category)} • {countryLabel(expense.country)}
                     </p>
-                    <p className="text-xs font-medium text-[#6b7285]">{formatExpenseDate(expense.createdAt)}</p>
+                    <p className="text-xs font-medium text-[#6b7285] dark:text-slate-400">{formatExpenseDate(expense.createdAt)}</p>
                   </div>
-                  <p className="text-right text-base font-medium text-[#1f2430]">
+                  <p className="text-right text-base font-medium text-[#1f2430] dark:text-slate-100">
                     {formatRange(getExpenseRealRange(expense), 'BRL', true)}
                   </p>
                 </div>
@@ -839,14 +839,14 @@ export function NextActionDashboard({
               />
             )}
           </div>
-          <div className="mt-7 border-t border-[#e2e7f0] pt-4">
-            <p className="text-xs font-medium uppercase text-[#2c3242]">Total gasto até agora</p>
-            <p className="mt-2 text-2xl font-black text-[#0b1326]">{formatRange(grandTotal.real, 'BRL', true)}</p>
+          <div className="mt-7 border-t border-[#e2e7f0] pt-4 dark:border-slate-700">
+            <p className="text-xs font-medium uppercase text-[#2c3242] dark:text-slate-400">Total gasto até agora</p>
+            <p className="mt-2 text-2xl font-black text-[#0b1326] dark:text-slate-50">{formatRange(grandTotal.real, 'BRL', true)}</p>
           </div>
           <button
             type="button"
             onClick={onAddExpense}
-            className="absolute bottom-7 right-4 inline-flex h-14 w-14 items-center justify-center rounded-full bg-black text-white shadow-[0_18px_36px_rgba(15,23,42,0.2)] transition hover:bg-[#111827]"
+            className="absolute bottom-7 right-4 inline-flex h-14 w-14 items-center justify-center rounded-full bg-black text-white shadow-[0_18px_36px_rgba(15,23,42,0.2)] transition hover:bg-[#111827] dark:bg-emerald-400 dark:text-emerald-950 dark:hover:bg-emerald-300"
           >
             <Plus className="h-7 w-7" />
           </button>
@@ -854,7 +854,7 @@ export function NextActionDashboard({
       </section>
 
       {planningWarning ? (
-        <p className="text-sm font-medium text-[#667085]">{planningWarning}</p>
+        <p className="text-sm font-medium text-[#667085] dark:text-slate-300">{planningWarning}</p>
       ) : null}
     </motion.div>
   );

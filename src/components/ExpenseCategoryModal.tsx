@@ -62,7 +62,7 @@ export function ExpenseCategoryModal({
         >
           <motion.form
             onSubmit={handleSubmit}
-            className="max-h-[92vh] w-full max-w-xl overflow-y-auto rounded-[2rem] bg-white p-5 shadow-2xl shadow-slate-950/30 md:p-7"
+            className="max-h-[92vh] w-full max-w-xl overflow-y-auto rounded-[2rem] bg-white p-5 shadow-2xl shadow-slate-950/30 dark:border dark:border-slate-700 dark:bg-slate-900 md:p-7"
             initial={{ opacity: 0, y: 40, scale: 0.98 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 30, scale: 0.98 }}
@@ -71,10 +71,10 @@ export function ExpenseCategoryModal({
           >
             <div className="mb-6 flex items-start justify-between gap-4">
               <div>
-                <p className="text-sm font-bold uppercase tracking-[0.2em] text-slate-400">
+                <p className="text-sm font-bold uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500">
                   {category ? 'Editar categoria' : 'Nova categoria'}
                 </p>
-                <h2 className="mt-1 text-2xl font-black text-slate-950">
+                <h2 className="mt-1 text-2xl font-black text-slate-950 dark:text-slate-50">
                   Modelo de gasto da viagem
                 </h2>
               </div>
@@ -82,7 +82,7 @@ export function ExpenseCategoryModal({
                 type="button"
                 onClick={onClose}
                 aria-label="Fechar"
-                className="rounded-2xl border border-slate-200 p-3 text-slate-500 transition hover:bg-slate-50"
+                className="rounded-2xl border border-slate-200 p-3 text-slate-500 transition hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
               >
                 <X className="h-5 w-5" />
               </button>
@@ -90,43 +90,43 @@ export function ExpenseCategoryModal({
 
             <div className="grid gap-4 md:grid-cols-2">
               <label className="md:col-span-2">
-                <span className="mb-2 block text-sm font-bold text-slate-600">Nome da categoria</span>
+                <span className="mb-2 block text-sm font-bold text-slate-600 dark:text-slate-300">Nome da categoria</span>
                 <input
                   value={name}
                   onChange={(event) => setName(event.target.value)}
                   required
                   maxLength={60}
                   placeholder="Ex: Combustivel"
-                  className="h-12 w-full rounded-2xl border border-slate-200 px-4 font-semibold text-slate-900 outline-none transition focus:border-teal-400 focus:ring-4 focus:ring-teal-100"
+                  className="h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 font-semibold text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-teal-400 focus:ring-4 focus:ring-teal-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-50 dark:placeholder:text-slate-500 dark:focus:border-emerald-400 dark:focus:ring-emerald-400/20"
                 />
               </label>
 
               <label>
-                <span className="mb-2 block text-sm font-bold text-slate-600">Rotulo da coluna</span>
+                <span className="mb-2 block text-sm font-bold text-slate-600 dark:text-slate-300">Rotulo da coluna</span>
                 <input
                   value={label}
                   onChange={(event) => setLabel(event.target.value)}
                   maxLength={40}
                   placeholder="Ex: Gasto"
-                  className="h-12 w-full rounded-2xl border border-slate-200 px-4 font-semibold text-slate-900 outline-none transition focus:border-teal-400 focus:ring-4 focus:ring-teal-100"
+                  className="h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 font-semibold text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-teal-400 focus:ring-4 focus:ring-teal-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-50 dark:placeholder:text-slate-500 dark:focus:border-emerald-400 dark:focus:ring-emerald-400/20"
                 />
               </label>
 
               <label>
-                <span className="mb-2 block text-sm font-bold text-slate-600">Ordem</span>
+                <span className="mb-2 block text-sm font-bold text-slate-600 dark:text-slate-300">Ordem</span>
                 <input
                   type="number"
                   value={sortOrder}
                   onChange={(event) => setSortOrder(event.target.value)}
                   min={0}
                   step={1}
-                  className="h-12 w-full rounded-2xl border border-slate-200 px-4 font-semibold text-slate-900 outline-none transition focus:border-teal-400 focus:ring-4 focus:ring-teal-100"
+                  className="h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 font-semibold text-slate-900 outline-none transition focus:border-teal-400 focus:ring-4 focus:ring-teal-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-50 dark:focus:border-emerald-400 dark:focus:ring-emerald-400/20"
                 />
               </label>
 
               <div className="md:col-span-2">
-                <span className="mb-2 block text-sm font-bold text-slate-600">Cor</span>
-                <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-slate-200 p-3">
+                <span className="mb-2 block text-sm font-bold text-slate-600 dark:text-slate-300">Cor</span>
+                <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-slate-200 p-3 dark:border-slate-700 dark:bg-slate-800/60">
                   {colorOptions.map((color) => (
                     <button
                       key={color}
@@ -134,7 +134,7 @@ export function ExpenseCategoryModal({
                       aria-label={`Usar cor ${color}`}
                       onClick={() => setAccent(color)}
                       className={`h-9 w-9 rounded-xl border-2 transition ${
-                        accent === color ? 'border-slate-950 shadow-lg shadow-slate-900/15' : 'border-white'
+                        accent === color ? 'border-slate-950 shadow-lg shadow-slate-900/15 dark:border-slate-50' : 'border-white dark:border-slate-700'
                       }`}
                       style={{ backgroundColor: color }}
                     />
@@ -144,14 +144,14 @@ export function ExpenseCategoryModal({
                     value={accent}
                     onChange={(event) => setAccent(event.target.value)}
                     aria-label="Escolher cor"
-                    className="h-9 w-12 rounded-xl border border-slate-200 bg-white p-1"
+                    className="h-9 w-12 rounded-xl border border-slate-200 bg-white p-1 dark:border-slate-700 dark:bg-slate-800"
                   />
                 </div>
               </div>
 
               <div className="md:col-span-2">
                 <div className="mb-2 flex items-center justify-between gap-3">
-                  <span className="block text-sm font-bold text-slate-600">Icone da categoria</span>
+                  <span className="block text-sm font-bold text-slate-600 dark:text-slate-300">Icone da categoria</span>
                   <span
                     className="inline-flex h-10 w-10 items-center justify-center rounded-xl text-white shadow-lg shadow-slate-900/10"
                     style={{ backgroundColor: accent }}
@@ -160,7 +160,7 @@ export function ExpenseCategoryModal({
                     <SelectedIcon className="h-5 w-5" />
                   </span>
                 </div>
-                <div className="grid grid-cols-4 gap-2 rounded-2xl border border-slate-200 p-3 sm:grid-cols-6">
+                <div className="grid grid-cols-4 gap-2 rounded-2xl border border-slate-200 p-3 dark:border-slate-700 dark:bg-slate-800/60 sm:grid-cols-6">
                   {expenseCategoryIconOptions.map(({ id, label: optionLabel, Icon }) => {
                     const selected = icon === id;
 
@@ -173,8 +173,8 @@ export function ExpenseCategoryModal({
                         onClick={() => setIcon(id)}
                         className={`flex h-14 flex-col items-center justify-center gap-1 rounded-2xl border text-xs font-black transition ${
                           selected
-                            ? 'border-slate-950 bg-slate-950 text-white shadow-lg shadow-slate-900/15'
-                            : 'border-slate-200 bg-white text-slate-500 hover:border-teal-200 hover:bg-teal-50 hover:text-teal-700'
+                            ? 'border-slate-950 bg-slate-950 text-white shadow-lg shadow-slate-900/15 dark:border-emerald-400 dark:bg-emerald-400 dark:text-emerald-950'
+                            : 'border-slate-200 bg-white text-slate-500 hover:border-teal-200 hover:bg-teal-50 hover:text-teal-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-emerald-500/60 dark:hover:bg-emerald-500/10 dark:hover:text-emerald-300'
                         }`}
                       >
                         <Icon className="h-5 w-5" />
@@ -190,13 +190,13 @@ export function ExpenseCategoryModal({
               <button
                 type="button"
                 onClick={onClose}
-                className="h-12 rounded-2xl border border-slate-200 px-5 font-bold text-slate-600 transition hover:bg-slate-50"
+                className="h-12 rounded-2xl border border-slate-200 px-5 font-bold text-slate-600 transition hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
               >
                 Cancelar
               </button>
               <button
                 type="submit"
-                className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl bg-slate-950 px-6 font-bold text-white shadow-xl shadow-slate-900/20 transition hover:bg-teal-700"
+                className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl bg-slate-950 px-6 font-bold text-white shadow-xl shadow-slate-900/20 transition hover:bg-teal-700 dark:bg-emerald-400 dark:text-emerald-950 dark:hover:bg-emerald-300"
               >
                 <Save className="h-5 w-5" />
                 Salvar categoria

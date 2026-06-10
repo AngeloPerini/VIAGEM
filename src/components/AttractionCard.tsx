@@ -66,8 +66,8 @@ export function AttractionCard({
   return (
     <motion.article
       layout
-      className={`group overflow-hidden rounded-2xl border bg-white text-left shadow-[0_14px_34px_rgba(15,23,42,0.06)] transition hover:-translate-y-1 hover:shadow-[0_20px_42px_rgba(15,23,42,0.1)] ${
-        visited ? 'border-[#b7efe4]' : 'border-[#dfe5ee]'
+      className={`group overflow-hidden rounded-2xl border bg-white text-left shadow-[0_14px_34px_rgba(15,23,42,0.06)] transition hover:-translate-y-1 hover:shadow-[0_20px_42px_rgba(15,23,42,0.1)] dark:bg-slate-900 dark:shadow-black/30 ${
+        visited ? 'border-[#b7efe4] dark:border-emerald-500/50' : 'border-[#dfe5ee] dark:border-slate-700'
       }`}
       initial={{ opacity: 0, y: 18 }}
       animate={{ opacity: 1, y: 0 }}
@@ -77,7 +77,7 @@ export function AttractionCard({
       <button
         type="button"
         onClick={() => onOpen(attraction)}
-        className="relative block aspect-[16/10] w-full overflow-hidden bg-slate-100 text-left"
+        className="relative block aspect-[16/10] w-full overflow-hidden bg-slate-100 text-left dark:bg-slate-800"
       >
         {currentState.photo ? (
           <img
@@ -101,7 +101,7 @@ export function AttractionCard({
           {visited ? 'Visitado' : 'Pendente'}
         </span>
         {hasPhoto ? (
-          <span className="absolute right-4 top-4 inline-flex items-center gap-1 rounded-full bg-white/90 px-3 py-1 text-[0.68rem] font-black uppercase tracking-[0.06em] text-[#007c68] shadow-lg">
+          <span className="absolute right-4 top-4 inline-flex items-center gap-1 rounded-full bg-white/90 px-3 py-1 text-[0.68rem] font-black uppercase tracking-[0.06em] text-[#007c68] shadow-lg dark:bg-slate-950/90 dark:text-emerald-300">
             <Camera className="h-3.5 w-3.5" />
             Foto
           </span>
@@ -111,18 +111,18 @@ export function AttractionCard({
       <div className="flex min-h-[17rem] flex-col p-5">
         <div className="flex items-start justify-between gap-3">
           <button type="button" onClick={() => onOpen(attraction)} className="min-w-0 flex-1 text-left">
-            <h3 className="truncate text-xl font-black leading-tight text-[#0b1326]">{attraction.name}</h3>
+            <h3 className="truncate text-xl font-black leading-tight text-[#0b1326] dark:text-slate-50">{attraction.name}</h3>
           </button>
           {attraction.time ? (
-            <span className="shrink-0 text-base font-semibold text-[#45464d]">{attraction.time}</span>
+            <span className="shrink-0 text-base font-semibold text-[#45464d] dark:text-slate-300">{attraction.time}</span>
           ) : null}
         </div>
 
-        <p className="mt-2 flex min-w-0 items-center gap-2 text-sm font-semibold text-[#667085]">
+        <p className="mt-2 flex min-w-0 items-center gap-2 text-sm font-semibold text-[#667085] dark:text-slate-300">
           <MapPin className="h-4 w-4" />
           <span className="truncate">{attraction.city}, {country}</span>
         </p>
-        <div className="mt-2 flex flex-wrap items-center gap-2 text-xs font-black uppercase tracking-[0.08em] text-[#8c97a8]">
+        <div className="mt-2 flex flex-wrap items-center gap-2 text-xs font-black uppercase tracking-[0.08em] text-[#8c97a8] dark:text-slate-500">
           {attraction.day ? <span>{attraction.day}</span> : null}
           {attraction.time ? (
             <span className="inline-flex items-center gap-1">
@@ -132,7 +132,7 @@ export function AttractionCard({
           ) : null}
         </div>
 
-        <p className="mt-4 line-clamp-3 text-sm leading-6 text-[#45464d]">
+        <p className="mt-4 line-clamp-3 text-sm leading-6 text-[#45464d] dark:text-slate-300">
           {attraction.description}
         </p>
 
@@ -145,7 +145,7 @@ export function AttractionCard({
         />
 
         {warning ? (
-          <p className="mt-3 rounded-xl bg-amber-50 px-3 py-2 text-xs font-bold text-amber-800">
+          <p className="mt-3 rounded-xl bg-amber-50 px-3 py-2 text-xs font-bold text-amber-800 dark:bg-amber-400/10 dark:text-amber-200">
             {warning}
           </p>
         ) : null}
@@ -161,7 +161,7 @@ export function AttractionCard({
                 inputRef.current?.click();
               }}
               disabled={isUploading}
-              className="inline-flex h-11 w-12 items-center justify-center rounded-xl border border-[#dfe5ee] bg-white text-[#007c68] transition hover:border-[#007c68] hover:bg-[#eef8f6] disabled:cursor-not-allowed disabled:opacity-60"
+              className="inline-flex h-11 w-12 items-center justify-center rounded-xl border border-[#dfe5ee] bg-white text-[#007c68] transition hover:border-[#007c68] hover:bg-[#eef8f6] disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-slate-800 dark:text-emerald-300 dark:hover:border-emerald-400 dark:hover:bg-slate-700"
             >
               <ImagePlus className="h-5 w-5" />
             </button>
@@ -177,8 +177,8 @@ export function AttractionCard({
               }}
               className={`inline-flex h-11 items-center justify-center rounded-xl px-3 text-sm font-black transition ${
                 visited
-                  ? 'bg-[#007c68] text-white hover:bg-[#005d50]'
-                  : 'bg-[#111827] text-white hover:bg-black'
+                  ? 'bg-[#007c68] text-white hover:bg-[#005d50] dark:bg-emerald-400 dark:text-emerald-950 dark:hover:bg-emerald-300'
+                  : 'bg-[#111827] text-white hover:bg-black dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700'
               }`}
             >
               {visited ? 'Visitado' : 'Pendente'}
@@ -195,7 +195,7 @@ export function AttractionCard({
                   onEdit(attraction);
                 }}
                 aria-label={`Editar ${attraction.name}`}
-                className="grid h-9 w-9 place-items-center rounded-xl border border-[#dfe5ee] text-[#667085] transition hover:border-[#007c68] hover:text-[#007c68]"
+                className="grid h-9 w-9 place-items-center rounded-xl border border-[#dfe5ee] text-[#667085] transition hover:border-[#007c68] hover:text-[#007c68] dark:border-slate-700 dark:text-slate-300 dark:hover:border-emerald-400 dark:hover:text-emerald-300"
               >
                 <Pencil className="h-4 w-4" />
               </button>
@@ -206,7 +206,7 @@ export function AttractionCard({
                   onDelete(attraction.id);
                 }}
                 aria-label={`Excluir ${attraction.name}`}
-                className="grid h-9 w-9 place-items-center rounded-xl border border-[#dfe5ee] text-[#667085] transition hover:border-rose-200 hover:bg-rose-50 hover:text-rose-700"
+                className="grid h-9 w-9 place-items-center rounded-xl border border-[#dfe5ee] text-[#667085] transition hover:border-rose-200 hover:bg-rose-50 hover:text-rose-700 dark:border-slate-700 dark:text-slate-300 dark:hover:border-rose-500/60 dark:hover:bg-rose-500/10 dark:hover:text-rose-300"
               >
                 <Trash2 className="h-4 w-4" />
               </button>

@@ -31,13 +31,13 @@ const travelHeroImage =
   'https://lh3.googleusercontent.com/aida-public/AB6AXuCM6rhDSvqhuD-HpbmgtmEiUAKiTDS1QIKN8krmV7IqkXSWD3ZcNdbS2zNCYsDpEjmqdew1DTSzH4QkSBSk264Kv6K2P4dITmxa8imu0ZS2dAaMbJSaQR1LFBqF9AMEwwki4JWl7hMPBxanunISEng3Jo6rk0WOmGdVSx3N_7VgBvraAsb7T0ifRCAaBUVsqXiGPGnjwUeeO3PqOpo9-pNOyhzhovCcW7tvI6MkWT7yE5abchq9tVG2edFkf23WEfRxP75n5WhDGkV4';
 
 const sharedInputClass =
-  'h-11 w-full rounded-xl border border-[#c6c6cd] bg-[#f8f9ff] px-4 text-sm font-medium text-[#0b1c30] outline-none transition placeholder:text-[#45464d]/45 focus:border-[#131b2e] focus:bg-white focus:ring-4 focus:ring-[#131b2e]/10 disabled:cursor-not-allowed disabled:opacity-70 sm:h-12 lg:h-11 xl:h-12';
+  'h-11 w-full rounded-xl border border-[#c6c6cd] bg-[#f8f9ff] px-4 text-sm font-medium text-[#0b1c30] outline-none transition placeholder:text-[#45464d]/45 focus:border-[#131b2e] focus:bg-white focus:ring-4 focus:ring-[#131b2e]/10 disabled:cursor-not-allowed disabled:opacity-70 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-50 dark:placeholder:text-slate-500 dark:focus:border-emerald-400 dark:focus:bg-slate-900 dark:focus:ring-emerald-400/20 sm:h-12 lg:h-11 xl:h-12';
 const iconInputClass = `${sharedInputClass} pl-12`;
 const passwordInputClass = `${iconInputClass} pr-12`;
 const primaryButtonClass =
-  'inline-flex h-12 w-full items-center justify-center gap-3 rounded-xl bg-black px-6 text-sm font-extrabold text-white shadow-[0_14px_28px_rgba(15,23,42,0.16)] transition hover:-translate-y-0.5 hover:bg-[#131b2e] hover:shadow-[0_18px_34px_rgba(15,23,42,0.2)] active:translate-y-0 disabled:cursor-not-allowed disabled:opacity-70 disabled:hover:translate-y-0';
+  'inline-flex h-12 w-full items-center justify-center gap-3 rounded-xl bg-black px-6 text-sm font-extrabold text-white shadow-[0_14px_28px_rgba(15,23,42,0.16)] transition hover:-translate-y-0.5 hover:bg-[#131b2e] hover:shadow-[0_18px_34px_rgba(15,23,42,0.2)] active:translate-y-0 disabled:cursor-not-allowed disabled:opacity-70 disabled:hover:translate-y-0 dark:bg-emerald-400 dark:text-emerald-950 dark:shadow-black/30 dark:hover:bg-emerald-300';
 const secondaryButtonClass =
-  'inline-flex h-11 w-full items-center justify-center gap-3 rounded-xl border border-[#c6c6cd] bg-white px-6 text-sm font-bold text-[#0b1c30] transition hover:border-[#131b2e]/35 hover:bg-[#eff4ff] disabled:cursor-not-allowed disabled:opacity-70 sm:h-12 lg:h-11 xl:h-12';
+  'inline-flex h-11 w-full items-center justify-center gap-3 rounded-xl border border-[#c6c6cd] bg-white px-6 text-sm font-bold text-[#0b1c30] transition hover:border-[#131b2e]/35 hover:bg-[#eff4ff] disabled:cursor-not-allowed disabled:opacity-70 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:hover:border-emerald-400 dark:hover:bg-slate-700 sm:h-12 lg:h-11 xl:h-12';
 
 const friendlyAuthError = (message: string) => {
   const normalized = message.toLowerCase();
@@ -259,7 +259,7 @@ export function AuthPage({ initialInviteCode }: AuthPageProps) {
 
   return (
     <main
-      className="relative flex min-h-svh items-start justify-center overflow-x-hidden px-4 py-3 text-[#0b1c30] sm:px-6 md:items-center lg:px-8 lg:py-3"
+      className="relative flex min-h-svh items-start justify-center overflow-x-hidden px-4 py-3 text-[#0b1c30] dark:text-slate-100 sm:px-6 md:items-center lg:px-8 lg:py-3"
       style={{
         background: theme === 'dark'
           ? 'radial-gradient(circle at top left, rgba(16,185,129,0.16) 0%, #0f172a 44%, #111827 100%)'
@@ -270,13 +270,13 @@ export function AuthPage({ initialInviteCode }: AuthPageProps) {
         type="button"
         aria-label={theme === 'dark' ? 'Ativar tema claro' : 'Ativar tema escuro'}
         onClick={toggleTheme}
-        className="theme-toggle absolute right-4 top-4 z-20 inline-flex h-10 items-center gap-2 rounded-full border border-[#dfe5ee] bg-white/85 px-3 text-sm font-black text-[#171a26] shadow-lg shadow-slate-900/10 backdrop-blur transition hover:border-[#10b981] hover:text-[#007c68]"
+        className="theme-toggle absolute right-4 top-4 z-20 inline-flex h-10 items-center gap-2 rounded-full border border-[#dfe5ee] bg-white/85 px-3 text-sm font-black text-[#171a26] shadow-lg shadow-slate-900/10 backdrop-blur transition hover:border-[#10b981] hover:text-[#007c68] dark:border-slate-700 dark:bg-slate-900/85 dark:text-slate-100 dark:shadow-black/30 dark:hover:border-emerald-400 dark:hover:text-emerald-300"
       >
         {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
         {theme === 'dark' ? 'Claro' : 'Escuro'}
       </button>
       <motion.section
-        className="mt-12 grid w-full max-w-[1060px] grid-cols-1 overflow-hidden rounded-[1.75rem] border border-white/70 bg-white shadow-[0_24px_70px_rgba(15,23,42,0.12)] md:mt-0 lg:h-[min(660px,calc(100svh-1.5rem))] lg:grid-cols-[0.95fr_1.05fr]"
+        className="mt-12 grid w-full max-w-[1060px] grid-cols-1 overflow-hidden rounded-[1.75rem] border border-white/70 bg-white shadow-[0_24px_70px_rgba(15,23,42,0.12)] dark:border-slate-700 dark:bg-slate-900 dark:shadow-black/40 md:mt-0 lg:h-[min(660px,calc(100svh-1.5rem))] lg:grid-cols-[0.95fr_1.05fr]"
         initial={{ opacity: 0, y: 18 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
@@ -296,24 +296,24 @@ export function AuthPage({ initialInviteCode }: AuthPageProps) {
             </span>
             <span className="text-2xl font-extrabold tracking-tight">{t('app.name')}</span>
           </div>
-          <div className="absolute bottom-6 left-8 right-8 rounded-2xl border border-white/25 bg-white/82 p-5 text-[#0b1c30] shadow-[0_18px_44px_rgba(2,6,23,0.2)] backdrop-blur-xl xl:p-6">
+          <div className="absolute bottom-6 left-8 right-8 rounded-2xl border border-white/25 bg-white/82 p-5 text-[#0b1c30] shadow-[0_18px_44px_rgba(2,6,23,0.2)] backdrop-blur-xl dark:bg-slate-950/78 dark:text-slate-50 xl:p-6">
             <div className="mb-2 flex items-center gap-3">
               <Route className="h-5 w-5 text-[#006b57]" aria-hidden="true" />
               <span className="text-xs font-bold uppercase tracking-[0.2em]">Planejamento integrado</span>
             </div>
             <h2 className="text-xl font-bold leading-tight xl:text-2xl">Seu proximo destino, organizado do início ao fim.</h2>
-            <p className="mt-2 text-sm leading-6 text-[#45464d]">
+            <p className="mt-2 text-sm leading-6 text-[#45464d] dark:text-slate-300">
               Reúna roteiro, gastos, documentos e checklist em um só espaço para a viagem ativa.
             </p>
           </div>
         </aside>
 
-        <section className="flex min-h-0 flex-col justify-center bg-white px-5 py-6 sm:px-8 md:px-10 lg:h-full lg:overflow-y-auto lg:px-10 lg:py-5 xl:px-12">
+        <section className="flex min-h-0 flex-col justify-center bg-white px-5 py-6 dark:bg-slate-900 sm:px-8 md:px-10 lg:h-full lg:overflow-y-auto lg:px-10 lg:py-5 xl:px-12">
           <div className="mb-4">
-            <h1 className="text-3xl font-extrabold tracking-normal text-[#0b1c30] lg:text-[2rem] xl:text-4xl">
+            <h1 className="text-3xl font-extrabold tracking-normal text-[#0b1c30] dark:text-slate-50 lg:text-[2rem] xl:text-4xl">
               {currentModeContent.title}
             </h1>
-            <p className="mt-1.5 text-sm leading-6 text-[#45464d] sm:text-base">{currentModeContent.description}</p>
+            <p className="mt-1.5 text-sm leading-6 text-[#45464d] dark:text-slate-300 sm:text-base">{currentModeContent.description}</p>
           </div>
 
           <button
@@ -327,9 +327,9 @@ export function AuthPage({ initialInviteCode }: AuthPageProps) {
           </button>
 
           <div className="my-3 flex items-center gap-5">
-            <span className="h-px flex-1 bg-[#c6c6cd]/55" />
-            <span className="text-sm font-bold uppercase tracking-[0.18em] text-[#45464d]">ou e-mail</span>
-            <span className="h-px flex-1 bg-[#c6c6cd]/55" />
+            <span className="h-px flex-1 bg-[#c6c6cd]/55 dark:bg-slate-700" />
+            <span className="text-sm font-bold uppercase tracking-[0.18em] text-[#45464d] dark:text-slate-400">ou e-mail</span>
+            <span className="h-px flex-1 bg-[#c6c6cd]/55 dark:bg-slate-700" />
           </div>
 
           <AnimatePresence mode="wait">
@@ -343,9 +343,9 @@ export function AuthPage({ initialInviteCode }: AuthPageProps) {
                 exit={{ opacity: 0, x: -16 }}
               >
                 <label className="block" htmlFor="login-email">
-                  <span className="mb-1.5 block text-sm font-bold text-[#0b1c30]">E-mail corporativo</span>
+                  <span className="mb-1.5 block text-sm font-bold text-[#0b1c30] dark:text-slate-200">E-mail corporativo</span>
                   <span className="relative block">
-                    <Mail className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-[#45464d]" />
+                    <Mail className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-[#45464d] dark:text-slate-400" />
                     <input
                       id="login-email"
                       name="email"
@@ -361,18 +361,18 @@ export function AuthPage({ initialInviteCode }: AuthPageProps) {
                 </label>
 
                 <label className="block" htmlFor="login-password">
-                  <span className="mb-1.5 flex items-center justify-between gap-4 text-sm font-bold text-[#0b1c30]">
+                  <span className="mb-1.5 flex items-center justify-between gap-4 text-sm font-bold text-[#0b1c30] dark:text-slate-200">
                     <span>{t('auth.password')}</span>
                     <button
                       type="button"
                       onClick={() => changeMode('reset')}
-                      className="text-sm font-bold text-[#006b57] transition hover:text-[#004638] hover:underline"
+                      className="text-sm font-bold text-[#006b57] transition hover:text-[#004638] hover:underline dark:text-emerald-300 dark:hover:text-emerald-200"
                     >
                       {t('auth.reset')}
                     </button>
                   </span>
                   <span className="relative block">
-                    <Lock className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-[#45464d]" />
+                    <Lock className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-[#45464d] dark:text-slate-400" />
                     <input
                       id="login-password"
                       name="password"
@@ -388,7 +388,7 @@ export function AuthPage({ initialInviteCode }: AuthPageProps) {
                       type="button"
                       aria-label={showPassword ? 'Ocultar senha' : 'Mostrar senha'}
                       onClick={() => setShowPassword((current) => !current)}
-                      className="absolute right-3 top-1/2 inline-flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-xl text-[#45464d] transition hover:bg-white hover:text-[#0b1c30]"
+                      className="absolute right-3 top-1/2 inline-flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-xl text-[#45464d] transition hover:bg-white hover:text-[#0b1c30] dark:text-slate-300 dark:hover:bg-slate-700 dark:hover:text-slate-50"
                     >
                       {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
                     </button>
@@ -414,9 +414,9 @@ export function AuthPage({ initialInviteCode }: AuthPageProps) {
                 exit={{ opacity: 0, x: -16 }}
               >
                 <label className="block" htmlFor="signup-email">
-                  <span className="mb-1.5 block text-sm font-bold text-[#0b1c30]">{t('auth.email')}</span>
+                  <span className="mb-1.5 block text-sm font-bold text-[#0b1c30] dark:text-slate-200">{t('auth.email')}</span>
                   <span className="relative block">
-                    <Mail className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-[#45464d]" />
+                    <Mail className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-[#45464d] dark:text-slate-400" />
                     <input
                       id="signup-email"
                       name="email"
@@ -433,9 +433,9 @@ export function AuthPage({ initialInviteCode }: AuthPageProps) {
 
                 <div className="grid gap-3 sm:grid-cols-2">
                   <label className="block" htmlFor="signup-password">
-                    <span className="mb-1.5 block text-sm font-bold text-[#0b1c30]">{t('auth.password')}</span>
+                    <span className="mb-1.5 block text-sm font-bold text-[#0b1c30] dark:text-slate-200">{t('auth.password')}</span>
                     <span className="relative block">
-                      <Lock className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-[#45464d]" />
+                      <Lock className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-[#45464d] dark:text-slate-400" />
                       <input
                         id="signup-password"
                         name="password"
@@ -452,7 +452,7 @@ export function AuthPage({ initialInviteCode }: AuthPageProps) {
                         type="button"
                         aria-label={showPassword ? 'Ocultar senha' : 'Mostrar senha'}
                         onClick={() => setShowPassword((current) => !current)}
-                        className="absolute right-3 top-1/2 inline-flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-xl text-[#45464d] transition hover:bg-white hover:text-[#0b1c30]"
+                        className="absolute right-3 top-1/2 inline-flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-xl text-[#45464d] transition hover:bg-white hover:text-[#0b1c30] dark:text-slate-300 dark:hover:bg-slate-700 dark:hover:text-slate-50"
                       >
                         {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
                       </button>
@@ -460,9 +460,9 @@ export function AuthPage({ initialInviteCode }: AuthPageProps) {
                   </label>
 
                   <label className="block" htmlFor="signup-password-confirmation">
-                    <span className="mb-1.5 block text-sm font-bold text-[#0b1c30]">{t('auth.confirmPassword')}</span>
+                    <span className="mb-1.5 block text-sm font-bold text-[#0b1c30] dark:text-slate-200">{t('auth.confirmPassword')}</span>
                     <span className="relative block">
-                      <KeyRound className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-[#45464d]" />
+                      <KeyRound className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-[#45464d] dark:text-slate-400" />
                       <input
                         id="signup-password-confirmation"
                         name="password-confirmation"
@@ -479,7 +479,7 @@ export function AuthPage({ initialInviteCode }: AuthPageProps) {
                         type="button"
                         aria-label={showPasswordConfirmation ? 'Ocultar senha' : 'Mostrar senha'}
                         onClick={() => setShowPasswordConfirmation((current) => !current)}
-                        className="absolute right-3 top-1/2 inline-flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-xl text-[#45464d] transition hover:bg-white hover:text-[#0b1c30]"
+                        className="absolute right-3 top-1/2 inline-flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-xl text-[#45464d] transition hover:bg-white hover:text-[#0b1c30] dark:text-slate-300 dark:hover:bg-slate-700 dark:hover:text-slate-50"
                       >
                         {showPasswordConfirmation ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
                       </button>
@@ -506,9 +506,9 @@ export function AuthPage({ initialInviteCode }: AuthPageProps) {
                 exit={{ opacity: 0, x: -16 }}
               >
                 <label className="block" htmlFor="reset-email">
-                  <span className="mb-1.5 block text-sm font-bold text-[#0b1c30]">{t('auth.email')}</span>
+                  <span className="mb-1.5 block text-sm font-bold text-[#0b1c30] dark:text-slate-200">{t('auth.email')}</span>
                   <span className="relative block">
-                    <Mail className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-[#45464d]" />
+                    <Mail className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-[#45464d] dark:text-slate-400" />
                     <input
                       id="reset-email"
                       name="email"
@@ -535,14 +535,14 @@ export function AuthPage({ initialInviteCode }: AuthPageProps) {
             )}
           </AnimatePresence>
 
-          <div className="pt-4 text-center text-sm text-[#45464d]">
+          <div className="pt-4 text-center text-sm text-[#45464d] dark:text-slate-300">
             {mode === 'login' ? (
               <p>
                 Nao possui uma conta corporativa?
                 <button
                   type="button"
                   onClick={() => changeMode('signup')}
-                  className="ml-2 font-extrabold text-[#0b1c30] transition hover:text-[#006b57] hover:underline"
+                  className="ml-2 font-extrabold text-[#0b1c30] transition hover:text-[#006b57] hover:underline dark:text-slate-50 dark:hover:text-emerald-300"
                 >
                   {t('auth.signup')}
                 </button>
@@ -553,7 +553,7 @@ export function AuthPage({ initialInviteCode }: AuthPageProps) {
                 <button
                   type="button"
                   onClick={() => changeMode('login')}
-                  className="ml-2 font-extrabold text-[#0b1c30] transition hover:text-[#006b57] hover:underline"
+                  className="ml-2 font-extrabold text-[#0b1c30] transition hover:text-[#006b57] hover:underline dark:text-slate-50 dark:hover:text-emerald-300"
                 >
                   {t('auth.login')}
                 </button>
@@ -561,9 +561,9 @@ export function AuthPage({ initialInviteCode }: AuthPageProps) {
             )}
           </div>
 
-          <form onSubmit={handleInvite} className="mt-2 rounded-2xl border border-[#d3e4fe] bg-[#eff4ff]/80 p-3">
+          <form onSubmit={handleInvite} className="mt-2 rounded-2xl border border-[#d3e4fe] bg-[#eff4ff]/80 p-3 dark:border-slate-700 dark:bg-slate-800/70">
             <label className="block" htmlFor="invite-code">
-              <span className="mb-1.5 flex items-center gap-2 text-sm font-extrabold text-[#0b1c30]">
+              <span className="mb-1.5 flex items-center gap-2 text-sm font-extrabold text-[#0b1c30] dark:text-slate-200">
                 <Ticket className="h-4 w-4" aria-hidden="true" />
                 {t('auth.inviteLabel')}
               </span>
@@ -579,7 +579,7 @@ export function AuthPage({ initialInviteCode }: AuthPageProps) {
             <button
               type="submit"
               disabled={isBusy || !normalizedInviteCode}
-              className="mt-2 inline-flex h-10 w-full items-center justify-center gap-2 rounded-xl border border-[#c6c6cd] bg-white px-4 text-sm font-extrabold text-[#0b1c30] transition hover:bg-[#f8f9ff] disabled:cursor-not-allowed disabled:opacity-60"
+              className="mt-2 inline-flex h-10 w-full items-center justify-center gap-2 rounded-xl border border-[#c6c6cd] bg-white px-4 text-sm font-extrabold text-[#0b1c30] transition hover:bg-[#f8f9ff] disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:hover:bg-slate-800"
             >
               {loadingAction === 'invite' ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : <Route className="h-4 w-4" aria-hidden="true" />}
               {loadingAction === 'invite' ? t('auth.inviteSaving') : t('auth.inviteSubmit')}
@@ -588,23 +588,23 @@ export function AuthPage({ initialInviteCode }: AuthPageProps) {
 
           <div aria-live="polite">
             {message ? (
-              <p className="mt-4 rounded-2xl border border-[#48fdd3]/40 bg-[#48fdd3]/14 px-4 py-3 text-sm font-bold text-[#005141]">
+              <p className="mt-4 rounded-2xl border border-[#48fdd3]/40 bg-[#48fdd3]/14 px-4 py-3 text-sm font-bold text-[#005141] dark:border-emerald-400/30 dark:bg-emerald-400/10 dark:text-emerald-200">
                 {message}
               </p>
             ) : null}
             {error ? (
-              <p className="mt-4 rounded-2xl border border-[#ffdad6] bg-[#ffdad6]/70 px-4 py-3 text-sm font-bold text-[#93000a]">
+              <p className="mt-4 rounded-2xl border border-[#ffdad6] bg-[#ffdad6]/70 px-4 py-3 text-sm font-bold text-[#93000a] dark:border-rose-400/30 dark:bg-rose-400/10 dark:text-rose-200">
                 {error}
               </p>
             ) : null}
           </div>
 
           <div className="mt-auto pt-3">
-            <div className="h-px bg-[#c6c6cd]/35" />
-            <nav className="flex flex-wrap justify-center gap-x-5 gap-y-2 pt-2 text-xs font-semibold text-[#45464d]">
-              <a className="transition hover:text-[#0b1c30]" href="#privacidade">Privacidade</a>
-              <a className="transition hover:text-[#0b1c30]" href="#termos">Termos de Uso</a>
-              <a className="transition hover:text-[#0b1c30]" href="mailto:suporte@tripflow.online">Suporte</a>
+            <div className="h-px bg-[#c6c6cd]/35 dark:bg-slate-700" />
+            <nav className="flex flex-wrap justify-center gap-x-5 gap-y-2 pt-2 text-xs font-semibold text-[#45464d] dark:text-slate-400">
+              <a className="transition hover:text-[#0b1c30] dark:hover:text-slate-100" href="#privacidade">Privacidade</a>
+              <a className="transition hover:text-[#0b1c30] dark:hover:text-slate-100" href="#termos">Termos de Uso</a>
+              <a className="transition hover:text-[#0b1c30] dark:hover:text-slate-100" href="mailto:suporte@tripflow.online">Suporte</a>
             </nav>
           </div>
         </section>

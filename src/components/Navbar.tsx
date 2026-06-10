@@ -91,7 +91,7 @@ export function Navbar({ activeView, onNavigate, onNavigateToProfilePath }: Navb
 
   return (
     <motion.nav
-      className="sticky top-0 z-30 border-b border-[#e8ecf4] bg-[#f7f8fd]/95 backdrop-blur-xl"
+      className="sticky top-0 z-30 border-b border-[#e8ecf4] bg-[#f7f8fd]/95 backdrop-blur-xl dark:border-slate-800 dark:bg-slate-950/92"
       initial={{ opacity: 0, y: -12 }}
       animate={{ opacity: 1, y: 0 }}
     >
@@ -99,7 +99,7 @@ export function Navbar({ activeView, onNavigate, onNavigateToProfilePath }: Navb
         <button
           type="button"
           onClick={() => onNavigate('dashboard')}
-          className="flex shrink-0 items-center gap-3 text-left text-[1.5rem] font-black text-[#0b1326]"
+          className="flex shrink-0 items-center gap-3 text-left text-[1.5rem] font-black text-[#0b1326] dark:text-slate-50"
         >
           <img src="/logo.png" alt="" className="h-7 w-7 object-contain sm:h-8 sm:w-8" />
           <span>{t('app.name')}</span>
@@ -122,14 +122,14 @@ export function Navbar({ activeView, onNavigate, onNavigateToProfilePath }: Navb
                 }}
                 href={getNavHref(item.id)}
                 className={`relative inline-flex h-16 items-center text-base font-semibold transition ${
-                  active ? 'text-[#006b57]' : 'text-[#171a26] hover:text-[#006b57]'
+                  active ? 'text-[#006b57] dark:text-emerald-300' : 'text-[#171a26] hover:text-[#006b57] dark:text-slate-300 dark:hover:text-emerald-300'
                 }`}
               >
                 <span>{item.label}</span>
                 {active ? (
                   <motion.span
                     layoutId="active-nav-underline"
-                    className="absolute bottom-3 left-0 h-0.5 w-full bg-[#006b57]"
+                    className="absolute bottom-3 left-0 h-0.5 w-full bg-[#006b57] dark:bg-emerald-300"
                     transition={{ type: 'spring', stiffness: 420, damping: 34 }}
                   />
                 ) : null}
@@ -143,11 +143,11 @@ export function Navbar({ activeView, onNavigate, onNavigateToProfilePath }: Navb
             type="button"
             aria-label="Notificações"
             onClick={() => onNavigateToProfilePath('/perfil/notificacoes')}
-            className="relative inline-flex h-10 w-10 items-center justify-center rounded-full text-[#171a26] transition hover:bg-white hover:shadow-sm"
+            className="relative inline-flex h-10 w-10 items-center justify-center rounded-full text-[#171a26] transition hover:bg-white hover:shadow-sm dark:text-slate-200 dark:hover:bg-slate-800 dark:hover:shadow-black/20"
           >
             <Bell className="h-5 w-5" />
             {unreadNotifications > 0 ? (
-              <span className="absolute right-1.5 top-1.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-[#006b57] px-1 text-[0.65rem] font-black text-white">
+              <span className="absolute right-1.5 top-1.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-[#006b57] px-1 text-[0.65rem] font-black text-white dark:bg-emerald-400 dark:text-emerald-950">
                 {unreadNotifications > 9 ? '9+' : unreadNotifications}
               </span>
             ) : null}
@@ -156,7 +156,7 @@ export function Navbar({ activeView, onNavigate, onNavigateToProfilePath }: Navb
             type="button"
             aria-label="Configurações"
             onClick={() => onNavigateToProfilePath('/perfil/configuracao')}
-            className="inline-flex h-10 w-10 items-center justify-center rounded-full text-[#171a26] transition hover:bg-white hover:shadow-sm"
+            className="inline-flex h-10 w-10 items-center justify-center rounded-full text-[#171a26] transition hover:bg-white hover:shadow-sm dark:text-slate-200 dark:hover:bg-slate-800 dark:hover:shadow-black/20"
           >
             <Settings className="h-6 w-6" />
           </button>
@@ -165,7 +165,7 @@ export function Navbar({ activeView, onNavigate, onNavigateToProfilePath }: Navb
             aria-label={theme === 'dark' ? 'Ativar tema claro' : 'Ativar tema escuro'}
             title={theme === 'dark' ? 'Tema claro' : 'Tema escuro'}
             onClick={toggleTheme}
-            className="theme-toggle inline-flex h-10 items-center gap-2 rounded-full border border-[#dfe5ee] bg-white/80 px-3 text-sm font-black text-[#171a26] shadow-sm transition hover:border-[#10b981] hover:text-[#007c68]"
+            className="theme-toggle inline-flex h-10 items-center gap-2 rounded-full border border-[#dfe5ee] bg-white/80 px-3 text-sm font-black text-[#171a26] shadow-sm transition hover:border-[#10b981] hover:text-[#007c68] dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:hover:border-emerald-400 dark:hover:text-emerald-300"
           >
             {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
             <span className="hidden lg:inline">{theme === 'dark' ? 'Claro' : 'Escuro'}</span>
@@ -174,7 +174,7 @@ export function Navbar({ activeView, onNavigate, onNavigateToProfilePath }: Navb
             type="button"
             aria-label="Abrir perfil"
             onClick={() => onNavigateToProfilePath('/perfil')}
-            className="inline-flex h-10 w-10 items-center justify-center overflow-hidden rounded-full border border-[#cbd7ea] bg-[#dce9ff] text-[#0b1326] shadow-sm transition hover:shadow-md"
+            className="inline-flex h-10 w-10 items-center justify-center overflow-hidden rounded-full border border-[#cbd7ea] bg-[#dce9ff] text-[#0b1326] shadow-sm transition hover:shadow-md dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
             title={displayName}
           >
             {avatarUrl ? (
@@ -203,7 +203,7 @@ export function Navbar({ activeView, onNavigate, onNavigateToProfilePath }: Navb
               }}
               href={getNavHref(item.id)}
               className={`shrink-0 border-b-2 pb-2 text-sm font-bold ${
-                active ? 'border-[#006b57] text-[#006b57]' : 'border-transparent text-slate-500'
+                active ? 'border-[#006b57] text-[#006b57] dark:border-emerald-300 dark:text-emerald-300' : 'border-transparent text-slate-500 dark:text-slate-400'
               }`}
             >
               {item.label}

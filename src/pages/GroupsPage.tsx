@@ -82,24 +82,24 @@ export function GroupsPage() {
   };
 
   return (
-    <main className="min-h-screen bg-[#eef5f3] px-4 py-8 text-slate-950 sm:px-6 lg:px-10 xl:px-12">
+    <main className="min-h-screen bg-[#eef5f3] px-4 py-8 text-slate-950 dark:bg-slate-950 dark:text-slate-50 sm:px-6 lg:px-10 xl:px-12">
       <div className="flex w-full flex-col gap-6">
         <motion.header
-          className="rounded-[2rem] border border-white/80 bg-white/85 p-6 shadow-xl shadow-slate-900/10 backdrop-blur md:p-8"
+          className="rounded-[2rem] border border-white/80 bg-white/85 p-6 shadow-xl shadow-slate-900/10 backdrop-blur dark:border-slate-700 dark:bg-slate-900/85 dark:shadow-black/30 md:p-8"
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
         >
-          <p className="text-sm font-black uppercase tracking-[0.22em] text-teal-700">Ola, {displayName}</p>
+          <p className="text-sm font-black uppercase tracking-[0.22em] text-teal-700 dark:text-emerald-300">Ola, {displayName}</p>
           <h1 className="mt-3 text-4xl font-black tracking-tight md:text-5xl">
             Crie uma viagem ou entre por convite
           </h1>
-          <p className="mt-4 max-w-3xl leading-7 text-slate-600">
+          <p className="mt-4 max-w-3xl leading-7 text-slate-600 dark:text-slate-300">
             Gastos, roteiro, pontos turisticos, fotos e dashboard so aparecem para membros do grupo ativo.
           </p>
         </motion.header>
 
         {(error || formError || status || loading) ? (
-          <p className="rounded-2xl border border-white/80 bg-white/85 px-4 py-3 text-sm font-bold text-slate-600 shadow-lg shadow-slate-900/5">
+          <p className="rounded-2xl border border-white/80 bg-white/85 px-4 py-3 text-sm font-bold text-slate-600 shadow-lg shadow-slate-900/5 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:shadow-black/30">
             {loading ? 'Carregando viagens...' : formError ?? error ?? status}
           </p>
         ) : null}
@@ -107,43 +107,43 @@ export function GroupsPage() {
         <div className="grid gap-6 lg:grid-cols-[1fr_0.9fr]">
           <motion.form
             onSubmit={handleCreateGroup}
-            className="rounded-[2rem] border border-white/80 bg-white/90 p-6 shadow-xl shadow-slate-900/10 md:p-8"
+            className="rounded-[2rem] border border-white/80 bg-white/90 p-6 shadow-xl shadow-slate-900/10 dark:border-slate-700 dark:bg-slate-900/90 dark:shadow-black/30 md:p-8"
             initial={{ opacity: 0, y: 18 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.05 }}
           >
             <div className="mb-6 flex items-center gap-3">
-              <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-950 text-white">
+              <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-950 text-white dark:bg-emerald-400 dark:text-emerald-950">
                 <Plus className="h-6 w-6" />
               </span>
               <div>
-                <p className="text-sm font-black uppercase tracking-[0.18em] text-slate-400">Nova viagem</p>
-                <h2 className="text-2xl font-black">Criar viagem</h2>
+                <p className="text-sm font-black uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500">Nova viagem</p>
+                <h2 className="text-2xl font-black dark:text-slate-50">Criar viagem</h2>
               </div>
             </div>
 
             <label>
-              <span className="mb-2 block text-sm font-bold text-slate-600">Nome da viagem</span>
+              <span className="mb-2 block text-sm font-bold text-slate-600 dark:text-slate-300">Nome da viagem</span>
               <input
                 required
                 value={name}
                 onChange={(event) => setName(event.target.value)}
-                className="h-12 w-full rounded-2xl border border-slate-200 px-4 font-semibold outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-100"
+                className="h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 font-semibold text-slate-900 outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-50 dark:focus:border-emerald-400 dark:focus:ring-emerald-400/20"
               />
             </label>
             <label className="mt-4 block">
-              <span className="mb-2 block text-sm font-bold text-slate-600">Descricao opcional</span>
+              <span className="mb-2 block text-sm font-bold text-slate-600 dark:text-slate-300">Descricao opcional</span>
               <textarea
                 value={description}
                 onChange={(event) => setDescription(event.target.value)}
                 rows={4}
-                className="w-full rounded-2xl border border-slate-200 px-4 py-3 font-semibold outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-100"
+                className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 font-semibold text-slate-900 outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-50 dark:focus:border-emerald-400 dark:focus:ring-emerald-400/20"
               />
             </label>
             <button
               type="submit"
               disabled={isSubmitting}
-              className="mt-5 inline-flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-slate-950 px-5 font-black text-white shadow-xl shadow-slate-900/20 transition hover:bg-teal-700 disabled:cursor-not-allowed disabled:opacity-70"
+              className="mt-5 inline-flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-slate-950 px-5 font-black text-white shadow-xl shadow-slate-900/20 transition hover:bg-teal-700 disabled:cursor-not-allowed disabled:opacity-70 dark:bg-emerald-400 dark:text-emerald-950 dark:hover:bg-emerald-300"
             >
               <Plus className="h-5 w-5" />
               Criar nova viagem
@@ -151,34 +151,34 @@ export function GroupsPage() {
           </motion.form>
 
           <motion.section
-            className="rounded-[2rem] border border-white/80 bg-white/90 p-6 shadow-xl shadow-slate-900/10 md:p-8"
+            className="rounded-[2rem] border border-white/80 bg-white/90 p-6 shadow-xl shadow-slate-900/10 dark:border-slate-700 dark:bg-slate-900/90 dark:shadow-black/30 md:p-8"
             initial={{ opacity: 0, y: 18 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.1 }}
           >
             <div className="mb-6 flex items-center gap-3">
-              <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-teal-600 text-white">
+              <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-teal-600 text-white dark:bg-emerald-400 dark:text-emerald-950">
                 <Link2 className="h-6 w-6" />
               </span>
               <div>
-                <p className="text-sm font-black uppercase tracking-[0.18em] text-slate-400">Convite</p>
-                <h2 className="text-2xl font-black">Entrar em uma viagem</h2>
+                <p className="text-sm font-black uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500">Convite</p>
+                <h2 className="text-2xl font-black dark:text-slate-50">Entrar em uma viagem</h2>
               </div>
             </div>
 
             <form onSubmit={handleAcceptInvite}>
               <label>
-                <span className="mb-2 block text-sm font-bold text-slate-600">Link ou token do convite</span>
+                <span className="mb-2 block text-sm font-bold text-slate-600 dark:text-slate-300">Link ou token do convite</span>
                 <input
                   value={inviteInput}
                   onChange={(event) => setInviteInput(event.target.value)}
-                  className="h-12 w-full rounded-2xl border border-slate-200 px-4 font-semibold outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-100"
+                  className="h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 font-semibold text-slate-900 outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-50 dark:focus:border-emerald-400 dark:focus:ring-emerald-400/20"
                 />
               </label>
               <button
                 type="submit"
                 disabled={isSubmitting || !inviteInput.trim()}
-                className="mt-5 inline-flex h-12 w-full items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-5 font-black text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+                className="mt-5 inline-flex h-12 w-full items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-5 font-black text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700"
               >
                 <CheckCircle2 className="h-5 w-5" />
                 Entrar com convite
@@ -186,36 +186,36 @@ export function GroupsPage() {
             </form>
 
             {activeGroup?.role === 'owner' ? (
-              <form onSubmit={handleCreateInvite} className="mt-8 border-t border-slate-100 pt-6">
+              <form onSubmit={handleCreateInvite} className="mt-8 border-t border-slate-100 pt-6 dark:border-slate-700">
                 <label>
-                  <span className="mb-2 block text-sm font-bold text-slate-600">E-mail do convidado</span>
+                  <span className="mb-2 block text-sm font-bold text-slate-600 dark:text-slate-300">E-mail do convidado</span>
                   <input
                     type="email"
                     required
                     value={inviteEmail}
                     onChange={(event) => setInviteEmail(event.target.value)}
-                    className="h-12 w-full rounded-2xl border border-slate-200 px-4 font-semibold outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-100"
+                    className="h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 font-semibold text-slate-900 outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-50 dark:focus:border-emerald-400 dark:focus:ring-emerald-400/20"
                   />
                 </label>
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="mt-4 inline-flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-slate-950 px-5 font-black text-white transition hover:bg-teal-700 disabled:cursor-not-allowed disabled:opacity-70"
+                  className="mt-4 inline-flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-slate-950 px-5 font-black text-white transition hover:bg-teal-700 disabled:cursor-not-allowed disabled:opacity-70 dark:bg-emerald-400 dark:text-emerald-950 dark:hover:bg-emerald-300"
                 >
                   <Send className="h-5 w-5" />
                   Enviar convite
                 </button>
                 {generatedInvite ? (
-                  <div className="mt-4 space-y-3 rounded-3xl bg-teal-50 p-4 text-sm font-bold text-teal-900">
+                  <div className="mt-4 space-y-3 rounded-3xl bg-teal-50 p-4 text-sm font-bold text-teal-900 dark:bg-emerald-400/10 dark:text-emerald-200">
                     <div className="flex items-center gap-2">
                       <Ticket className="h-4 w-4" />
                       <span className="break-all">{generatedInvite.code}</span>
                     </div>
-                    <div className="flex items-center gap-2 text-teal-800">
+                    <div className="flex items-center gap-2 text-teal-800 dark:text-emerald-200">
                       <Link2 className="h-4 w-4" />
                       <span className="break-all">{generatedInvite.link}</span>
                     </div>
-                    <div className="flex items-center gap-2 text-teal-700">
+                    <div className="flex items-center gap-2 text-teal-700 dark:text-emerald-300">
                       <CalendarDays className="h-4 w-4" />
                       <span>Valido por 7 dias</span>
                     </div>
@@ -223,7 +223,7 @@ export function GroupsPage() {
                       <button
                         type="button"
                         onClick={() => void navigator.clipboard.writeText(generatedInvite.code)}
-                        className="inline-flex h-10 items-center justify-center gap-2 rounded-2xl bg-white px-3 text-teal-800"
+                        className="inline-flex h-10 items-center justify-center gap-2 rounded-2xl bg-white px-3 text-teal-800 dark:bg-slate-900 dark:text-emerald-300"
                       >
                         <Copy className="h-4 w-4" />
                         Copiar codigo
@@ -231,7 +231,7 @@ export function GroupsPage() {
                       <button
                         type="button"
                         onClick={() => void navigator.clipboard.writeText(generatedInvite.link)}
-                        className="inline-flex h-10 items-center justify-center gap-2 rounded-2xl bg-white px-3 text-teal-800"
+                        className="inline-flex h-10 items-center justify-center gap-2 rounded-2xl bg-white px-3 text-teal-800 dark:bg-slate-900 dark:text-emerald-300"
                       >
                         <Copy className="h-4 w-4" />
                         Copiar link
@@ -246,14 +246,14 @@ export function GroupsPage() {
 
         {userGroups.length ? (
           <motion.section
-            className="rounded-[2rem] border border-white/80 bg-white/85 p-6 shadow-xl shadow-slate-900/10 md:p-8"
+            className="rounded-[2rem] border border-white/80 bg-white/85 p-6 shadow-xl shadow-slate-900/10 dark:border-slate-700 dark:bg-slate-900/85 dark:shadow-black/30 md:p-8"
             initial={{ opacity: 0, y: 18 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.15 }}
           >
             <div className="mb-5 flex items-center gap-3">
               <Users className="h-5 w-5 text-teal-700" />
-              <h2 className="text-2xl font-black">Suas viagens</h2>
+              <h2 className="text-2xl font-black dark:text-slate-50">Suas viagens</h2>
             </div>
             <div className="grid gap-3 md:grid-cols-2">
               {userGroups.map((group) => (
@@ -261,10 +261,10 @@ export function GroupsPage() {
                   type="button"
                   key={group.id}
                   onClick={() => setActiveGroup(group)}
-                  className="rounded-2xl border border-slate-200 bg-white p-4 text-left transition hover:border-teal-300 hover:bg-teal-50"
+                  className="rounded-2xl border border-slate-200 bg-white p-4 text-left transition hover:border-teal-300 hover:bg-teal-50 dark:border-slate-700 dark:bg-slate-800 dark:hover:border-emerald-400 dark:hover:bg-slate-700"
                 >
-                  <span className="text-lg font-black text-slate-950">{group.name}</span>
-                  <span className="mt-1 block text-sm font-bold text-slate-500">
+                  <span className="text-lg font-black text-slate-950 dark:text-slate-50">{group.name}</span>
+                  <span className="mt-1 block text-sm font-bold text-slate-500 dark:text-slate-300">
                     {group.role === 'owner' ? 'Owner' : 'Membro'}
                   </span>
                 </button>

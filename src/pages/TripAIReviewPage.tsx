@@ -203,17 +203,17 @@ const getPlanCompletenessWarning = (plan: TripAIPlan, input: TripAIInput) => {
 
 function EmptyReview() {
   return (
-    <main className="min-h-screen bg-[#edf4f2] px-4 py-8 text-slate-900">
-      <section className="mx-auto max-w-3xl rounded-[2rem] border border-white/80 bg-white/90 p-8 text-center shadow-xl shadow-slate-900/10">
-        <Sparkles className="mx-auto h-10 w-10 text-teal-700" />
+    <main className="min-h-screen bg-[#edf4f2] px-4 py-8 text-slate-900 dark:bg-slate-950 dark:text-slate-100">
+      <section className="mx-auto max-w-3xl rounded-[2rem] border border-white/80 bg-white/90 p-8 text-center shadow-xl shadow-slate-900/10 dark:border-slate-700 dark:bg-slate-900/90 dark:shadow-black/30">
+        <Sparkles className="mx-auto h-10 w-10 text-teal-700 dark:text-emerald-300" />
         <h1 className="mt-4 text-3xl font-black">Nenhuma previa de IA encontrada</h1>
-        <p className="mt-3 leading-7 text-slate-600">
+        <p className="mt-3 leading-7 text-slate-600 dark:text-slate-300">
           Gere uma nova previa a partir da criacao de viagem ou do perfil da viagem ativa.
         </p>
         <button
           type="button"
           onClick={() => navigateTo('/perfil')}
-          className="mt-6 inline-flex h-12 items-center justify-center rounded-2xl bg-slate-950 px-6 font-black text-white transition hover:bg-teal-700"
+          className="mt-6 inline-flex h-12 items-center justify-center rounded-2xl bg-slate-950 px-6 font-black text-white transition hover:bg-teal-700 dark:bg-emerald-400 dark:text-emerald-950 dark:hover:bg-emerald-300"
         >
           Voltar ao perfil
         </button>
@@ -232,12 +232,12 @@ function Section({
   title: string;
 }) {
   return (
-    <section className="rounded-[2rem] border border-white/80 bg-white/90 p-5 shadow-xl shadow-slate-900/10 md:p-7">
+    <section className="rounded-[2rem] border border-white/80 bg-white/90 p-5 shadow-xl shadow-slate-900/10 dark:border-slate-700 dark:bg-slate-900/90 dark:shadow-black/30 md:p-7">
       <div className="mb-5 flex items-center gap-3">
-        <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-slate-950 text-white">
+        <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-slate-950 text-white dark:bg-emerald-400 dark:text-emerald-950">
           <Icon className="h-5 w-5" />
         </span>
-        <h2 className="text-2xl font-black text-slate-950">{title}</h2>
+        <h2 className="text-2xl font-black text-slate-950 dark:text-slate-50">{title}</h2>
       </div>
       {children}
     </section>
@@ -255,7 +255,7 @@ function EditorField({
 }) {
   return (
     <label className={className}>
-      <span className="mb-2 block text-xs font-black uppercase tracking-[0.12em] text-slate-400">
+      <span className="mb-2 block text-xs font-black uppercase tracking-[0.12em] text-slate-400 dark:text-slate-500">
         {label}
       </span>
       {children}
@@ -264,19 +264,19 @@ function EditorField({
 }
 
 const inputClass =
-  'h-11 w-full rounded-2xl border border-slate-200 bg-white px-3 text-sm font-bold text-slate-900 outline-none transition focus:border-teal-400 focus:ring-4 focus:ring-teal-100';
+  'h-11 w-full rounded-2xl border border-slate-200 bg-white px-3 text-sm font-bold text-slate-900 outline-none transition focus:border-teal-400 focus:ring-4 focus:ring-teal-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-50 dark:focus:border-emerald-400 dark:focus:ring-emerald-400/20';
 const textareaClass =
-  'w-full rounded-2xl border border-slate-200 bg-white px-3 py-3 text-sm font-bold text-slate-900 outline-none transition focus:border-teal-400 focus:ring-4 focus:ring-teal-100';
+  'w-full rounded-2xl border border-slate-200 bg-white px-3 py-3 text-sm font-bold text-slate-900 outline-none transition focus:border-teal-400 focus:ring-4 focus:ring-teal-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-50 dark:focus:border-emerald-400 dark:focus:ring-emerald-400/20';
 
 function PlanEditor({ plan, onChange }: { plan: TripAIPlan; onChange: (plan: TripAIPlan) => void }) {
   const updatePlan = (patch: Partial<TripAIPlan>) => onChange({ ...plan, ...patch });
 
   return (
-    <section className="space-y-6 rounded-[2rem] border border-teal-200 bg-teal-50/70 p-5 shadow-xl shadow-teal-900/10 md:p-7">
+    <section className="space-y-6 rounded-[2rem] border border-teal-200 bg-teal-50/70 p-5 shadow-xl shadow-teal-900/10 dark:border-emerald-400/30 dark:bg-slate-900 dark:shadow-black/30 md:p-7">
       <div>
-        <p className="text-sm font-black uppercase tracking-[0.18em] text-teal-700">Editor visual</p>
-        <h2 className="mt-2 text-3xl font-black text-slate-950">Editar roteiro gerado</h2>
-        <p className="mt-2 text-sm font-bold leading-6 text-teal-900">
+        <p className="text-sm font-black uppercase tracking-[0.18em] text-teal-700 dark:text-emerald-300">Editor visual</p>
+        <h2 className="mt-2 text-3xl font-black text-slate-950 dark:text-slate-50">Editar roteiro gerado</h2>
+        <p className="mt-2 text-sm font-bold leading-6 text-teal-900 dark:text-slate-300">
           Ajuste a previa aqui. O roteiro aplicado usara exatamente estes dados editados.
         </p>
       </div>
@@ -292,18 +292,18 @@ function PlanEditor({ plan, onChange }: { plan: TripAIPlan; onChange: (plan: Tri
 
       <div className="space-y-3">
         <div className="flex items-center justify-between gap-3">
-          <h3 className="text-xl font-black text-slate-950">Documentos</h3>
+          <h3 className="text-xl font-black text-slate-950 dark:text-slate-50">Documentos</h3>
           <button
             type="button"
             onClick={() => updatePlan({ documents: [...plan.documents, createDocument()] })}
-            className="inline-flex h-10 items-center gap-2 rounded-2xl bg-white px-4 text-sm font-black text-slate-700 transition hover:bg-slate-50"
+            className="inline-flex h-10 items-center gap-2 rounded-2xl bg-white px-4 text-sm font-black text-slate-700 transition hover:bg-slate-50 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700"
           >
             <Plus className="h-4 w-4" />
             Adicionar
           </button>
         </div>
         {plan.documents.map((document, index) => (
-          <article key={`${document.title}-${index}`} className="rounded-3xl bg-white p-4">
+          <article key={`${document.title}-${index}`} className="rounded-3xl bg-white p-4 dark:bg-slate-800">
             <div className="grid gap-3 md:grid-cols-[1fr_1fr_auto]">
               <EditorField label="Titulo">
                 <input
@@ -326,7 +326,7 @@ function PlanEditor({ plan, onChange }: { plan: TripAIPlan; onChange: (plan: Tri
               <button
                 type="button"
                 onClick={() => updatePlan({ documents: removeListItem(plan.documents, index) })}
-                className="mt-6 inline-flex h-11 items-center justify-center rounded-2xl bg-rose-50 px-3 text-rose-700 transition hover:bg-rose-100"
+                className="mt-6 inline-flex h-11 items-center justify-center rounded-2xl bg-rose-50 px-3 text-rose-700 transition hover:bg-rose-100 dark:bg-rose-400/10 dark:text-rose-200 dark:hover:bg-rose-400/20"
                 aria-label="Remover documento"
               >
                 <Trash2 className="h-4 w-4" />
@@ -338,18 +338,18 @@ function PlanEditor({ plan, onChange }: { plan: TripAIPlan; onChange: (plan: Tri
 
       <div className="space-y-3">
         <div className="flex items-center justify-between gap-3">
-          <h3 className="text-xl font-black text-slate-950">Roteiro</h3>
+          <h3 className="text-xl font-black text-slate-950 dark:text-slate-50">Roteiro</h3>
           <button
             type="button"
             onClick={() => updatePlan({ itinerary_items: [...plan.itinerary_items, createItineraryItem()] })}
-            className="inline-flex h-10 items-center gap-2 rounded-2xl bg-white px-4 text-sm font-black text-slate-700 transition hover:bg-slate-50"
+            className="inline-flex h-10 items-center gap-2 rounded-2xl bg-white px-4 text-sm font-black text-slate-700 transition hover:bg-slate-50 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700"
           >
             <Plus className="h-4 w-4" />
             Adicionar
           </button>
         </div>
         {plan.itinerary_items.map((item, index) => (
-          <article key={item.id} className="rounded-3xl bg-white p-4">
+          <article key={item.id} className="rounded-3xl bg-white p-4 dark:bg-slate-800">
             <div className="grid gap-3 md:grid-cols-3">
               <EditorField label="Dia">
                 <input
@@ -428,7 +428,7 @@ function PlanEditor({ plan, onChange }: { plan: TripAIPlan; onChange: (plan: Tri
               <button
                 type="button"
                 onClick={() => updatePlan({ itinerary_items: removeListItem(plan.itinerary_items, index) })}
-                className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl bg-rose-50 px-4 text-sm font-black text-rose-700 transition hover:bg-rose-100 md:col-span-3"
+                className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl bg-rose-50 px-4 text-sm font-black text-rose-700 transition hover:bg-rose-100 dark:bg-rose-400/10 dark:text-rose-200 dark:hover:bg-rose-400/20 md:col-span-3"
               >
                 <Trash2 className="h-4 w-4" />
                 Remover item
@@ -440,18 +440,18 @@ function PlanEditor({ plan, onChange }: { plan: TripAIPlan; onChange: (plan: Tri
 
       <div className="space-y-3">
         <div className="flex items-center justify-between gap-3">
-          <h3 className="text-xl font-black text-slate-950">Gastos</h3>
+          <h3 className="text-xl font-black text-slate-950 dark:text-slate-50">Gastos</h3>
           <button
             type="button"
             onClick={() => updatePlan({ expenses: [...plan.expenses, createExpense()] })}
-            className="inline-flex h-10 items-center gap-2 rounded-2xl bg-white px-4 text-sm font-black text-slate-700 transition hover:bg-slate-50"
+            className="inline-flex h-10 items-center gap-2 rounded-2xl bg-white px-4 text-sm font-black text-slate-700 transition hover:bg-slate-50 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700"
           >
             <Plus className="h-4 w-4" />
             Adicionar
           </button>
         </div>
         {plan.expenses.map((expense, index) => (
-          <article key={expense.id} className="rounded-3xl bg-white p-4">
+          <article key={expense.id} className="rounded-3xl bg-white p-4 dark:bg-slate-800">
             <div className="grid gap-3 md:grid-cols-4">
               <EditorField label="Categoria">
                 <input
@@ -558,7 +558,7 @@ function PlanEditor({ plan, onChange }: { plan: TripAIPlan; onChange: (plan: Tri
               <button
                 type="button"
                 onClick={() => updatePlan({ expenses: removeListItem(plan.expenses, index) })}
-                className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl bg-rose-50 px-4 text-sm font-black text-rose-700 transition hover:bg-rose-100 md:col-span-4"
+                className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl bg-rose-50 px-4 text-sm font-black text-rose-700 transition hover:bg-rose-100 dark:bg-rose-400/10 dark:text-rose-200 dark:hover:bg-rose-400/20 md:col-span-4"
               >
                 <Trash2 className="h-4 w-4" />
                 Remover gasto
@@ -570,18 +570,18 @@ function PlanEditor({ plan, onChange }: { plan: TripAIPlan; onChange: (plan: Tri
 
       <div className="space-y-3">
         <div className="flex items-center justify-between gap-3">
-          <h3 className="text-xl font-black text-slate-950">Pontos turisticos</h3>
+          <h3 className="text-xl font-black text-slate-950 dark:text-slate-50">Pontos turisticos</h3>
           <button
             type="button"
             onClick={() => updatePlan({ attractions: [...plan.attractions, createAttraction()] })}
-            className="inline-flex h-10 items-center gap-2 rounded-2xl bg-white px-4 text-sm font-black text-slate-700 transition hover:bg-slate-50"
+            className="inline-flex h-10 items-center gap-2 rounded-2xl bg-white px-4 text-sm font-black text-slate-700 transition hover:bg-slate-50 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700"
           >
             <Plus className="h-4 w-4" />
             Adicionar
           </button>
         </div>
         {plan.attractions.map((attraction, index) => (
-          <article key={attraction.id} className="rounded-3xl bg-white p-4">
+          <article key={attraction.id} className="rounded-3xl bg-white p-4 dark:bg-slate-800">
             <div className="grid gap-3 md:grid-cols-3">
               <EditorField label="Nome" className="md:col-span-2">
                 <input
@@ -641,7 +641,7 @@ function PlanEditor({ plan, onChange }: { plan: TripAIPlan; onChange: (plan: Tri
               <button
                 type="button"
                 onClick={() => updatePlan({ attractions: removeListItem(plan.attractions, index) })}
-                className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl bg-rose-50 px-4 text-sm font-black text-rose-700 transition hover:bg-rose-100 md:col-span-3"
+                className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl bg-rose-50 px-4 text-sm font-black text-rose-700 transition hover:bg-rose-100 dark:bg-rose-400/10 dark:text-rose-200 dark:hover:bg-rose-400/20 md:col-span-3"
               >
                 <Trash2 className="h-4 w-4" />
                 Remover ponto
@@ -653,18 +653,18 @@ function PlanEditor({ plan, onChange }: { plan: TripAIPlan; onChange: (plan: Tri
 
       <div className="space-y-3">
         <div className="flex items-center justify-between gap-3">
-          <h3 className="text-xl font-black text-slate-950">Rotas</h3>
+          <h3 className="text-xl font-black text-slate-950 dark:text-slate-50">Rotas</h3>
           <button
             type="button"
             onClick={() => updatePlan({ routes: [...plan.routes, createRoute()] })}
-            className="inline-flex h-10 items-center gap-2 rounded-2xl bg-white px-4 text-sm font-black text-slate-700 transition hover:bg-slate-50"
+            className="inline-flex h-10 items-center gap-2 rounded-2xl bg-white px-4 text-sm font-black text-slate-700 transition hover:bg-slate-50 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700"
           >
             <Plus className="h-4 w-4" />
             Adicionar
           </button>
         </div>
         {plan.routes.map((route, index) => (
-          <article key={`${route.from}-${route.to}-${index}`} className="rounded-3xl bg-white p-4">
+          <article key={`${route.from}-${route.to}-${index}`} className="rounded-3xl bg-white p-4 dark:bg-slate-800">
             <div className="grid gap-3 md:grid-cols-2">
               <EditorField label="Origem">
                 <input
@@ -723,7 +723,7 @@ function PlanEditor({ plan, onChange }: { plan: TripAIPlan; onChange: (plan: Tri
               <button
                 type="button"
                 onClick={() => updatePlan({ routes: removeListItem(plan.routes, index) })}
-                className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl bg-rose-50 px-4 text-sm font-black text-rose-700 transition hover:bg-rose-100 md:col-span-2"
+                className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl bg-rose-50 px-4 text-sm font-black text-rose-700 transition hover:bg-rose-100 dark:bg-rose-400/10 dark:text-rose-200 dark:hover:bg-rose-400/20 md:col-span-2"
               >
                 <Trash2 className="h-4 w-4" />
                 Remover rota
@@ -735,18 +735,18 @@ function PlanEditor({ plan, onChange }: { plan: TripAIPlan; onChange: (plan: Tri
 
       <div className="space-y-3">
         <div className="flex items-center justify-between gap-3">
-          <h3 className="text-xl font-black text-slate-950">Avisos</h3>
+          <h3 className="text-xl font-black text-slate-950 dark:text-slate-50">Avisos</h3>
           <button
             type="button"
             onClick={() => updatePlan({ warnings: [...plan.warnings, 'Novo aviso'] })}
-            className="inline-flex h-10 items-center gap-2 rounded-2xl bg-white px-4 text-sm font-black text-slate-700 transition hover:bg-slate-50"
+            className="inline-flex h-10 items-center gap-2 rounded-2xl bg-white px-4 text-sm font-black text-slate-700 transition hover:bg-slate-50 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700"
           >
             <Plus className="h-4 w-4" />
             Adicionar
           </button>
         </div>
         {plan.warnings.map((warning, index) => (
-          <div key={`${warning}-${index}`} className="grid gap-3 rounded-3xl bg-white p-4 md:grid-cols-[1fr_auto]">
+          <div key={`${warning}-${index}`} className="grid gap-3 rounded-3xl bg-white p-4 dark:bg-slate-800 md:grid-cols-[1fr_auto]">
             <input
               value={warning}
               onChange={(event) =>
@@ -757,7 +757,7 @@ function PlanEditor({ plan, onChange }: { plan: TripAIPlan; onChange: (plan: Tri
             <button
               type="button"
               onClick={() => updatePlan({ warnings: removeListItem(plan.warnings, index) })}
-              className="inline-flex h-11 items-center justify-center rounded-2xl bg-rose-50 px-4 text-rose-700 transition hover:bg-rose-100"
+              className="inline-flex h-11 items-center justify-center rounded-2xl bg-rose-50 px-4 text-rose-700 transition hover:bg-rose-100 dark:bg-rose-400/10 dark:text-rose-200 dark:hover:bg-rose-400/20"
               aria-label="Remover aviso"
             >
               <Trash2 className="h-4 w-4" />
@@ -859,7 +859,7 @@ export function TripAIReviewPage() {
 
   return (
     <motion.main
-      className="min-h-screen bg-[#edf4f2] px-4 py-6 text-slate-900 md:px-6 md:py-8 lg:px-10 xl:px-12"
+      className="min-h-screen bg-[#edf4f2] px-4 py-6 text-slate-900 dark:bg-slate-950 dark:text-slate-100 md:px-6 md:py-8 lg:px-10 xl:px-12"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
     >
@@ -880,13 +880,13 @@ export function TripAIReviewPage() {
         </section>
 
         {plan.intentSummary ? (
-          <section className="flex flex-col gap-3 rounded-2xl border border-teal-100 bg-white/95 p-4 text-slate-800 shadow-lg shadow-slate-900/5 md:flex-row md:items-start">
-            <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-teal-700 text-white">
+          <section className="flex flex-col gap-3 rounded-2xl border border-teal-100 bg-white/95 p-4 text-slate-800 shadow-lg shadow-slate-900/5 dark:border-emerald-500/30 dark:bg-slate-900 dark:text-slate-100 dark:shadow-black/30 md:flex-row md:items-start">
+            <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-teal-700 text-white dark:bg-emerald-400 dark:text-emerald-950">
               <Sparkles className="h-5 w-5" />
             </span>
             <div>
-              <p className="text-sm font-black uppercase tracking-[0.18em] text-teal-700">Intenção interpretada</p>
-              <p className="mt-1 text-base font-bold leading-7 text-slate-700">
+              <p className="text-sm font-black uppercase tracking-[0.18em] text-teal-700 dark:text-emerald-300">Intenção interpretada</p>
+              <p className="mt-1 text-base font-bold leading-7 text-slate-700 dark:text-slate-300">
                 A IA interpretou sua viagem como: {plan.intentSummary}
               </p>
             </div>
@@ -894,25 +894,25 @@ export function TripAIReviewPage() {
         ) : null}
 
         {(status || error) ? (
-          <p className="rounded-2xl border border-white/80 bg-white/90 px-4 py-3 text-sm font-bold text-slate-700 shadow-lg shadow-slate-900/5">
+          <p className="rounded-2xl border border-white/80 bg-white/90 px-4 py-3 text-sm font-bold text-slate-700 shadow-lg shadow-slate-900/5 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:shadow-black/30">
             {error ?? status}
           </p>
         ) : null}
 
         {qualityWarning ? (
-          <section className="rounded-[2rem] border border-amber-200 bg-amber-50 p-5 shadow-xl shadow-amber-900/10">
+          <section className="rounded-[2rem] border border-amber-200 bg-amber-50 p-5 shadow-xl shadow-amber-900/10 dark:border-amber-400/30 dark:bg-amber-400/10 dark:shadow-black/30">
             <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
               <div>
-                <p className="text-lg font-black text-amber-950">
+                <p className="text-lg font-black text-amber-950 dark:text-amber-100">
                   {t('ai.incompleteWarning')}
                 </p>
-                <p className="mt-1 text-sm font-bold text-amber-800">{qualityWarning}</p>
+                <p className="mt-1 text-sm font-bold text-amber-800 dark:text-amber-200">{qualityWarning}</p>
               </div>
               <button
                 type="button"
                 onClick={() => void handleRegenerate()}
                 disabled={isApplying || isRegenerating || isCancelling}
-                className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl bg-amber-900 px-5 font-black text-white transition hover:bg-amber-950 disabled:cursor-not-allowed disabled:opacity-60"
+                className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl bg-amber-900 px-5 font-black text-white transition hover:bg-amber-950 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-amber-300 dark:text-amber-950 dark:hover:bg-amber-200"
               >
                 {isRegenerating ? <Loader2 className="h-5 w-5 animate-spin" /> : <RefreshCcw className="h-5 w-5" />}
                 {t('ai.regenerate')}
@@ -926,7 +926,7 @@ export function TripAIReviewPage() {
             type="button"
             onClick={() => void handleApply()}
             disabled={isApplying || isRegenerating || isCancelling}
-            className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl bg-teal-700 px-5 font-black text-white transition hover:bg-teal-800 disabled:cursor-not-allowed disabled:opacity-60"
+            className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl bg-teal-700 px-5 font-black text-white transition hover:bg-teal-800 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-emerald-400 dark:text-emerald-950 dark:hover:bg-emerald-300"
           >
             {isApplying ? <Loader2 className="h-5 w-5 animate-spin" /> : <CheckCircle2 className="h-5 w-5" />}
             {t('ai.applyPlan')}
@@ -935,7 +935,7 @@ export function TripAIReviewPage() {
             type="button"
             onClick={() => void handleRegenerate()}
             disabled={isApplying || isRegenerating || isCancelling}
-            className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-5 font-black text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+            className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-5 font-black text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:hover:bg-slate-800"
           >
             {isRegenerating ? <Loader2 className="h-5 w-5 animate-spin" /> : <RefreshCcw className="h-5 w-5" />}
             {t('ai.regenerate')}
@@ -943,7 +943,7 @@ export function TripAIReviewPage() {
           <button
             type="button"
             onClick={() => setIsEditingPlan((current) => !current)}
-            className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-5 font-black text-slate-700 transition hover:bg-slate-50"
+            className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-5 font-black text-slate-700 transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:hover:bg-slate-800"
           >
             <Pencil className="h-5 w-5" />
             {isEditingPlan ? t('ai.viewPreview') : t('ai.editPlan')}
@@ -952,21 +952,21 @@ export function TripAIReviewPage() {
             type="button"
             onClick={() => void handleCancel()}
             disabled={isApplying || isRegenerating || isCancelling}
-            className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl bg-rose-50 px-5 font-black text-rose-700 transition hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-60"
+            className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl bg-rose-50 px-5 font-black text-rose-700 transition hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-rose-400/10 dark:text-rose-200 dark:hover:bg-rose-400/20"
           >
             {isCancelling ? <Loader2 className="h-5 w-5 animate-spin" /> : <X className="h-5 w-5" />}
             {t('ai.cancel')}
           </button>
         </section>
 
-        <label className="block rounded-[2rem] border border-white/80 bg-white/90 p-5 shadow-xl shadow-slate-900/10">
-          <span className="mb-2 block text-sm font-bold text-slate-600">{t('ai.feedback')}</span>
+        <label className="block rounded-[2rem] border border-white/80 bg-white/90 p-5 shadow-xl shadow-slate-900/10 dark:border-slate-700 dark:bg-slate-900/90 dark:shadow-black/30">
+          <span className="mb-2 block text-sm font-bold text-slate-600 dark:text-slate-300">{t('ai.feedback')}</span>
           <textarea
             value={feedback}
             onChange={(event) => setFeedback(event.target.value)}
             placeholder={feedbackPlaceholder}
             rows={2}
-            className="w-full rounded-2xl border border-slate-200 px-4 py-3 font-semibold outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-100"
+            className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 font-semibold text-slate-900 outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-50 dark:placeholder:text-slate-500 dark:focus:border-emerald-400 dark:focus:ring-emerald-400/20"
           />
         </label>
 
@@ -977,19 +977,19 @@ export function TripAIReviewPage() {
             <Section icon={Sparkles} title="Roteiro dia a dia">
               <div className="space-y-4">
                 {Object.entries(groupedItinerary).map(([day, items]) => (
-                  <article key={day} className="rounded-3xl bg-slate-50 p-4">
-                    <h3 className="text-lg font-black text-slate-950">{day}</h3>
+                  <article key={day} className="rounded-3xl bg-slate-50 p-4 dark:bg-slate-800">
+                    <h3 className="text-lg font-black text-slate-950 dark:text-slate-50">{day}</h3>
                     <div className="mt-3 space-y-3">
                       {items.map((item) => (
-                        <div key={item.id} className="rounded-2xl bg-white p-4">
-                          <div className="flex flex-wrap items-center gap-2 text-xs font-black uppercase tracking-[0.12em] text-slate-400">
+                        <div key={item.id} className="rounded-2xl bg-white p-4 dark:bg-slate-900">
+                          <div className="flex flex-wrap items-center gap-2 text-xs font-black uppercase tracking-[0.12em] text-slate-400 dark:text-slate-500">
                             <span>{item.time || 'Sem horario'}</span>
                             <span>{countryLabel(item.country)}</span>
                             <span>{typeLabels[item.type]}</span>
                           </div>
-                          <h4 className="mt-2 font-black text-slate-950">{item.title}</h4>
-                          <p className="mt-1 text-sm font-bold text-slate-500">{item.city}</p>
-                          <p className="mt-3 leading-7 text-slate-600">{item.description}</p>
+                          <h4 className="mt-2 font-black text-slate-950 dark:text-slate-50">{item.title}</h4>
+                          <p className="mt-1 text-sm font-bold text-slate-500 dark:text-slate-400">{item.city}</p>
+                          <p className="mt-3 leading-7 text-slate-600 dark:text-slate-300">{item.description}</p>
                         </div>
                       ))}
                     </div>
@@ -1001,22 +1001,22 @@ export function TripAIReviewPage() {
             <Section icon={WalletCards} title="Gastos estimados">
               <div className="grid gap-3 md:grid-cols-2">
                 {plan.expenses.map((expense) => (
-                  <article key={expense.id} className="rounded-3xl bg-slate-50 p-4">
+                  <article key={expense.id} className="rounded-3xl bg-slate-50 p-4 dark:bg-slate-800">
                     <div className="flex items-start justify-between gap-3">
                       <div>
-                        <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-400">
+                        <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-400 dark:text-slate-500">
                           {expense.category}
                         </p>
-                        <h3 className="mt-1 font-black text-slate-950">{expense.title}</h3>
+                        <h3 className="mt-1 font-black text-slate-950 dark:text-slate-50">{expense.title}</h3>
                       </div>
-                      <span className="rounded-2xl bg-white px-3 py-2 text-xs font-black text-slate-500">
+                      <span className="rounded-2xl bg-white px-3 py-2 text-xs font-black text-slate-500 dark:bg-slate-900 dark:text-slate-300">
                         {countryLabel(expense.country ?? 'international')}
                       </span>
                     </div>
-                    <p className="mt-3 text-sm font-bold text-slate-500">{expense.detail}</p>
+                    <p className="mt-3 text-sm font-bold text-slate-500 dark:text-slate-400">{expense.detail}</p>
                     <div className="mt-3 grid gap-2 text-sm font-black sm:grid-cols-2">
-                      <span className="rounded-2xl bg-white px-3 py-2">{formatRange(expense.real, 'BRL', true)}</span>
-                      <span className="rounded-2xl bg-white px-3 py-2">
+                      <span className="rounded-2xl bg-white px-3 py-2 dark:bg-slate-900 dark:text-slate-100">{formatRange(expense.real, 'BRL', true)}</span>
+                      <span className="rounded-2xl bg-white px-3 py-2 dark:bg-slate-900 dark:text-slate-100">
                         {formatRange(getExpenseOriginalRange(expense), getExpenseCurrency(expense), true)}
                       </span>
                     </div>
@@ -1030,15 +1030,15 @@ export function TripAIReviewPage() {
             <Section icon={MapPin} title="Pontos turisticos">
               <div className="space-y-3">
                 {plan.attractions.map((attraction) => (
-                  <article key={attraction.id} className="rounded-3xl bg-slate-50 p-4">
-                    <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-400">
+                  <article key={attraction.id} className="rounded-3xl bg-slate-50 p-4 dark:bg-slate-800">
+                    <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-400 dark:text-slate-500">
                       {countryLabel(attraction.country)} / {attraction.city}
                     </p>
-                    <h3 className="mt-1 font-black text-slate-950">{attraction.name}</h3>
-                    <p className="mt-2 text-sm font-bold text-slate-500">
+                    <h3 className="mt-1 font-black text-slate-950 dark:text-slate-50">{attraction.name}</h3>
+                    <p className="mt-2 text-sm font-bold text-slate-500 dark:text-slate-400">
                       {attraction.day} {attraction.time ? `- ${attraction.time}` : ''}
                     </p>
-                    <p className="mt-3 leading-7 text-slate-600">{attraction.description}</p>
+                    <p className="mt-3 leading-7 text-slate-600 dark:text-slate-300">{attraction.description}</p>
                   </article>
                 ))}
               </div>
@@ -1047,19 +1047,19 @@ export function TripAIReviewPage() {
             <Section icon={Route} title="Rotas sugeridas">
               <div className="space-y-3">
                 {plan.routes.map((route, index) => (
-                  <article key={`${route.from}-${route.to}-${index}`} className="rounded-3xl bg-slate-50 p-4">
-                    <h3 className="font-black text-slate-950">
+                  <article key={`${route.from}-${route.to}-${index}`} className="rounded-3xl bg-slate-50 p-4 dark:bg-slate-800">
+                    <h3 className="font-black text-slate-950 dark:text-slate-50">
                       {route.from} {'->'} {route.to}
                     </h3>
-                    <p className="mt-2 text-sm font-bold text-slate-500">
+                    <p className="mt-2 text-sm font-bold text-slate-500 dark:text-slate-400">
                       {route.transport} {route.duration ? `- ${route.duration}` : ''}
                     </p>
                     {route.estimatedCost ? (
-                      <p className="mt-2 text-sm font-black text-slate-500">
+                      <p className="mt-2 text-sm font-black text-slate-500 dark:text-slate-400">
                         Valor aproximado: {route.estimatedCost}
                       </p>
                     ) : null}
-                    {route.notes ? <p className="mt-3 leading-7 text-slate-600">{route.notes}</p> : null}
+                    {route.notes ? <p className="mt-3 leading-7 text-slate-600 dark:text-slate-300">{route.notes}</p> : null}
                   </article>
                 ))}
               </div>
@@ -1068,13 +1068,13 @@ export function TripAIReviewPage() {
             <Section icon={FileText} title="Documentos e alertas">
               <div className="space-y-3">
                 {plan.documents.map((document) => (
-                  <article key={`${document.title}-${document.detail}`} className="rounded-3xl bg-slate-50 p-4">
-                    <h3 className="font-black text-slate-950">{document.title}</h3>
-                    {document.detail ? <p className="mt-2 leading-7 text-slate-600">{document.detail}</p> : null}
+                  <article key={`${document.title}-${document.detail}`} className="rounded-3xl bg-slate-50 p-4 dark:bg-slate-800">
+                    <h3 className="font-black text-slate-950 dark:text-slate-50">{document.title}</h3>
+                    {document.detail ? <p className="mt-2 leading-7 text-slate-600 dark:text-slate-300">{document.detail}</p> : null}
                   </article>
                 ))}
                 {plan.warnings.map((warning) => (
-                  <p key={warning} className="rounded-3xl bg-amber-50 p-4 font-bold leading-7 text-amber-800">
+                  <p key={warning} className="rounded-3xl bg-amber-50 p-4 font-bold leading-7 text-amber-800 dark:bg-amber-400/10 dark:text-amber-200">
                     {warning}
                   </p>
                 ))}
@@ -1086,7 +1086,7 @@ export function TripAIReviewPage() {
         <button
           type="button"
           onClick={() => void handleCancel()}
-          className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl border border-rose-100 bg-white px-5 font-black text-rose-700 transition hover:bg-rose-50"
+          className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl border border-rose-100 bg-white px-5 font-black text-rose-700 transition hover:bg-rose-50 dark:border-rose-400/30 dark:bg-rose-400/10 dark:text-rose-200 dark:hover:bg-rose-400/20"
         >
           <Trash2 className="h-5 w-5" />
           Rejeitar e sair da previa

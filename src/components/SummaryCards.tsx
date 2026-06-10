@@ -27,10 +27,10 @@ function MoneyPriority({ total, mode, inverted = false }: { total: Totals; mode:
         exit={{ opacity: 0, y: -8 }}
         transition={{ duration: 0.22 }}
       >
-        <strong className={`mt-3 block font-black ${inverted ? 'text-3xl' : 'text-2xl text-slate-950'}`}>
+        <strong className={`mt-3 block font-black ${inverted ? 'text-3xl' : 'text-2xl text-slate-950 dark:text-slate-50'}`}>
           {primary}
         </strong>
-        <span className={`mt-2 block font-semibold ${inverted ? 'text-lg text-teal-100' : 'text-slate-500'}`}>
+        <span className={`mt-2 block font-semibold ${inverted ? 'text-lg text-teal-100' : 'text-slate-500 dark:text-slate-300'}`}>
           {secondary}
         </span>
       </motion.div>
@@ -63,7 +63,7 @@ export function SummaryCards({ categories, totalsByCategory, grandTotal, realVal
         return (
           <motion.article
             key={category.id}
-            className="rounded-3xl border border-white/70 bg-white/80 p-6 shadow-xl shadow-slate-900/10 backdrop-blur-xl"
+            className="rounded-3xl border border-white/70 bg-white/80 p-6 shadow-xl shadow-slate-900/10 backdrop-blur-xl dark:border-slate-700 dark:bg-slate-900/85 dark:shadow-black/30"
             initial={{ opacity: 0, y: 18 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.14 + index * 0.06 }}
@@ -75,7 +75,7 @@ export function SummaryCards({ categories, totalsByCategory, grandTotal, realVal
             >
               <Icon className="h-6 w-6" />
             </div>
-            <p className="text-sm font-semibold tracking-[0.08em] text-slate-500">
+            <p className="text-sm font-semibold tracking-[0.08em] text-slate-500 dark:text-slate-300">
               {category.name}
             </p>
             <MoneyPriority total={total} mode={realValueMode} />

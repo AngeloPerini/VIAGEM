@@ -114,7 +114,7 @@ function AttractionFormModal({
         >
           <motion.form
             onSubmit={handleSubmit}
-            className="max-h-[92vh] w-full max-w-3xl overflow-y-auto rounded-[2rem] bg-white p-5 shadow-2xl shadow-slate-950/30 md:p-7"
+            className="max-h-[92vh] w-full max-w-3xl overflow-y-auto rounded-[2rem] bg-white p-5 shadow-2xl shadow-slate-950/30 dark:border dark:border-slate-700 dark:bg-slate-900 md:p-7"
             initial={{ opacity: 0, y: 40, scale: 0.98 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 30, scale: 0.98 }}
@@ -123,45 +123,45 @@ function AttractionFormModal({
           >
             <div className="mb-6 flex items-start justify-between gap-4">
               <div>
-                <p className="text-sm font-bold uppercase tracking-[0.2em] text-slate-400">
+                <p className="text-sm font-bold uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500">
                   Pontos turisticos
                 </p>
-                <h2 className="mt-1 text-2xl font-black text-slate-950">
+                <h2 className="mt-1 text-2xl font-black text-slate-950 dark:text-slate-50">
                   {attraction.name ? 'Editar ponto turistico' : 'Novo ponto turistico'}
                 </h2>
               </div>
-              <button type="button" onClick={onClose} aria-label="Fechar" className="rounded-2xl border border-slate-200 p-3 text-slate-500 transition hover:bg-slate-50">
+              <button type="button" onClick={onClose} aria-label="Fechar" className="rounded-2xl border border-slate-200 p-3 text-slate-500 transition hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800">
                 <X className="h-5 w-5" />
               </button>
             </div>
 
             <div className="grid gap-4 md:grid-cols-2">
               <label className="md:col-span-2">
-                <span className="mb-2 block text-sm font-bold text-slate-600">Nome do ponto turistico</span>
-                <input required value={draft.name} onChange={(event) => updateDraft('name', event.target.value)} className="h-12 w-full rounded-2xl border border-slate-200 px-4 font-semibold outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-100" />
+                <span className="mb-2 block text-sm font-bold text-slate-600 dark:text-slate-300">Nome do ponto turistico</span>
+                <input required value={draft.name} onChange={(event) => updateDraft('name', event.target.value)} className="h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 font-semibold text-slate-900 outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-50 dark:focus:border-emerald-400 dark:focus:ring-emerald-400/20" />
               </label>
               <label>
-                <span className="mb-2 block text-sm font-bold text-slate-600">Pais</span>
-                <select value={draft.country} onChange={(event) => updateDraft('country', event.target.value as CountryId)} className="h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 font-semibold outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-100">
+                <span className="mb-2 block text-sm font-bold text-slate-600 dark:text-slate-300">Pais</span>
+                <select value={draft.country} onChange={(event) => updateDraft('country', event.target.value as CountryId)} className="h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 font-semibold text-slate-900 outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-50 dark:focus:border-emerald-400 dark:focus:ring-emerald-400/20">
                   {selectableCountryOptions.filter((country) => country.id !== 'all').map((country) => (
                     <option key={country.id} value={country.id}>{country.name}</option>
                   ))}
                 </select>
               </label>
               <label>
-                <span className="mb-2 block text-sm font-bold text-slate-600">Cidade</span>
-                <input required value={draft.city} onChange={(event) => updateDraft('city', event.target.value)} className="h-12 w-full rounded-2xl border border-slate-200 px-4 font-semibold outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-100" />
+                <span className="mb-2 block text-sm font-bold text-slate-600 dark:text-slate-300">Cidade</span>
+                <input required value={draft.city} onChange={(event) => updateDraft('city', event.target.value)} className="h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 font-semibold text-slate-900 outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-50 dark:focus:border-emerald-400 dark:focus:ring-emerald-400/20" />
               </label>
               <label>
-                <span className="mb-2 block text-sm font-bold text-slate-600">Dia previsto</span>
-                <input required value={draft.day} onChange={(event) => updateDraft('day', event.target.value)} className="h-12 w-full rounded-2xl border border-slate-200 px-4 font-semibold outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-100" />
+                <span className="mb-2 block text-sm font-bold text-slate-600 dark:text-slate-300">Dia previsto</span>
+                <input required value={draft.day} onChange={(event) => updateDraft('day', event.target.value)} className="h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 font-semibold text-slate-900 outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-50 dark:focus:border-emerald-400 dark:focus:ring-emerald-400/20" />
               </label>
               <TimeField value={draft.time ?? ''} onChange={(value) => updateDraft('time', value)} label="Horario previsto" />
               <label className="md:col-span-2">
-                <span className="mb-2 block text-sm font-bold text-slate-600">Descricao</span>
-                <textarea required value={draft.description} onChange={(event) => updateDraft('description', event.target.value)} rows={4} className="w-full rounded-2xl border border-slate-200 px-4 py-3 font-semibold outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-100" />
+                <span className="mb-2 block text-sm font-bold text-slate-600 dark:text-slate-300">Descricao</span>
+                <textarea required value={draft.description} onChange={(event) => updateDraft('description', event.target.value)} rows={4} className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 font-semibold text-slate-900 outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-50 dark:focus:border-emerald-400 dark:focus:ring-emerald-400/20" />
               </label>
-              <label className="flex items-center gap-3 rounded-2xl bg-slate-50 p-4 font-bold text-slate-700 md:col-span-2">
+              <label className="flex items-center gap-3 rounded-2xl bg-slate-50 p-4 font-bold text-slate-700 dark:bg-slate-800 dark:text-slate-200 md:col-span-2">
                 <input type="checkbox" checked={visited} onChange={(event) => setVisited(event.target.checked)} className="h-5 w-5 accent-teal-600" />
                 Status visitado
               </label>
@@ -169,8 +169,8 @@ function AttractionFormModal({
             </div>
 
             <div className="mt-7 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
-              <button type="button" onClick={onClose} className="h-12 rounded-2xl border border-slate-200 px-5 font-bold text-slate-600 transition hover:bg-slate-50">Cancelar</button>
-              <button type="submit" className="h-12 rounded-2xl bg-slate-950 px-6 font-bold text-white shadow-xl shadow-slate-900/20 transition hover:bg-teal-700">Salvar ponto</button>
+              <button type="button" onClick={onClose} className="h-12 rounded-2xl border border-slate-200 px-5 font-bold text-slate-600 transition hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800">Cancelar</button>
+              <button type="submit" className="h-12 rounded-2xl bg-slate-950 px-6 font-bold text-white shadow-xl shadow-slate-900/20 transition hover:bg-teal-700 dark:bg-emerald-400 dark:text-emerald-950 dark:hover:bg-emerald-300">Salvar ponto</button>
             </div>
           </motion.form>
         </motion.div>
@@ -415,33 +415,33 @@ export function AttractionsPage({
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -12 }}
     >
-      <section className="rounded-[1.65rem] border border-[#dfe5ee] bg-white px-5 py-5 shadow-[0_14px_34px_rgba(15,23,42,0.05)] md:px-7 md:py-6">
+      <section className="rounded-[1.65rem] border border-[#dfe5ee] bg-white px-5 py-5 shadow-[0_14px_34px_rgba(15,23,42,0.05)] dark:border-slate-700 dark:bg-slate-900 dark:shadow-black/30 md:px-7 md:py-6">
         <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-start">
           <div className="min-w-0">
-            <p className="text-xs font-black uppercase tracking-[0.22em] text-[#007c68]">Turismo</p>
-            <h1 className="mt-2 text-3xl font-black tracking-tight text-[#0b1326] md:text-[2.35rem]">
+            <p className="text-xs font-black uppercase tracking-[0.22em] text-[#007c68] dark:text-emerald-300">Turismo</p>
+            <h1 className="mt-2 text-3xl font-black tracking-tight text-[#0b1326] dark:text-slate-50 md:text-[2.35rem]">
               Pontos Turísticos
             </h1>
-            <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-[#45464d] md:text-base">
+            <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-[#45464d] dark:text-slate-300 md:text-base">
               Descubra, organize e acompanhe os lugares imperdíveis da sua viagem.
-              Atualmente acompanhando <strong className="text-[#0b1326]">{totalAttractionsCount}</strong> ponto{totalAttractionsCount === 1 ? '' : 's'} turístico{totalAttractionsCount === 1 ? '' : 's'}.
+              Atualmente acompanhando <strong className="text-[#0b1326] dark:text-slate-50">{totalAttractionsCount}</strong> ponto{totalAttractionsCount === 1 ? '' : 's'} turístico{totalAttractionsCount === 1 ? '' : 's'}.
             </p>
           </div>
 
           <div className="flex flex-wrap gap-2 lg:justify-end">
-            <span className="inline-flex h-11 items-center gap-2 rounded-full bg-black px-4 text-sm font-black text-white">
+            <span className="inline-flex h-11 items-center gap-2 rounded-full bg-black px-4 text-sm font-black text-white dark:bg-emerald-400 dark:text-emerald-950">
               <CheckCircle2 className="h-4 w-4" />
               Visitados {totalVisitedCount}/{totalAttractionsCount}
             </span>
-            <span className="inline-flex h-11 items-center gap-2 rounded-full border border-[#cfd6e2] bg-white px-4 text-sm font-black text-[#45464d]">
+            <span className="inline-flex h-11 items-center gap-2 rounded-full border border-[#cfd6e2] bg-white px-4 text-sm font-black text-[#45464d] dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300">
               <Camera className="h-4 w-4 text-[#007c68]" />
               Fotos {totalPhotoCount}
             </span>
           </div>
         </div>
 
-        <div className="mt-5 flex flex-col gap-3 border-t border-[#eef2f7] pt-5 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex flex-wrap items-center gap-2 text-sm font-bold text-[#667085]">
+        <div className="mt-5 flex flex-col gap-3 border-t border-[#eef2f7] pt-5 dark:border-slate-700 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-wrap items-center gap-2 text-sm font-bold text-[#667085] dark:text-slate-300">
             <span className="inline-flex items-center gap-1.5">
               <MapPin className="h-4 w-4 text-[#007c68]" />
               {filteredAttractions.length} nesta seleção
@@ -457,7 +457,7 @@ export function AttractionsPage({
               <button
                 type="button"
                 onClick={() => void restoreDefaults()}
-                className="inline-flex h-11 items-center justify-center gap-2 rounded-full border border-[#dfe5ee] bg-white px-4 text-sm font-black text-[#45464d] transition hover:border-[#007c68] hover:text-[#007c68]"
+                className="inline-flex h-11 items-center justify-center gap-2 rounded-full border border-[#dfe5ee] bg-white px-4 text-sm font-black text-[#45464d] transition hover:border-[#007c68] hover:text-[#007c68] dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:border-emerald-400 dark:hover:text-emerald-300"
               >
                 <RotateCcw className="h-4 w-4" />
                 Restaurar padrão
@@ -466,7 +466,7 @@ export function AttractionsPage({
             <button
               type="button"
               onClick={() => setEditingAttraction(blankAttraction(defaultCountry))}
-              className="inline-flex h-11 items-center justify-center gap-2 rounded-full bg-black px-5 text-sm font-black text-white shadow-[0_12px_28px_rgba(15,23,42,0.16)] transition hover:bg-[#111827]"
+              className="inline-flex h-11 items-center justify-center gap-2 rounded-full bg-black px-5 text-sm font-black text-white shadow-[0_12px_28px_rgba(15,23,42,0.16)] transition hover:bg-[#111827] dark:bg-emerald-400 dark:text-emerald-950 dark:shadow-black/30 dark:hover:bg-emerald-300"
             >
               <Plus className="h-4 w-4" />
               Novo ponto turístico
@@ -475,11 +475,11 @@ export function AttractionsPage({
         </div>
       </section>
 
-      <section className="rounded-[1.35rem] border border-[#dfe5ee] bg-white px-4 py-4 shadow-[0_10px_26px_rgba(15,23,42,0.04)] md:px-5">
+      <section className="rounded-[1.35rem] border border-[#dfe5ee] bg-white px-4 py-4 shadow-[0_10px_26px_rgba(15,23,42,0.04)] dark:border-slate-700 dark:bg-slate-900 dark:shadow-black/30 md:px-5">
         <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
           <div>
-            <p className="text-xs font-black uppercase tracking-[0.2em] text-[#667085]">Filtrar pontos por país</p>
-            <p className="mt-1 text-sm font-semibold text-[#667085]">
+            <p className="text-xs font-black uppercase tracking-[0.2em] text-[#667085] dark:text-slate-400">Filtrar pontos por país</p>
+            <p className="mt-1 text-sm font-semibold text-[#667085] dark:text-slate-300">
               Os totais e listas acompanham o país selecionado.
             </p>
           </div>
@@ -495,8 +495,8 @@ export function AttractionsPage({
                   onClick={() => onCountryChange(country.id)}
                   className={`shrink-0 rounded-full border px-5 py-2.5 text-sm font-black transition ${
                     active
-                      ? 'border-black bg-black text-white'
-                      : 'border-[#cfd6e2] bg-white text-[#45464d] hover:border-[#007c68] hover:text-[#007c68]'
+                      ? 'border-black bg-black text-white dark:border-emerald-400 dark:bg-emerald-400 dark:text-emerald-950'
+                      : 'border-[#cfd6e2] bg-white text-[#45464d] hover:border-[#007c68] hover:text-[#007c68] dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:border-emerald-400 dark:hover:text-emerald-300'
                   }`}
                 >
                   {country.shortName}
@@ -508,7 +508,7 @@ export function AttractionsPage({
       </section>
 
       {syncWarning || isLoading || isSaving || uploadingId ? (
-        <p className="rounded-[1.35rem] border border-[#dfe5ee] bg-white px-4 py-3 text-sm font-semibold text-[#45464d] shadow-[0_10px_26px_rgba(15,23,42,0.04)]">
+        <p className="rounded-[1.35rem] border border-[#dfe5ee] bg-white px-4 py-3 text-sm font-semibold text-[#45464d] shadow-[0_10px_26px_rgba(15,23,42,0.04)] dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:shadow-black/30">
           {uploadingId
             ? 'Atualizando foto no Supabase...'
             : isSaving
@@ -538,12 +538,12 @@ export function AttractionsPage({
           </AnimatePresence>
         </motion.div>
       ) : (
-        <section className="rounded-[1.65rem] border border-dashed border-[#cfd6e2] bg-white px-5 py-12 text-center shadow-[0_12px_30px_rgba(15,23,42,0.04)]">
+        <section className="rounded-[1.65rem] border border-dashed border-[#cfd6e2] bg-white px-5 py-12 text-center shadow-[0_12px_30px_rgba(15,23,42,0.04)] dark:border-slate-700 dark:bg-slate-900 dark:shadow-black/30">
           <Camera className="mx-auto h-10 w-10 text-[#007c68]" />
-          <h2 className="mt-4 text-xl font-black text-[#0b1326]">
+          <h2 className="mt-4 text-xl font-black text-[#0b1326] dark:text-slate-50">
             {totalAttractionsCount ? 'Nenhum ponto turístico encontrado para este país.' : 'Nenhum ponto turístico cadastrado ainda.'}
           </h2>
-          <p className="mx-auto mt-2 max-w-md text-sm font-semibold leading-6 text-[#667085]">
+          <p className="mx-auto mt-2 max-w-md text-sm font-semibold leading-6 text-[#667085] dark:text-slate-300">
             {totalAttractionsCount
               ? 'Selecione outro país da viagem para ver os pontos turísticos cadastrados.'
               : 'Adicione o primeiro ponto para acompanhar visitas, fotos e status durante o planejamento.'}
@@ -551,7 +551,7 @@ export function AttractionsPage({
           <button
             type="button"
             onClick={() => setEditingAttraction(blankAttraction(defaultCountry))}
-            className="mt-5 inline-flex h-11 items-center justify-center gap-2 rounded-full bg-black px-5 text-sm font-black text-white transition hover:bg-[#111827]"
+            className="mt-5 inline-flex h-11 items-center justify-center gap-2 rounded-full bg-black px-5 text-sm font-black text-white transition hover:bg-[#111827] dark:bg-emerald-400 dark:text-emerald-950 dark:hover:bg-emerald-300"
           >
             <Plus className="h-4 w-4" />
             Adicionar primeiro ponto turístico

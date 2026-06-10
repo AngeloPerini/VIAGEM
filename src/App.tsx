@@ -100,8 +100,8 @@ function getInviteToken() {
 
 function LoadingScreen({ message }: { message: string }) {
   return (
-    <main className="flex min-h-screen items-center justify-center bg-[#eef5f3] px-4 text-slate-700">
-      <div className="rounded-[2rem] border border-white/80 bg-white/85 px-6 py-5 text-sm font-black shadow-xl shadow-slate-900/10">
+    <main className="flex min-h-screen items-center justify-center bg-[#eef5f3] px-4 text-slate-700 dark:bg-slate-950 dark:text-slate-200">
+      <div className="rounded-[2rem] border border-white/80 bg-white/85 px-6 py-5 text-sm font-black shadow-xl shadow-slate-900/10 dark:border-slate-700 dark:bg-slate-900 dark:shadow-black/30">
         {message}
       </div>
     </main>
@@ -119,16 +119,16 @@ function StandaloneProfileShell() {
   const { t } = useLanguage();
 
   return (
-    <main className="min-h-screen overflow-hidden bg-[#edf4f2] text-slate-900">
+    <main className="min-h-screen overflow-hidden bg-[#edf4f2] text-slate-900 dark:bg-slate-950 dark:text-slate-100">
       <div className="pointer-events-none fixed inset-0">
         <div className="absolute -left-24 top-0 h-96 w-96 rounded-full bg-teal-200/50 blur-3xl" />
         <div className="absolute right-0 top-24 h-[30rem] w-[30rem] rounded-full bg-sky-200/50 blur-3xl" />
       </div>
       <div className="relative flex w-full flex-col gap-6 px-4 py-5 sm:px-6 md:gap-8 md:py-8 lg:px-10 xl:px-12">
-        <div className="rounded-3xl border border-white/70 bg-white/85 p-4 shadow-xl shadow-slate-900/10 backdrop-blur-xl">
+        <div className="rounded-3xl border border-white/70 bg-white/85 p-4 shadow-xl shadow-slate-900/10 backdrop-blur-xl dark:border-slate-700 dark:bg-slate-900/85 dark:shadow-black/30">
           <div className="flex items-center gap-2">
             <img src="/logo.png" alt="TripFlow" className="h-9 w-9 rounded-xl object-contain" />
-            <p className="text-sm font-black tracking-tight text-slate-950 md:text-base">{t('app.name')}</p>
+            <p className="text-sm font-black tracking-tight text-slate-950 dark:text-slate-50 md:text-base">{t('app.name')}</p>
           </div>
         </div>
         <ProfilePage />
@@ -198,16 +198,16 @@ const buildDonutGradient = (items: Array<{ color: string; value: number }>) => {
 
 function ExpensesEmptyState({ onAddExpense }: { onAddExpense: () => void }) {
   return (
-    <div className="rounded-3xl border border-dashed border-slate-300 bg-white/75 px-5 py-8 text-center">
+    <div className="rounded-3xl border border-dashed border-slate-300 bg-white/75 px-5 py-8 text-center dark:border-slate-700 dark:bg-slate-900/75">
       <ReceiptText className="mx-auto h-9 w-9 text-[#007c68]" />
-      <p className="mt-4 text-lg font-black text-[#0b1326]">Nenhum gasto cadastrado ainda.</p>
-      <p className="mx-auto mt-2 max-w-sm text-sm font-semibold leading-6 text-[#667085]">
+      <p className="mt-4 text-lg font-black text-[#0b1326] dark:text-slate-50">Nenhum gasto cadastrado ainda.</p>
+      <p className="mx-auto mt-2 max-w-sm text-sm font-semibold leading-6 text-[#667085] dark:text-slate-300">
         Adicione seu primeiro gasto para começar a acompanhar o orçamento da viagem ativa.
       </p>
       <button
         type="button"
         onClick={onAddExpense}
-        className="mt-5 inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-black px-5 text-sm font-bold text-white transition hover:bg-[#111827]"
+        className="mt-5 inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-black px-5 text-sm font-bold text-white transition hover:bg-[#111827] dark:bg-emerald-400 dark:text-emerald-950 dark:hover:bg-emerald-300"
       >
         <Plus className="h-4 w-4" />
         Novo gasto
@@ -980,7 +980,7 @@ function TravelWorkspace({ groupId }: { groupId: string }) {
   };
 
   return (
-    <main className="min-h-screen bg-[#f7f8fd] text-[#0b1326]">
+    <main className="min-h-screen bg-[#f7f8fd] text-[#0b1326] dark:bg-slate-950 dark:text-slate-100">
       <Navbar
         activeView={activeView}
         onNavigate={handleNavigate}
@@ -990,7 +990,7 @@ function TravelWorkspace({ groupId }: { groupId: string }) {
       <div className="flex w-full flex-col gap-6 px-4 py-6 sm:px-6 lg:px-10 xl:px-12">
         {workspaceNotice ? (
           <motion.div
-            className="flex items-start gap-3 rounded-2xl border border-[#bfe8de] bg-white px-4 py-3 text-sm font-semibold text-[#0b1326] shadow-[0_10px_28px_rgba(15,23,42,0.06)]"
+            className="flex items-start gap-3 rounded-2xl border border-[#bfe8de] bg-white px-4 py-3 text-sm font-semibold text-[#0b1326] shadow-[0_10px_28px_rgba(15,23,42,0.06)] dark:border-emerald-500/30 dark:bg-slate-900 dark:text-slate-100 dark:shadow-black/30"
             initial={{ opacity: 0, y: -8 }}
             animate={{ opacity: 1, y: 0 }}
           >
@@ -1004,7 +1004,7 @@ function TravelWorkspace({ groupId }: { groupId: string }) {
               type="button"
               aria-label="Fechar aviso"
               onClick={() => setWorkspaceNotice(null)}
-              className="grid h-8 w-8 shrink-0 place-items-center rounded-xl text-[#667085] transition hover:bg-[#eef8f6] hover:text-[#007c68]"
+              className="grid h-8 w-8 shrink-0 place-items-center rounded-xl text-[#667085] transition hover:bg-[#eef8f6] hover:text-[#007c68] dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-emerald-300"
             >
               <X className="h-4 w-4" />
             </button>
@@ -1057,24 +1057,24 @@ function TravelWorkspace({ groupId }: { groupId: string }) {
             >
               <header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
                 <div className="min-w-0">
-                  <h1 className="text-3xl font-black tracking-tight text-[#0b1326] md:text-[2.35rem]">
+                  <h1 className="text-3xl font-black tracking-tight text-[#0b1326] dark:text-slate-50 md:text-[2.35rem]">
                     Visão Geral de Gastos
                   </h1>
-                  <p className="mt-1.5 text-base font-semibold text-[#45464d]">
+                  <p className="mt-1.5 text-base font-semibold text-[#45464d] dark:text-slate-300">
                     Viagem: {activeGroup?.name ?? 'Viagem ativa'} ({tripDestinations})
                   </p>
                 </div>
-                <div className="inline-flex w-fit items-center gap-2.5 rounded-full border border-[#dfe5ee] bg-white px-4 py-2.5 text-sm font-bold text-[#45464d] shadow-[0_8px_24px_rgba(15,23,42,0.04)]">
+                <div className="inline-flex w-fit items-center gap-2.5 rounded-full border border-[#dfe5ee] bg-white px-4 py-2.5 text-sm font-bold text-[#45464d] shadow-[0_8px_24px_rgba(15,23,42,0.04)] dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:shadow-black/30">
                   <WalletCards className="h-4 w-4 text-[#007c68]" />
                   <span>Cotação do dia:</span>
-                  <strong className="text-[#0b1326]">
+                  <strong className="text-[#0b1326] dark:text-slate-50">
                     1 EUR = {eurQuote ? formatRange({ min: eurQuote.rate, max: eurQuote.rate }, 'BRL') : 'indisponível'}
                   </strong>
                 </div>
               </header>
 
               {expenseSyncWarning || categorySyncWarning || isExpenseLoading || isExpenseSaving || isCategorySaving ? (
-                <p className="rounded-2xl border border-[#dfe5ee] bg-white px-4 py-3 text-sm font-semibold text-[#45464d] shadow-[0_8px_24px_rgba(15,23,42,0.04)]">
+                <p className="rounded-2xl border border-[#dfe5ee] bg-white px-4 py-3 text-sm font-semibold text-[#45464d] shadow-[0_8px_24px_rgba(15,23,42,0.04)] dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:shadow-black/30">
                   {isExpenseSaving || isCategorySaving
                     ? t('dashboard.savingExpenses')
                     : isExpenseLoading
@@ -1084,24 +1084,24 @@ function TravelWorkspace({ groupId }: { groupId: string }) {
               ) : null}
 
               <section className="grid gap-5 lg:grid-cols-[minmax(0,2.1fr)_minmax(19rem,1fr)]">
-                <article className="rounded-[1.35rem] border border-[#dfe5ee] bg-white p-6 shadow-[0_18px_45px_rgba(15,23,42,0.06)] md:p-7">
-                  <p className="text-sm font-bold uppercase tracking-[0.16em] text-[#45464d]">Investimento total</p>
+                <article className="rounded-[1.35rem] border border-[#dfe5ee] bg-white p-6 shadow-[0_18px_45px_rgba(15,23,42,0.06)] dark:border-slate-700 dark:bg-slate-900 dark:shadow-black/30 md:p-7">
+                  <p className="text-sm font-bold uppercase tracking-[0.16em] text-[#45464d] dark:text-slate-400">Investimento total</p>
                   <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-end">
-                    <h2 className="text-4xl font-black tracking-tight text-black md:text-5xl">
+                    <h2 className="text-4xl font-black tracking-tight text-black dark:text-slate-50 md:text-5xl">
                       {selectedTotalLabel}
                     </h2>
-                    <span className="pb-1.5 text-sm font-semibold text-[#8c8f9a]">/ orçamento não definido</span>
+                    <span className="pb-1.5 text-sm font-semibold text-[#8c8f9a] dark:text-slate-500">/ orçamento não definido</span>
                   </div>
-                  <p className="mt-2.5 text-xl font-black text-[#007c68]">{originalTotalLabel}</p>
+                  <p className="mt-2.5 text-xl font-black text-[#007c68] dark:text-emerald-300">{originalTotalLabel}</p>
                   <div className="mt-8">
-                    <div className="mb-2.5 flex items-center justify-between gap-4 text-sm font-bold text-[#45464d]">
+                    <div className="mb-2.5 flex items-center justify-between gap-4 text-sm font-bold text-[#45464d] dark:text-slate-300">
                       <span>Progresso do Orçamento</span>
                       <span>--</span>
                     </div>
-                    <div className="h-2 overflow-hidden rounded-full bg-[#e7edf7]">
+                    <div className="h-2 overflow-hidden rounded-full bg-[#e7edf7] dark:bg-slate-800">
                       <div className="h-full w-0 rounded-full bg-[#007c68]" />
                     </div>
-                    <p className="mt-3 text-sm font-semibold text-[#8c8f9a]">
+                    <p className="mt-3 text-sm font-semibold text-[#8c8f9a] dark:text-slate-400">
                       Nenhum orçamento previsto foi encontrado; exibindo apenas gastos reais cadastrados.
                     </p>
                   </div>
@@ -1112,7 +1112,7 @@ function TravelWorkspace({ groupId }: { groupId: string }) {
                     type="button"
                     onClick={openNewExpenseModal}
                     disabled={!canManageExpenses}
-                    className="group flex min-h-32 flex-col items-center justify-center rounded-[1.35rem] bg-black p-5 text-white shadow-[0_18px_45px_rgba(15,23,42,0.12)] transition hover:-translate-y-0.5 hover:bg-[#111827] disabled:cursor-not-allowed disabled:opacity-60"
+                    className="group flex min-h-32 flex-col items-center justify-center rounded-[1.35rem] bg-black p-5 text-white shadow-[0_18px_45px_rgba(15,23,42,0.12)] transition hover:-translate-y-0.5 hover:bg-[#111827] disabled:cursor-not-allowed disabled:opacity-60 dark:bg-emerald-400 dark:text-emerald-950 dark:shadow-black/30 dark:hover:bg-emerald-300"
                   >
                     <span className="grid h-12 w-12 place-items-center rounded-full bg-white/10 transition group-hover:bg-white/15">
                       <Plus className="h-7 w-7" />
@@ -1123,27 +1123,27 @@ function TravelWorkspace({ groupId }: { groupId: string }) {
                   <button
                     type="button"
                     onClick={handleExportExpensesPdf}
-                    className="flex min-h-20 items-center justify-between gap-4 rounded-[1.35rem] border border-[#cfd6e2] bg-white p-5 text-left shadow-[0_12px_28px_rgba(15,23,42,0.04)] transition hover:border-[#007c68]"
+                    className="flex min-h-20 items-center justify-between gap-4 rounded-[1.35rem] border border-[#cfd6e2] bg-white p-5 text-left shadow-[0_12px_28px_rgba(15,23,42,0.04)] transition hover:border-[#007c68] dark:border-slate-700 dark:bg-slate-900 dark:shadow-black/30 dark:hover:border-emerald-400"
                   >
                     <span className="flex items-center gap-4">
-                      <span className="grid h-11 w-11 place-items-center rounded-full bg-[#eef8f6] text-[#007c68]">
+                      <span className="grid h-11 w-11 place-items-center rounded-full bg-[#eef8f6] text-[#007c68] dark:bg-emerald-400/10 dark:text-emerald-300">
                         <FileText className="h-5 w-5" />
                       </span>
-                      <span className="text-base font-black leading-tight text-[#0b1326]">
+                      <span className="text-base font-black leading-tight text-[#0b1326] dark:text-slate-50">
                         Exportar<br />Relatório PDF
                       </span>
                     </span>
-                    <ArrowRight className="h-5 w-5 text-[#45464d]" />
+                    <ArrowRight className="h-5 w-5 text-[#45464d] dark:text-slate-300" />
                   </button>
                 </div>
               </section>
 
-              <section className="rounded-[1.35rem] border border-[#dfe5ee] bg-white p-5 shadow-[0_14px_34px_rgba(15,23,42,0.05)] md:p-6">
+              <section className="rounded-[1.35rem] border border-[#dfe5ee] bg-white p-5 shadow-[0_14px_34px_rgba(15,23,42,0.05)] dark:border-slate-700 dark:bg-slate-900 dark:shadow-black/30 md:p-6">
                 <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
                   <div className="min-w-0">
-                    <p className="text-xs font-black uppercase tracking-[0.18em] text-[#007c68]">Controle financeiro</p>
-                    <h2 className="mt-1 text-xl font-black text-[#0b1326]">Filtros de gastos</h2>
-                    <p className="mt-1.5 text-sm font-semibold text-[#667085]">
+                    <p className="text-xs font-black uppercase tracking-[0.18em] text-[#007c68] dark:text-emerald-300">Controle financeiro</p>
+                    <h2 className="mt-1 text-xl font-black text-[#0b1326] dark:text-slate-50">Filtros de gastos</h2>
+                    <p className="mt-1.5 text-sm font-semibold text-[#667085] dark:text-slate-300">
                       {filteredExpenses.length} de {scopedExpenses.length} gasto{scopedExpenses.length === 1 ? '' : 's'} da viagem ativa.
                     </p>
                   </div>
@@ -1152,7 +1152,7 @@ function TravelWorkspace({ groupId }: { groupId: string }) {
                       <button
                         type="button"
                         onClick={handleClearExpenseFilters}
-                        className="inline-flex h-10 items-center justify-center rounded-full border border-[#dfe5ee] bg-white px-4 text-sm font-black text-[#006b57] transition hover:border-[#006b57] hover:bg-[#eef8f6]"
+                        className="inline-flex h-10 items-center justify-center rounded-full border border-[#dfe5ee] bg-white px-4 text-sm font-black text-[#006b57] transition hover:border-[#006b57] hover:bg-[#eef8f6] dark:border-slate-700 dark:bg-slate-800 dark:text-emerald-300 dark:hover:border-emerald-400 dark:hover:bg-slate-700"
                       >
                         Limpar filtros
                       </button>
@@ -1160,7 +1160,7 @@ function TravelWorkspace({ groupId }: { groupId: string }) {
                     <button
                       type="button"
                       onClick={handleExportExpensesPdf}
-                      className="inline-flex h-10 items-center justify-center gap-2 rounded-full border border-[#dfe5ee] bg-[#f8fafc] px-4 text-sm font-black text-[#0b1326] transition hover:border-[#007c68] hover:text-[#007c68]"
+                      className="inline-flex h-10 items-center justify-center gap-2 rounded-full border border-[#dfe5ee] bg-[#f8fafc] px-4 text-sm font-black text-[#0b1326] transition hover:border-[#007c68] hover:text-[#007c68] dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:hover:border-emerald-400 dark:hover:text-emerald-300"
                     >
                       <FileText className="h-4 w-4" />
                       Exportar PDF
@@ -1172,8 +1172,8 @@ function TravelWorkspace({ groupId }: { groupId: string }) {
                   <div className="min-w-0 space-y-5">
                     <div>
                       <div className="mb-2.5 flex items-center justify-between gap-3">
-                        <span className="text-xs font-black uppercase tracking-[0.14em] text-[#667085]">País</span>
-                        <span className="text-xs font-bold text-[#98a2b3]">Totais seguem o país selecionado</span>
+                        <span className="text-xs font-black uppercase tracking-[0.14em] text-[#667085] dark:text-slate-400">País</span>
+                        <span className="text-xs font-bold text-[#98a2b3] dark:text-slate-500">Totais seguem o país selecionado</span>
                       </div>
                       <div className="flex flex-wrap gap-2">
                         {expenseCountryOptions.map((country) => {
@@ -1186,8 +1186,8 @@ function TravelWorkspace({ groupId }: { groupId: string }) {
                               aria-pressed={active}
                               className={`inline-flex h-10 items-center rounded-full border px-4 text-sm font-black transition ${
                                 active
-                                  ? 'border-black bg-black text-white shadow-[0_10px_24px_rgba(15,23,42,0.12)]'
-                                  : 'border-[#dfe5ee] bg-[#f8fafc] text-[#45464d] hover:border-[#007c68] hover:text-[#007c68]'
+                                  ? 'border-black bg-black text-white shadow-[0_10px_24px_rgba(15,23,42,0.12)] dark:border-emerald-400 dark:bg-emerald-400 dark:text-emerald-950'
+                                  : 'border-[#dfe5ee] bg-[#f8fafc] text-[#45464d] hover:border-[#007c68] hover:text-[#007c68] dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:border-emerald-400 dark:hover:text-emerald-300'
                               }`}
                             >
                               {country.shortName}
@@ -1199,8 +1199,8 @@ function TravelWorkspace({ groupId }: { groupId: string }) {
 
                     <div>
                       <div className="mb-2.5 flex items-center justify-between gap-3">
-                        <span className="text-xs font-black uppercase tracking-[0.14em] text-[#667085]">Categoria</span>
-                        <span className="text-xs font-bold text-[#98a2b3]">Categorias reais do grupo ativo</span>
+                        <span className="text-xs font-black uppercase tracking-[0.14em] text-[#667085] dark:text-slate-400">Categoria</span>
+                        <span className="text-xs font-bold text-[#98a2b3] dark:text-slate-500">Categorias reais do grupo ativo</span>
                       </div>
                       <div className="flex flex-wrap gap-2">
                         <button
@@ -1209,8 +1209,8 @@ function TravelWorkspace({ groupId }: { groupId: string }) {
                           aria-pressed={expenseCategoryFilter === 'all'}
                           className={`inline-flex h-10 items-center rounded-full border px-4 text-sm font-black transition ${
                             expenseCategoryFilter === 'all'
-                              ? 'border-[#007c68] bg-[#007c68] text-white shadow-[0_10px_24px_rgba(0,124,104,0.16)]'
-                              : 'border-[#dfe5ee] bg-[#f8fafc] text-[#45464d] hover:border-[#007c68] hover:text-[#007c68]'
+                              ? 'border-[#007c68] bg-[#007c68] text-white shadow-[0_10px_24px_rgba(0,124,104,0.16)] dark:border-emerald-400 dark:bg-emerald-400 dark:text-emerald-950'
+                              : 'border-[#dfe5ee] bg-[#f8fafc] text-[#45464d] hover:border-[#007c68] hover:text-[#007c68] dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:border-emerald-400 dark:hover:text-emerald-300'
                           }`}
                         >
                           Todos
@@ -1226,8 +1226,8 @@ function TravelWorkspace({ groupId }: { groupId: string }) {
                               aria-pressed={active}
                               className={`inline-flex h-10 items-center gap-2 rounded-full border px-4 text-sm font-black transition ${
                                 active
-                                  ? 'border-[#007c68] bg-[#007c68] text-white shadow-[0_10px_24px_rgba(0,124,104,0.16)]'
-                                  : 'border-[#dfe5ee] bg-[#f8fafc] text-[#45464d] hover:border-[#007c68] hover:text-[#007c68]'
+                                  ? 'border-[#007c68] bg-[#007c68] text-white shadow-[0_10px_24px_rgba(0,124,104,0.16)] dark:border-emerald-400 dark:bg-emerald-400 dark:text-emerald-950'
+                                  : 'border-[#dfe5ee] bg-[#f8fafc] text-[#45464d] hover:border-[#007c68] hover:text-[#007c68] dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:border-emerald-400 dark:hover:text-emerald-300'
                               }`}
                             >
                               <CategoryIcon className="h-4 w-4" />
@@ -1238,25 +1238,25 @@ function TravelWorkspace({ groupId }: { groupId: string }) {
                       </div>
                     </div>
 
-                    <div className="rounded-2xl border border-[#e8ecf4] bg-[#f8fafc] p-4">
-                      <p className="text-xs font-black uppercase tracking-[0.14em] text-[#667085]">Filtros avançados</p>
+                    <div className="rounded-2xl border border-[#e8ecf4] bg-[#f8fafc] p-4 dark:border-slate-700 dark:bg-slate-800/60">
+                      <p className="text-xs font-black uppercase tracking-[0.14em] text-[#667085] dark:text-slate-400">Filtros avançados</p>
                       <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-6">
                         <label className="sm:col-span-2 lg:col-span-1 2xl:col-span-2">
-                          <span className="mb-1.5 block text-xs font-black uppercase tracking-[0.12em] text-[#667085]">Buscar</span>
+                          <span className="mb-1.5 block text-xs font-black uppercase tracking-[0.12em] text-[#667085] dark:text-slate-400">Buscar</span>
                           <input
                             value={expenseSearchFilter}
                             onChange={(event) => setExpenseSearchFilter(event.target.value)}
                             placeholder="Nome, detalhe, pais..."
-                            className="h-11 w-full rounded-xl border border-[#dfe5ee] bg-white px-3.5 text-sm font-semibold text-[#0b1326] outline-none transition placeholder:text-[#98a2b3] focus:border-[#007c68]"
+                            className="h-11 w-full rounded-xl border border-[#dfe5ee] bg-white px-3.5 text-sm font-semibold text-[#0b1326] outline-none transition placeholder:text-[#98a2b3] focus:border-[#007c68] dark:border-slate-700 dark:bg-slate-900 dark:text-slate-50 dark:placeholder:text-slate-500 dark:focus:border-emerald-400"
                           />
                         </label>
 
                         <label>
-                          <span className="mb-1.5 block text-xs font-black uppercase tracking-[0.12em] text-[#667085]">Moeda</span>
+                          <span className="mb-1.5 block text-xs font-black uppercase tracking-[0.12em] text-[#667085] dark:text-slate-400">Moeda</span>
                           <select
                             value={expenseCurrencyFilter}
                             onChange={(event) => setExpenseCurrencyFilter(event.target.value as TravelCurrencyCode | 'all')}
-                            className="h-11 w-full rounded-xl border border-[#dfe5ee] bg-white px-3 text-sm font-semibold text-[#0b1326] outline-none transition focus:border-[#007c68]"
+                            className="h-11 w-full rounded-xl border border-[#dfe5ee] bg-white px-3 text-sm font-semibold text-[#0b1326] outline-none transition focus:border-[#007c68] dark:border-slate-700 dark:bg-slate-900 dark:text-slate-50 dark:focus:border-emerald-400"
                           >
                             <option value="all">Todas</option>
                             {expenseCurrencyOptions.map((currency) => (
@@ -1268,58 +1268,58 @@ function TravelWorkspace({ groupId }: { groupId: string }) {
                         </label>
 
                         <label>
-                          <span className="mb-1.5 block text-xs font-black uppercase tracking-[0.12em] text-[#667085]">De</span>
+                          <span className="mb-1.5 block text-xs font-black uppercase tracking-[0.12em] text-[#667085] dark:text-slate-400">De</span>
                           <input
                             type="date"
                             value={expenseDateFromFilter}
                             onChange={(event) => setExpenseDateFromFilter(event.target.value)}
-                            className="h-11 w-full rounded-xl border border-[#dfe5ee] bg-white px-3 text-sm font-semibold text-[#0b1326] outline-none transition focus:border-[#007c68]"
+                            className="h-11 w-full rounded-xl border border-[#dfe5ee] bg-white px-3 text-sm font-semibold text-[#0b1326] outline-none transition focus:border-[#007c68] dark:border-slate-700 dark:bg-slate-900 dark:text-slate-50 dark:focus:border-emerald-400"
                           />
                         </label>
 
                         <label>
-                          <span className="mb-1.5 block text-xs font-black uppercase tracking-[0.12em] text-[#667085]">Até</span>
+                          <span className="mb-1.5 block text-xs font-black uppercase tracking-[0.12em] text-[#667085] dark:text-slate-400">Até</span>
                           <input
                             type="date"
                             value={expenseDateToFilter}
                             onChange={(event) => setExpenseDateToFilter(event.target.value)}
-                            className="h-11 w-full rounded-xl border border-[#dfe5ee] bg-white px-3 text-sm font-semibold text-[#0b1326] outline-none transition focus:border-[#007c68]"
+                            className="h-11 w-full rounded-xl border border-[#dfe5ee] bg-white px-3 text-sm font-semibold text-[#0b1326] outline-none transition focus:border-[#007c68] dark:border-slate-700 dark:bg-slate-900 dark:text-slate-50 dark:focus:border-emerald-400"
                           />
                         </label>
 
                         <label>
-                          <span className="mb-1.5 block text-xs font-black uppercase tracking-[0.12em] text-[#667085]">Valor mín.</span>
+                          <span className="mb-1.5 block text-xs font-black uppercase tracking-[0.12em] text-[#667085] dark:text-slate-400">Valor mín.</span>
                           <input
                             inputMode="decimal"
                             value={expenseMinValueFilter}
                             onChange={(event) => setExpenseMinValueFilter(event.target.value)}
                             placeholder="BRL"
-                            className="h-11 w-full rounded-xl border border-[#dfe5ee] bg-white px-3.5 text-sm font-semibold text-[#0b1326] outline-none transition placeholder:text-[#98a2b3] focus:border-[#007c68]"
+                            className="h-11 w-full rounded-xl border border-[#dfe5ee] bg-white px-3.5 text-sm font-semibold text-[#0b1326] outline-none transition placeholder:text-[#98a2b3] focus:border-[#007c68] dark:border-slate-700 dark:bg-slate-900 dark:text-slate-50 dark:placeholder:text-slate-500 dark:focus:border-emerald-400"
                           />
                         </label>
 
                         <label>
-                          <span className="mb-1.5 block text-xs font-black uppercase tracking-[0.12em] text-[#667085]">Valor máx.</span>
+                          <span className="mb-1.5 block text-xs font-black uppercase tracking-[0.12em] text-[#667085] dark:text-slate-400">Valor máx.</span>
                           <input
                             inputMode="decimal"
                             value={expenseMaxValueFilter}
                             onChange={(event) => setExpenseMaxValueFilter(event.target.value)}
                             placeholder="BRL"
-                            className="h-11 w-full rounded-xl border border-[#dfe5ee] bg-white px-3.5 text-sm font-semibold text-[#0b1326] outline-none transition placeholder:text-[#98a2b3] focus:border-[#007c68]"
+                            className="h-11 w-full rounded-xl border border-[#dfe5ee] bg-white px-3.5 text-sm font-semibold text-[#0b1326] outline-none transition placeholder:text-[#98a2b3] focus:border-[#007c68] dark:border-slate-700 dark:bg-slate-900 dark:text-slate-50 dark:placeholder:text-slate-500 dark:focus:border-emerald-400"
                           />
                         </label>
                       </div>
                     </div>
                   </div>
 
-                  <aside className="rounded-2xl border border-[#e8ecf4] bg-[#f8fafc] p-4">
-                    <p className="text-xs font-black uppercase tracking-[0.14em] text-[#667085]">Exibição</p>
-                    <div className="mt-3 grid grid-cols-2 rounded-full border border-[#dfe5ee] bg-white p-1">
+                  <aside className="rounded-2xl border border-[#e8ecf4] bg-[#f8fafc] p-4 dark:border-slate-700 dark:bg-slate-800/60">
+                    <p className="text-xs font-black uppercase tracking-[0.14em] text-[#667085] dark:text-slate-400">Exibição</p>
+                    <div className="mt-3 grid grid-cols-2 rounded-full border border-[#dfe5ee] bg-white p-1 dark:border-slate-700 dark:bg-slate-900">
                       <button
                         type="button"
                         onClick={() => setRealValueMode('original')}
                         className={`h-10 rounded-full px-3 text-sm font-black transition ${
-                          realValueMode === 'original' ? 'bg-black text-white shadow-sm' : 'text-[#667085] hover:text-black'
+                          realValueMode === 'original' ? 'bg-black text-white shadow-sm dark:bg-slate-50 dark:text-slate-950' : 'text-[#667085] hover:text-black dark:text-slate-300 dark:hover:text-slate-50'
                         }`}
                       >
                         Originais
@@ -1328,7 +1328,7 @@ function TravelWorkspace({ groupId }: { groupId: string }) {
                         type="button"
                         onClick={() => setRealValueMode('converted')}
                         className={`h-10 rounded-full px-3 text-sm font-black transition ${
-                          realValueMode === 'converted' ? 'bg-[#007c68] text-white shadow-sm' : 'text-[#667085] hover:text-black'
+                          realValueMode === 'converted' ? 'bg-[#007c68] text-white shadow-sm dark:bg-emerald-400 dark:text-emerald-950' : 'text-[#667085] hover:text-black dark:text-slate-300 dark:hover:text-slate-50'
                         }`}
                       >
                         Convertidos
@@ -1336,7 +1336,7 @@ function TravelWorkspace({ groupId }: { groupId: string }) {
                     </div>
 
                     <div className="mt-5">
-                      <p className="text-xs font-black uppercase tracking-[0.14em] text-[#667085]">Lista</p>
+                      <p className="text-xs font-black uppercase tracking-[0.14em] text-[#667085] dark:text-slate-400">Lista</p>
                       <div className="mt-2 flex flex-wrap gap-2">
                         {([
                           ['all', 'Todos'],
@@ -1349,8 +1349,8 @@ function TravelWorkspace({ groupId }: { groupId: string }) {
                             onClick={() => setExpenseViewType(id)}
                             className={`inline-flex h-9 items-center rounded-full border px-3.5 text-sm font-black transition ${
                               expenseViewType === id
-                                ? 'border-[#007c68] bg-[#007c68] text-white'
-                                : 'border-[#dfe5ee] bg-white text-[#667085] hover:border-[#007c68] hover:text-[#007c68]'
+                                ? 'border-[#007c68] bg-[#007c68] text-white dark:border-emerald-400 dark:bg-emerald-400 dark:text-emerald-950'
+                                : 'border-[#dfe5ee] bg-white text-[#667085] hover:border-[#007c68] hover:text-[#007c68] dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-emerald-400 dark:hover:text-emerald-300'
                             }`}
                           >
                             {label}
@@ -1363,14 +1363,14 @@ function TravelWorkspace({ groupId }: { groupId: string }) {
               </section>
 
               <section className="grid gap-5 lg:grid-cols-[minmax(17rem,0.72fr)_minmax(0,1.8fr)] lg:items-start">
-                <article className="self-start rounded-[1.35rem] border border-[#dfe5ee] bg-white p-5 shadow-[0_18px_45px_rgba(15,23,42,0.06)] md:p-6">
+                <article className="self-start rounded-[1.35rem] border border-[#dfe5ee] bg-white p-5 shadow-[0_18px_45px_rgba(15,23,42,0.06)] dark:border-slate-700 dark:bg-slate-900 dark:shadow-black/30 md:p-6">
                   <div className="flex items-center justify-between gap-4">
-                    <h2 className="text-xl font-black text-[#0b1326]">Categorias</h2>
+                    <h2 className="text-xl font-black text-[#0b1326] dark:text-slate-50">Categorias</h2>
                     <button
                       type="button"
                       onClick={openNewExpenseCategoryModal}
                       disabled={!canManageExpenses}
-                      className="inline-flex h-9 items-center justify-center gap-2 rounded-full border border-[#dfe5ee] px-3.5 text-sm font-bold text-[#45464d] transition hover:border-[#007c68] hover:text-[#007c68] disabled:cursor-not-allowed disabled:opacity-60"
+                      className="inline-flex h-9 items-center justify-center gap-2 rounded-full border border-[#dfe5ee] px-3.5 text-sm font-bold text-[#45464d] transition hover:border-[#007c68] hover:text-[#007c68] disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:text-slate-300 dark:hover:border-emerald-400 dark:hover:text-emerald-300"
                     >
                       <Plus className="h-4 w-4" />
                       Nova
@@ -1382,9 +1382,9 @@ function TravelWorkspace({ groupId }: { groupId: string }) {
                       className="relative h-36 w-36 rounded-full md:h-40 md:w-40"
                       style={{ background: expenseCategoryBreakdown.length ? `conic-gradient(${donutGradient})` : donutGradient }}
                     >
-                      <div className="absolute inset-6 grid place-items-center rounded-full bg-white text-center shadow-inner">
-                        <p className="text-xs font-semibold text-[#45464d]">Total</p>
-                        <p className="text-lg font-black text-[#0b1326]">
+                      <div className="absolute inset-6 grid place-items-center rounded-full bg-white text-center shadow-inner dark:bg-slate-950">
+                        <p className="text-xs font-semibold text-[#45464d] dark:text-slate-300">Total</p>
+                        <p className="text-lg font-black text-[#0b1326] dark:text-slate-50">
                           {filteredExpenses.length} {filteredExpenses.length === 1 ? 'item' : 'itens'}
                         </p>
                       </div>
@@ -1393,25 +1393,25 @@ function TravelWorkspace({ groupId }: { groupId: string }) {
 
                   <div className="mt-6 space-y-2.5">
                     {categoriesForManagement.map(({ category, count, total }) => (
-                      <div key={category.id} className="group flex items-center justify-between gap-3 rounded-2xl px-1 py-1.5">
+                      <div key={category.id} className="group flex items-center justify-between gap-3 rounded-2xl px-1 py-1.5 dark:hover:bg-slate-800/60">
                         <div className="flex min-w-0 items-center gap-3">
                           <span className="h-3 w-3 shrink-0 rounded-full" style={{ backgroundColor: category.accent }} />
                           <div className="min-w-0">
-                            <p className="truncate text-sm font-bold text-[#45464d]">{category.name}</p>
-                            <p className="text-xs font-semibold text-[#8c8f9a]">
+                            <p className="truncate text-sm font-bold text-[#45464d] dark:text-slate-300">{category.name}</p>
+                            <p className="text-xs font-semibold text-[#8c8f9a] dark:text-slate-500">
                               {count} {count === 1 ? 'item' : 'itens'}
                             </p>
                           </div>
                         </div>
                         <div className="flex shrink-0 items-center gap-2">
-                          <span className="text-xs font-black text-[#0b1326] sm:text-sm">{formatRange(total.real, 'BRL', true)}</span>
+                          <span className="text-xs font-black text-[#0b1326] dark:text-slate-50 sm:text-sm">{formatRange(total.real, 'BRL', true)}</span>
                           {canManageExpenses ? (
                             <span className="flex opacity-100 md:opacity-0 md:transition md:group-hover:opacity-100">
                               <button
                                 type="button"
                                 aria-label={`Editar categoria ${category.name}`}
                                 onClick={() => openEditExpenseCategoryModal(category)}
-                                className="grid h-7 w-7 place-items-center rounded-full text-[#667085] transition hover:bg-[#eef8f6] hover:text-[#007c68]"
+                                className="grid h-7 w-7 place-items-center rounded-full text-[#667085] transition hover:bg-[#eef8f6] hover:text-[#007c68] dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-emerald-300"
                               >
                                 <Edit3 className="h-4 w-4" />
                               </button>
@@ -1419,7 +1419,7 @@ function TravelWorkspace({ groupId }: { groupId: string }) {
                                 type="button"
                                 aria-label={`Excluir categoria ${category.name}`}
                                 onClick={() => openDeleteExpenseCategoryDialog(category)}
-                                className="grid h-7 w-7 place-items-center rounded-full text-[#667085] transition hover:bg-rose-50 hover:text-rose-700"
+                                className="grid h-7 w-7 place-items-center rounded-full text-[#667085] transition hover:bg-rose-50 hover:text-rose-700 dark:text-slate-400 dark:hover:bg-rose-500/10 dark:hover:text-rose-300"
                               >
                                 <Trash2 className="h-4 w-4" />
                               </button>
@@ -1431,10 +1431,10 @@ function TravelWorkspace({ groupId }: { groupId: string }) {
                   </div>
                 </article>
 
-                <article className="overflow-hidden rounded-[1.35rem] border border-[#dfe5ee] bg-white shadow-[0_18px_45px_rgba(15,23,42,0.06)]">
-                  <div className="flex flex-col gap-4 border-b border-[#e8ecf4] p-5 md:flex-row md:items-center md:justify-between">
-                    <h2 className="text-xl font-black text-[#0b1326] md:text-2xl">Transações Recentes</h2>
-                    <p className="inline-flex w-fit items-center rounded-full border border-[#dfe5ee] bg-[#f8fafc] px-4 py-2 text-sm font-black text-[#667085]">
+                <article className="overflow-hidden rounded-[1.35rem] border border-[#dfe5ee] bg-white shadow-[0_18px_45px_rgba(15,23,42,0.06)] dark:border-slate-700 dark:bg-slate-900 dark:shadow-black/30">
+                  <div className="flex flex-col gap-4 border-b border-[#e8ecf4] p-5 dark:border-slate-700 md:flex-row md:items-center md:justify-between">
+                    <h2 className="text-xl font-black text-[#0b1326] dark:text-slate-50 md:text-2xl">Transações Recentes</h2>
+                    <p className="inline-flex w-fit items-center rounded-full border border-[#dfe5ee] bg-[#f8fafc] px-4 py-2 text-sm font-black text-[#667085] dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300">
                       {realValueMode === 'converted' ? 'Valores convertidos em BRL' : 'Valores originais cadastrados'}
                     </p>
                   </div>
@@ -1450,8 +1450,8 @@ function TravelWorkspace({ groupId }: { groupId: string }) {
                             <col className="w-[17%]" />
                             {canManageExpenses ? <col className="w-[13%]" /> : null}
                           </colgroup>
-                          <thead className={showAllTransactions ? 'sticky top-0 z-10 bg-white shadow-[0_1px_0_#eef2f7]' : undefined}>
-                            <tr className="text-sm font-black text-[#45464d]">
+                          <thead className={showAllTransactions ? 'sticky top-0 z-10 bg-white shadow-[0_1px_0_#eef2f7] dark:bg-slate-900 dark:shadow-[0_1px_0_#1e293b]' : undefined}>
+                            <tr className="text-sm font-black text-[#45464d] dark:text-slate-300">
                               <th className="px-5 py-3">Gasto</th>
                               <th className="px-4 py-3">Categoria</th>
                               <th className="whitespace-nowrap px-4 py-3">Data</th>
@@ -1475,7 +1475,7 @@ function TravelWorkspace({ groupId }: { groupId: string }) {
                                 : formatRange(getExpenseOriginalRange(expense), getExpenseCurrency(expense));
 
                               return (
-                                <tr key={expense.id} className="border-t border-[#eef2f7]">
+                                <tr key={expense.id} className="border-t border-[#eef2f7] dark:border-slate-800">
                                   <td className="px-5 py-2.5">
                                     <div className="flex min-w-0 items-center gap-2.5">
                                       <span
@@ -1485,8 +1485,8 @@ function TravelWorkspace({ groupId }: { groupId: string }) {
                                         <CategoryIcon className="h-4 w-4" />
                                       </span>
                                       <div className="min-w-0">
-                                        <p className="truncate text-sm font-black text-[#0b1326]">{expense.title}</p>
-                                        <p className="truncate text-xs font-semibold text-[#667085]">
+                                        <p className="truncate text-sm font-black text-[#0b1326] dark:text-slate-50">{expense.title}</p>
+                                        <p className="truncate text-xs font-semibold text-[#667085] dark:text-slate-400">
                                           {expense.detail || countryNames[expense.country ?? 'international']}
                                         </p>
                                       </div>
@@ -1500,8 +1500,8 @@ function TravelWorkspace({ groupId }: { groupId: string }) {
                                       {category.name}
                                     </span>
                                   </td>
-                                  <td className="whitespace-nowrap px-4 py-2.5 text-sm font-semibold text-[#45464d]">{formatExpenseDate(expense.createdAt)}</td>
-                                  <td className="px-4 py-2.5 text-right text-sm font-black text-[#0b1326]">{value}</td>
+                                  <td className="whitespace-nowrap px-4 py-2.5 text-sm font-semibold text-[#45464d] dark:text-slate-300">{formatExpenseDate(expense.createdAt)}</td>
+                                  <td className="px-4 py-2.5 text-right text-sm font-black text-[#0b1326] dark:text-slate-50">{value}</td>
                                   {canManageExpenses ? (
                                     <td className="px-5 py-2.5">
                                       <div className="flex justify-end gap-2">
@@ -1509,7 +1509,7 @@ function TravelWorkspace({ groupId }: { groupId: string }) {
                                           type="button"
                                           aria-label={`Editar ${expense.title}`}
                                           onClick={() => openEditExpenseModal(expense)}
-                                          className="grid h-7 w-7 place-items-center rounded-full border border-[#dfe5ee] text-[#667085] transition hover:border-[#007c68] hover:text-[#007c68]"
+                                          className="grid h-7 w-7 place-items-center rounded-full border border-[#dfe5ee] text-[#667085] transition hover:border-[#007c68] hover:text-[#007c68] dark:border-slate-700 dark:text-slate-400 dark:hover:border-emerald-400 dark:hover:text-emerald-300"
                                         >
                                           <Edit3 className="h-4 w-4" />
                                         </button>
@@ -1517,7 +1517,7 @@ function TravelWorkspace({ groupId }: { groupId: string }) {
                                           type="button"
                                           aria-label={`Excluir ${expense.title}`}
                                           onClick={() => setExpensePendingDelete(expense)}
-                                          className="grid h-7 w-7 place-items-center rounded-full border border-[#dfe5ee] text-[#667085] transition hover:border-rose-200 hover:bg-rose-50 hover:text-rose-700"
+                                          className="grid h-7 w-7 place-items-center rounded-full border border-[#dfe5ee] text-[#667085] transition hover:border-rose-200 hover:bg-rose-50 hover:text-rose-700 dark:border-slate-700 dark:text-slate-400 dark:hover:border-rose-500/60 dark:hover:bg-rose-500/10 dark:hover:text-rose-300"
                                         >
                                           <Trash2 className="h-4 w-4" />
                                         </button>
@@ -1547,7 +1547,7 @@ function TravelWorkspace({ groupId }: { groupId: string }) {
                             : formatRange(getExpenseOriginalRange(expense), getExpenseCurrency(expense));
 
                           return (
-                            <article key={expense.id} className="rounded-2xl border border-[#e8ecf4] bg-[#f8fafc] p-4">
+                            <article key={expense.id} className="rounded-2xl border border-[#e8ecf4] bg-[#f8fafc] p-4 dark:border-slate-700 dark:bg-slate-800/70">
                               <div className="flex items-start gap-3">
                                 <span
                                   className="grid h-11 w-11 shrink-0 place-items-center rounded-xl"
@@ -1556,9 +1556,9 @@ function TravelWorkspace({ groupId }: { groupId: string }) {
                                   <CategoryIcon className="h-5 w-5" />
                                 </span>
                                 <div className="min-w-0 flex-1">
-                                  <p className="font-black text-[#0b1326]">{expense.title}</p>
-                                  <p className="mt-1 text-sm font-semibold text-[#667085]">{category.name} · {formatExpenseDate(expense.createdAt)}</p>
-                                  <p className="mt-3 text-xl font-black text-[#0b1326]">{value}</p>
+                                  <p className="font-black text-[#0b1326] dark:text-slate-50">{expense.title}</p>
+                                  <p className="mt-1 text-sm font-semibold text-[#667085] dark:text-slate-400">{category.name} · {formatExpenseDate(expense.createdAt)}</p>
+                                  <p className="mt-3 text-xl font-black text-[#0b1326] dark:text-slate-50">{value}</p>
                                 </div>
                               </div>
                               {canManageExpenses ? (
@@ -1566,14 +1566,14 @@ function TravelWorkspace({ groupId }: { groupId: string }) {
                                   <button
                                     type="button"
                                     onClick={() => openEditExpenseModal(expense)}
-                                    className="h-10 rounded-xl border border-[#dfe5ee] text-sm font-bold text-[#45464d]"
+                                    className="h-10 rounded-xl border border-[#dfe5ee] text-sm font-bold text-[#45464d] dark:border-slate-700 dark:text-slate-300"
                                   >
                                     Editar
                                   </button>
                                   <button
                                     type="button"
                                     onClick={() => setExpensePendingDelete(expense)}
-                                    className="h-10 rounded-xl border border-rose-200 text-sm font-bold text-rose-700"
+                                    className="h-10 rounded-xl border border-rose-200 text-sm font-bold text-rose-700 dark:border-rose-500/50 dark:text-rose-300"
                                   >
                                     Excluir
                                   </button>
@@ -1594,7 +1594,7 @@ function TravelWorkspace({ groupId }: { groupId: string }) {
                     <button
                       type="button"
                       onClick={() => setShowAllTransactions((current) => !current)}
-                      className="flex h-12 w-full items-center justify-center border-t border-[#eef2f7] bg-[#f7f8fd] text-sm font-black text-[#007c68] transition hover:bg-[#eef8f6]"
+                      className="flex h-12 w-full items-center justify-center border-t border-[#eef2f7] bg-[#f7f8fd] text-sm font-black text-[#007c68] transition hover:bg-[#eef8f6] dark:border-slate-700 dark:bg-slate-800 dark:text-emerald-300 dark:hover:bg-slate-700"
                     >
                       {showAllTransactions ? 'Mostrar menos transações' : 'Ver todas as transações'}
                     </button>
@@ -1637,7 +1637,7 @@ function TravelWorkspace({ groupId }: { groupId: string }) {
                   <button
                     type="button"
                     onClick={handleExportExpensesPdf}
-                    className="inline-flex h-11 shrink-0 items-center justify-center rounded-full bg-white px-6 text-sm font-bold text-black transition hover:bg-[#eef8f6] md:h-12 md:px-7"
+                    className="inline-flex h-11 shrink-0 items-center justify-center rounded-full bg-white px-6 text-sm font-bold text-black transition hover:bg-[#eef8f6] dark:bg-emerald-400 dark:text-emerald-950 dark:hover:bg-emerald-300 md:h-12 md:px-7"
                   >
                     Exportar PDF
                   </button>
@@ -1698,7 +1698,7 @@ function TravelWorkspace({ groupId }: { groupId: string }) {
             onMouseDown={() => setCategoryPendingDelete(null)}
           >
             <motion.div
-              className="w-full max-w-lg rounded-[2rem] bg-white p-6 shadow-2xl shadow-slate-950/30"
+              className="w-full max-w-lg rounded-[2rem] bg-white p-6 shadow-2xl shadow-slate-950/30 dark:border dark:border-slate-700 dark:bg-slate-900"
               initial={{ opacity: 0, y: 28, scale: 0.98 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 20, scale: 0.98 }}
@@ -1706,19 +1706,19 @@ function TravelWorkspace({ groupId }: { groupId: string }) {
               onMouseDown={(event) => event.stopPropagation()}
             >
               <div className="flex items-start gap-4">
-                <span className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-rose-50 text-rose-700">
+                <span className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-rose-50 text-rose-700 dark:bg-rose-500/10 dark:text-rose-300">
                   <AlertTriangle className="h-6 w-6" />
                 </span>
                 <div>
-                  <p className="text-sm font-black uppercase tracking-[0.18em] text-rose-700">
+                  <p className="text-sm font-black uppercase tracking-[0.18em] text-rose-700 dark:text-rose-300">
                     Excluir categoria
                   </p>
-                  <h2 className="mt-1 text-2xl font-black text-slate-950">
+                  <h2 className="mt-1 text-2xl font-black text-slate-950 dark:text-slate-50">
                     {categoryPendingDelete.linkedExpenses > 0
                       ? 'Esta categoria possui gastos vinculados. O que deseja fazer?'
                       : 'Tem certeza que deseja excluir esta categoria de gastos?'}
                   </h2>
-                  <p className="mt-3 text-sm font-semibold leading-6 text-slate-500">
+                  <p className="mt-3 text-sm font-semibold leading-6 text-slate-500 dark:text-slate-300">
                     {categoryPendingDelete.category.name}
                     {categoryPendingDelete.linkedExpenses > 0
                       ? ` tem ${categoryPendingDelete.linkedExpenses} gasto(s). Os gastos serao movidos antes da exclusao.`
@@ -1728,15 +1728,15 @@ function TravelWorkspace({ groupId }: { groupId: string }) {
               </div>
 
               {categoryPendingDelete.linkedExpenses > 0 ? (
-                <div className="mt-6 space-y-3 rounded-2xl bg-slate-50 p-4">
+                <div className="mt-6 space-y-3 rounded-2xl bg-slate-50 p-4 dark:bg-slate-800">
                   <label>
-                    <span className="mb-2 block text-sm font-bold text-slate-600">
+                    <span className="mb-2 block text-sm font-bold text-slate-600 dark:text-slate-300">
                       Categoria de destino
                     </span>
                     <select
                       value={categoryMoveTarget}
                       onChange={(event) => setCategoryMoveTarget(event.target.value)}
-                      className="h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 font-semibold text-slate-900 outline-none transition focus:border-teal-400 focus:ring-4 focus:ring-teal-100"
+                      className="h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 font-semibold text-slate-900 outline-none transition focus:border-teal-400 focus:ring-4 focus:ring-teal-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-50 dark:focus:border-emerald-400 dark:focus:ring-emerald-400/20"
                     >
                       {categoryDeleteTargets.map((category) => (
                         <option key={category.id} value={category.id}>
@@ -1752,7 +1752,7 @@ function TravelWorkspace({ groupId }: { groupId: string }) {
                 <button
                   type="button"
                   onClick={() => setCategoryPendingDelete(null)}
-                  className="h-12 rounded-2xl border border-slate-200 px-5 font-bold text-slate-600 transition hover:bg-slate-50"
+                  className="h-12 rounded-2xl border border-slate-200 px-5 font-bold text-slate-600 transition hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
                 >
                   Cancelar
                 </button>
@@ -1763,7 +1763,7 @@ function TravelWorkspace({ groupId }: { groupId: string }) {
                         type="button"
                         onClick={() => void handleDeleteExpenseCategory('Outros')}
                         disabled={isCategorySaving}
-                        className="h-12 rounded-2xl border border-slate-200 px-5 font-bold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-70"
+                        className="h-12 rounded-2xl border border-slate-200 px-5 font-bold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-70 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
                       >
                         Mover para Outros
                       </button>
@@ -1804,7 +1804,7 @@ function TravelWorkspace({ groupId }: { groupId: string }) {
             onMouseDown={() => setExpensePendingDelete(null)}
           >
             <motion.div
-              className="w-full max-w-md rounded-[2rem] bg-white p-6 shadow-2xl shadow-slate-950/30"
+              className="w-full max-w-md rounded-[2rem] bg-white p-6 shadow-2xl shadow-slate-950/30 dark:border dark:border-slate-700 dark:bg-slate-900"
               initial={{ opacity: 0, y: 28, scale: 0.98 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 20, scale: 0.98 }}
@@ -1812,15 +1812,15 @@ function TravelWorkspace({ groupId }: { groupId: string }) {
               onMouseDown={(event) => event.stopPropagation()}
             >
               <div className="flex items-start gap-4">
-                <span className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-rose-50 text-rose-700">
+                <span className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-rose-50 text-rose-700 dark:bg-rose-500/10 dark:text-rose-300">
                   <AlertTriangle className="h-6 w-6" />
                 </span>
                 <div>
-                  <p className="text-sm font-black uppercase tracking-[0.18em] text-rose-700">Excluir gasto</p>
-                  <h2 className="mt-1 text-2xl font-black text-slate-950">
+                  <p className="text-sm font-black uppercase tracking-[0.18em] text-rose-700 dark:text-rose-300">Excluir gasto</p>
+                  <h2 className="mt-1 text-2xl font-black text-slate-950 dark:text-slate-50">
                     Tem certeza que deseja excluir este gasto?
                   </h2>
-                  <p className="mt-3 text-sm font-semibold leading-6 text-slate-500">
+                  <p className="mt-3 text-sm font-semibold leading-6 text-slate-500 dark:text-slate-300">
                     {expensePendingDelete.title}
                   </p>
                 </div>
@@ -1829,7 +1829,7 @@ function TravelWorkspace({ groupId }: { groupId: string }) {
                 <button
                   type="button"
                   onClick={() => setExpensePendingDelete(null)}
-                  className="h-12 rounded-2xl border border-slate-200 px-5 font-bold text-slate-600 transition hover:bg-slate-50"
+                  className="h-12 rounded-2xl border border-slate-200 px-5 font-bold text-slate-600 transition hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
                 >
                   Cancelar
                 </button>

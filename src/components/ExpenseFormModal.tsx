@@ -151,7 +151,7 @@ export function ExpenseFormModal({
         >
           <motion.form
             onSubmit={handleSubmit}
-            className="w-full max-w-2xl rounded-[2rem] bg-white p-5 shadow-2xl shadow-slate-950/30 md:p-7"
+            className="w-full max-w-2xl rounded-[2rem] bg-white p-5 shadow-2xl shadow-slate-950/30 dark:border dark:border-slate-700 dark:bg-slate-900 md:p-7"
             initial={{ opacity: 0, y: 40, scale: 0.98 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 30, scale: 0.98 }}
@@ -160,10 +160,10 @@ export function ExpenseFormModal({
           >
             <div className="mb-6 flex items-start justify-between gap-4">
               <div>
-                <p className="text-sm font-bold uppercase tracking-[0.2em] text-slate-400">
+                <p className="text-sm font-bold uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500">
                   {expense ? 'Editar gasto' : 'Novo gasto'}
                 </p>
-                <h2 className="mt-1 text-2xl font-black text-slate-950">
+                <h2 className="mt-1 text-2xl font-black text-slate-950 dark:text-slate-50">
                   Atualize o roteiro financeiro
                 </h2>
               </div>
@@ -171,7 +171,7 @@ export function ExpenseFormModal({
                 type="button"
                 onClick={onClose}
                 aria-label="Fechar"
-                className="rounded-2xl border border-slate-200 p-3 text-slate-500 transition hover:bg-slate-50"
+                className="rounded-2xl border border-slate-200 p-3 text-slate-500 transition hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
               >
                 <X className="h-5 w-5" />
               </button>
@@ -179,12 +179,12 @@ export function ExpenseFormModal({
 
             <div className="grid gap-4 md:grid-cols-2">
               <label>
-                <span className="mb-2 block text-sm font-bold text-slate-600">Categoria</span>
+                <span className="mb-2 block text-sm font-bold text-slate-600 dark:text-slate-300">Categoria</span>
                 <select
                   value={category}
                   onChange={(event) => setCategory(event.target.value)}
                   required
-                  className="h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 font-semibold text-slate-900 outline-none transition focus:border-teal-400 focus:ring-4 focus:ring-teal-100"
+                  className="h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 font-semibold text-slate-900 outline-none transition focus:border-teal-400 focus:ring-4 focus:ring-teal-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-50 dark:focus:border-emerald-400 dark:focus:ring-emerald-400/20"
                 >
                   {categories.map((item) => (
                     <option key={item.id} value={item.id}>
@@ -195,11 +195,11 @@ export function ExpenseFormModal({
               </label>
 
               <label>
-                <span className="mb-2 block text-sm font-bold text-slate-600">Pais</span>
+                <span className="mb-2 block text-sm font-bold text-slate-600 dark:text-slate-300">Pais</span>
                 <select
                   value={country}
                   onChange={(event) => handleCountryChange(event.target.value as CountryId)}
-                  className="h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 font-semibold text-slate-900 outline-none transition focus:border-teal-400 focus:ring-4 focus:ring-teal-100"
+                  className="h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 font-semibold text-slate-900 outline-none transition focus:border-teal-400 focus:ring-4 focus:ring-teal-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-50 dark:focus:border-emerald-400 dark:focus:ring-emerald-400/20"
                 >
                   {selectableCountryOptions
                     .filter((item) => item.id !== 'all')
@@ -212,32 +212,32 @@ export function ExpenseFormModal({
               </label>
 
               <label>
-                <span className="mb-2 block text-sm font-bold text-slate-600">Nome</span>
+                <span className="mb-2 block text-sm font-bold text-slate-600 dark:text-slate-300">Nome</span>
                 <input
                   value={title}
                   onChange={(event) => setTitle(event.target.value)}
                   required
                   placeholder="Ex: Roma"
-                  className="h-12 w-full rounded-2xl border border-slate-200 px-4 font-semibold text-slate-900 outline-none transition focus:border-teal-400 focus:ring-4 focus:ring-teal-100"
+                  className="h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 font-semibold text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-teal-400 focus:ring-4 focus:ring-teal-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-50 dark:placeholder:text-slate-500 dark:focus:border-emerald-400 dark:focus:ring-emerald-400/20"
                 />
               </label>
 
               <label>
-                <span className="mb-2 block text-sm font-bold text-slate-600">Detalhe</span>
+                <span className="mb-2 block text-sm font-bold text-slate-600 dark:text-slate-300">Detalhe</span>
                 <input
                   value={detail}
                   onChange={(event) => setDetail(event.target.value)}
                   placeholder="Ex: 16 -> 17"
-                  className="h-12 w-full rounded-2xl border border-slate-200 px-4 font-semibold text-slate-900 outline-none transition focus:border-teal-400 focus:ring-4 focus:ring-teal-100"
+                  className="h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 font-semibold text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-teal-400 focus:ring-4 focus:ring-teal-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-50 dark:placeholder:text-slate-500 dark:focus:border-emerald-400 dark:focus:ring-emerald-400/20"
                 />
               </label>
 
               <label>
-                <span className="mb-2 block text-sm font-bold text-slate-600">Moeda</span>
+                <span className="mb-2 block text-sm font-bold text-slate-600 dark:text-slate-300">Moeda</span>
                 <select
                   value={currency}
                   onChange={(event) => setCurrency(event.target.value as TravelCurrencyCode)}
-                  className="h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 font-semibold text-slate-900 outline-none transition focus:border-teal-400 focus:ring-4 focus:ring-teal-100"
+                  className="h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 font-semibold text-slate-900 outline-none transition focus:border-teal-400 focus:ring-4 focus:ring-teal-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-50 dark:focus:border-emerald-400 dark:focus:ring-emerald-400/20"
                 >
                   {TRAVEL_CURRENCIES.map((item) => (
                     <option key={item} value={item}>
@@ -248,23 +248,23 @@ export function ExpenseFormModal({
               </label>
 
               <label>
-                <span className="mb-2 block text-sm font-bold text-slate-600">Valor</span>
+                <span className="mb-2 block text-sm font-bold text-slate-600 dark:text-slate-300">Valor</span>
                 <input
                   value={amount}
                   onChange={(event) => setAmount(event.target.value)}
                   required
                   placeholder="100"
-                  className="h-12 w-full rounded-2xl border border-slate-200 px-4 font-semibold text-slate-900 outline-none transition focus:border-teal-400 focus:ring-4 focus:ring-teal-100"
+                  className="h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 font-semibold text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-teal-400 focus:ring-4 focus:ring-teal-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-50 dark:placeholder:text-slate-500 dark:focus:border-emerald-400 dark:focus:ring-emerald-400/20"
                 />
               </label>
 
-              <div className="rounded-2xl bg-slate-50 px-4 py-3 md:col-span-2">
-                <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-400">Conversão estimada</p>
-                <p className="mt-2 text-lg font-black text-slate-950">
+              <div className="rounded-2xl bg-slate-50 px-4 py-3 dark:bg-slate-800 md:col-span-2">
+                <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-400 dark:text-slate-500">Conversão estimada</p>
+                <p className="mt-2 text-lg font-black text-slate-950 dark:text-slate-50">
                   {currencySymbols[currency]} {amount || '0'} ≈ {formatMoney(convertedReal.min, 'BRL')}
                 </p>
                 {currency !== 'BRL' && !currentRate ? (
-                  <p className="mt-1 text-sm font-bold text-amber-700">
+                  <p className="mt-1 text-sm font-bold text-amber-700 dark:text-amber-200">
                     Cotação indisponível. O valor em BRL será mantido pelo último dado salvo, se houver.
                   </p>
                 ) : null}
@@ -276,13 +276,13 @@ export function ExpenseFormModal({
               <button
                 type="button"
                 onClick={onClose}
-                className="h-12 rounded-2xl border border-slate-200 px-5 font-bold text-slate-600 transition hover:bg-slate-50"
+                className="h-12 rounded-2xl border border-slate-200 px-5 font-bold text-slate-600 transition hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
               >
                 Cancelar
               </button>
               <button
                 type="submit"
-                className="h-12 rounded-2xl bg-slate-950 px-6 font-bold text-white shadow-xl shadow-slate-900/20 transition hover:bg-teal-700"
+                className="h-12 rounded-2xl bg-slate-950 px-6 font-bold text-white shadow-xl shadow-slate-900/20 transition hover:bg-teal-700 dark:bg-emerald-400 dark:text-emerald-950 dark:hover:bg-emerald-300"
               >
                 Salvar gasto
               </button>

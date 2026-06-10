@@ -70,7 +70,7 @@ export function AttractionModal({
           onMouseDown={onClose}
         >
           <motion.section
-            className="max-h-[92vh] w-full max-w-3xl overflow-y-auto rounded-[2rem] bg-white p-5 shadow-2xl shadow-slate-950/30 md:p-7"
+            className="max-h-[92vh] w-full max-w-3xl overflow-y-auto rounded-[2rem] bg-white p-5 shadow-2xl shadow-slate-950/30 dark:border dark:border-slate-700 dark:bg-slate-900 md:p-7"
             initial={{ opacity: 0, y: 42, scale: 0.98 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 30, scale: 0.98 }}
@@ -79,10 +79,10 @@ export function AttractionModal({
           >
             <div className="mb-6 flex items-start justify-between gap-4">
               <div>
-                <p className="text-sm font-bold uppercase tracking-[0.2em] text-slate-400">
+                <p className="text-sm font-bold uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500">
                   Ponto turistico
                 </p>
-                <h2 className="mt-1 text-3xl font-black text-slate-950">
+                <h2 className="mt-1 text-3xl font-black text-slate-950 dark:text-slate-50">
                   {attraction.name}
                 </h2>
               </div>
@@ -91,7 +91,7 @@ export function AttractionModal({
                   type="button"
                   onClick={() => onEdit(attraction)}
                   aria-label={`Editar ${attraction.name}`}
-                  className="rounded-2xl border border-slate-200 p-3 text-slate-500 transition hover:bg-teal-50 hover:text-teal-700"
+                  className="rounded-2xl border border-slate-200 p-3 text-slate-500 transition hover:bg-teal-50 hover:text-teal-700 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-emerald-500/10 dark:hover:text-emerald-300"
                 >
                   <Edit3 className="h-5 w-5" />
                 </button>
@@ -99,7 +99,7 @@ export function AttractionModal({
                   type="button"
                   onClick={() => onDelete(attraction.id)}
                   aria-label={`Excluir ${attraction.name}`}
-                  className="rounded-2xl border border-slate-200 p-3 text-slate-500 transition hover:bg-rose-50 hover:text-rose-700"
+                  className="rounded-2xl border border-slate-200 p-3 text-slate-500 transition hover:bg-rose-50 hover:text-rose-700 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-rose-500/10 dark:hover:text-rose-300"
                 >
                   <Trash2 className="h-5 w-5" />
                 </button>
@@ -107,7 +107,7 @@ export function AttractionModal({
                   type="button"
                   onClick={onClose}
                   aria-label="Fechar"
-                  className="rounded-2xl border border-slate-200 p-3 text-slate-500 transition hover:bg-slate-50"
+                  className="rounded-2xl border border-slate-200 p-3 text-slate-500 transition hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
                 >
                   <X className="h-5 w-5" />
                 </button>
@@ -115,7 +115,7 @@ export function AttractionModal({
             </div>
 
             <div className="grid gap-5 lg:grid-cols-[1fr_0.9fr]">
-              <div className="overflow-hidden rounded-3xl bg-slate-100">
+              <div className="overflow-hidden rounded-3xl bg-slate-100 dark:bg-slate-800">
                 {currentState.photo ? (
                   <img
                     src={currentState.photo}
@@ -123,27 +123,27 @@ export function AttractionModal({
                     className="aspect-[4/3] h-full w-full object-cover"
                   />
                 ) : (
-                  <div className="flex aspect-[4/3] items-center justify-center bg-gradient-to-br from-teal-50 via-sky-50 to-rose-50">
-                    <Camera className="h-14 w-14 text-slate-300" />
+                  <div className="flex aspect-[4/3] items-center justify-center bg-gradient-to-br from-teal-50 via-sky-50 to-rose-50 dark:from-slate-800 dark:via-slate-800 dark:to-slate-900">
+                    <Camera className="h-14 w-14 text-slate-300 dark:text-slate-600" />
                   </div>
                 )}
               </div>
 
               <div className="space-y-4">
                 <div className="flex flex-wrap gap-2">
-                  <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-black text-slate-600">
+                  <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-black text-slate-600 dark:bg-slate-800 dark:text-slate-300">
                     {countryNames[attraction.country]}
                   </span>
-                  <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-black text-slate-600">
+                  <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-black text-slate-600 dark:bg-slate-800 dark:text-slate-300">
                     {attraction.city}
                   </span>
-                  <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-black text-slate-600">
+                  <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-black text-slate-600 dark:bg-slate-800 dark:text-slate-300">
                     {attraction.day}
                     {attraction.time ? ` - ${attraction.time}` : ''}
                   </span>
                 </div>
 
-                <p className="leading-7 text-slate-600">{attraction.description}</p>
+                <p className="leading-7 text-slate-600 dark:text-slate-300">{attraction.description}</p>
                 <LinksMenu links={attraction.links} />
 
                 <button
@@ -151,8 +151,8 @@ export function AttractionModal({
                   onClick={() => updateState({ visited: !currentState.visited })}
                   className={`inline-flex h-12 w-full items-center justify-center gap-2 rounded-2xl px-5 font-bold transition ${
                     currentState.visited
-                      ? 'bg-teal-600 text-white shadow-xl shadow-teal-700/20'
-                      : 'bg-slate-950 text-white shadow-xl shadow-slate-900/20 hover:bg-teal-700'
+                      ? 'bg-teal-600 text-white shadow-xl shadow-teal-700/20 dark:bg-emerald-400 dark:text-emerald-950'
+                      : 'bg-slate-950 text-white shadow-xl shadow-slate-900/20 hover:bg-teal-700 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700'
                   }`}
                 >
                   <motion.span
@@ -177,7 +177,7 @@ export function AttractionModal({
                     type="button"
                     onClick={() => inputRef.current?.click()}
                     disabled={isProcessing}
-                    className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl border border-slate-200 px-4 font-bold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+                    className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl border border-slate-200 px-4 font-bold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
                   >
                     <ImagePlus className="h-5 w-5" />
                     {currentState.photo ? 'Trocar foto' : 'Anexar foto'}
@@ -195,7 +195,7 @@ export function AttractionModal({
                         .finally(() => setIsProcessing(false));
                     }}
                     disabled={!currentState.photo}
-                    className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl border border-slate-200 px-4 font-bold text-slate-700 transition hover:bg-rose-50 hover:text-rose-700 disabled:cursor-not-allowed disabled:opacity-45"
+                    className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl border border-slate-200 px-4 font-bold text-slate-700 transition hover:bg-rose-50 hover:text-rose-700 disabled:cursor-not-allowed disabled:opacity-45 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-rose-500/10 dark:hover:text-rose-300"
                   >
                     <Trash2 className="h-5 w-5" />
                     Remover foto
@@ -203,13 +203,13 @@ export function AttractionModal({
                 </div>
 
                 {warning ? (
-                  <p className="rounded-2xl bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-800">
+                  <p className="rounded-2xl bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-800 dark:bg-amber-400/10 dark:text-amber-200">
                     {warning}
                   </p>
                 ) : null}
 
                 {isProcessing ? (
-                  <p className="text-sm font-semibold text-slate-500">
+                  <p className="text-sm font-semibold text-slate-500 dark:text-slate-300">
                     Preparando imagem para salvar...
                   </p>
                 ) : null}

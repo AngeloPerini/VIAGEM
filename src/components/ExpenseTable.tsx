@@ -54,13 +54,13 @@ export function ExpenseTable({
   return (
     <motion.section
       layout
-      className="overflow-hidden rounded-[2rem] border border-white/70 bg-white/85 shadow-xl shadow-slate-900/10 backdrop-blur-xl"
+      className="overflow-hidden rounded-[2rem] border border-white/70 bg-white/85 shadow-xl shadow-slate-900/10 backdrop-blur-xl dark:border-slate-700 dark:bg-slate-900/85 dark:shadow-black/30"
       initial={{ opacity: 0, y: 20 }}
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true, margin: '-80px' }}
       transition={{ duration: 0.45 }}
     >
-      <div className="flex flex-col gap-2 border-b border-slate-200/80 p-5 md:flex-row md:items-end md:justify-between md:p-7">
+      <div className="flex flex-col gap-2 border-b border-slate-200/80 p-5 dark:border-slate-700 md:flex-row md:items-end md:justify-between md:p-7">
         <div className="flex items-start gap-3">
           <span
             className="mt-1 inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl text-white shadow-lg shadow-slate-900/10"
@@ -70,10 +70,10 @@ export function ExpenseTable({
             <CategoryIcon className="h-6 w-6" />
           </span>
           <div>
-            <p className="text-sm font-bold uppercase tracking-[0.2em] text-slate-400">
+            <p className="text-sm font-bold uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500">
               {category.label}
             </p>
-            <h2 className="mt-1 text-2xl font-black text-slate-950">
+            <h2 className="mt-1 text-2xl font-black text-slate-950 dark:text-slate-50">
               {category.name}
             </h2>
           </div>
@@ -88,16 +88,16 @@ export function ExpenseTable({
                 exit={{ opacity: 0, y: -8 }}
                 transition={{ duration: 0.22 }}
               >
-                <strong className="block text-xl font-black text-slate-950">
+                <strong className="block text-xl font-black text-slate-950 dark:text-slate-50">
                   {primaryTotal}
                 </strong>
-                <span className="font-semibold text-slate-500">
+                <span className="font-semibold text-slate-500 dark:text-slate-300">
                   {secondaryTotal}
                 </span>
               </motion.div>
             </AnimatePresence>
             {realValueMode === 'converted' ? (
-              <span className="mt-1 block text-xs font-black uppercase tracking-[0.12em] text-teal-700">
+              <span className="mt-1 block text-xs font-black uppercase tracking-[0.12em] text-teal-700 dark:text-emerald-300">
                 Convertido pela cotacao
               </span>
             ) : null}
@@ -108,19 +108,19 @@ export function ExpenseTable({
                 type="button"
                 aria-label={`Gerenciar categoria ${category.name}`}
                 onClick={() => setIsCategoryMenuOpen((current) => !current)}
-                className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 text-slate-500 transition hover:bg-slate-50 hover:text-slate-950"
+                className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 text-slate-500 transition hover:bg-slate-50 hover:text-slate-950 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-slate-50"
               >
                 <MoreVertical className="h-5 w-5" />
               </button>
               {isCategoryMenuOpen ? (
-                <div className="absolute right-0 top-12 z-20 w-52 overflow-hidden rounded-2xl border border-slate-200 bg-white py-2 text-left shadow-2xl shadow-slate-900/15">
+                <div className="absolute right-0 top-12 z-20 w-52 overflow-hidden rounded-2xl border border-slate-200 bg-white py-2 text-left shadow-2xl shadow-slate-900/15 dark:border-slate-700 dark:bg-slate-900 dark:shadow-black/30">
                   <button
                     type="button"
                     onClick={() => {
                       setIsCategoryMenuOpen(false);
                       onEditCategory?.(category);
                     }}
-                    className="flex w-full items-center gap-2 px-4 py-3 text-sm font-black text-slate-600 transition hover:bg-slate-50 hover:text-teal-700"
+                    className="flex w-full items-center gap-2 px-4 py-3 text-sm font-black text-slate-600 transition hover:bg-slate-50 hover:text-teal-700 dark:text-slate-200 dark:hover:bg-slate-800 dark:hover:text-emerald-300"
                   >
                     <Edit3 className="h-4 w-4" />
                     Editar categoria
@@ -132,7 +132,7 @@ export function ExpenseTable({
                       onDeleteCategory?.(category);
                     }}
                     disabled={isOutrosCategory}
-                    className="flex w-full items-center gap-2 px-4 py-3 text-sm font-black text-slate-600 transition hover:bg-rose-50 hover:text-rose-700 disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:bg-white disabled:hover:text-slate-600"
+                    className="flex w-full items-center gap-2 px-4 py-3 text-sm font-black text-slate-600 transition hover:bg-rose-50 hover:text-rose-700 disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:bg-white disabled:hover:text-slate-600 dark:text-slate-200 dark:hover:bg-rose-500/10 dark:hover:text-rose-300 dark:disabled:hover:bg-slate-900 dark:disabled:hover:text-slate-500"
                   >
                     <Trash2 className="h-4 w-4" />
                     Excluir categoria
@@ -147,7 +147,7 @@ export function ExpenseTable({
       <div className="hidden md:block">
         <table className="w-full border-collapse text-left">
           <thead>
-            <tr className="text-xs uppercase tracking-[0.16em] text-slate-400">
+            <tr className="text-xs uppercase tracking-[0.16em] text-slate-400 dark:text-slate-500">
               <th className="px-7 py-4 font-black">{category.id === 'lodging' ? 'Cidade' : category.label}</th>
               <th className="px-4 py-4 font-black">Detalhe</th>
               <th className="px-4 py-4 font-black">Pais</th>
@@ -163,16 +163,16 @@ export function ExpenseTable({
                   <motion.tr
                     layout
                     key={expense.id}
-                    className="border-t border-slate-100 text-slate-700"
+                    className="border-t border-slate-100 text-slate-700 dark:border-slate-800 dark:text-slate-300"
                     initial={{ opacity: 0, x: -12 }}
                     animate={{ opacity: 1, x: 0 }}
                     exit={{ opacity: 0, x: 18 }}
                     transition={{ duration: 0.24 }}
                   >
-                    <td className="px-7 py-4 font-bold text-slate-950">{expense.title}</td>
-                    <td className="px-4 py-4 text-slate-500">{expense.detail || '-'}</td>
+                    <td className="px-7 py-4 font-bold text-slate-950 dark:text-slate-50">{expense.title}</td>
+                    <td className="px-4 py-4 text-slate-500 dark:text-slate-400">{expense.detail || '-'}</td>
                     <td className="px-4 py-4">
-                      <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-black text-slate-600">
+                      <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-black text-slate-600 dark:bg-slate-800 dark:text-slate-300">
                         {getCountryName(expense)}
                       </span>
                     </td>
@@ -188,7 +188,7 @@ export function ExpenseTable({
                             type="button"
                             aria-label={`Editar ${expense.title}`}
                             onClick={() => onEdit(expense)}
-                            className="inline-flex h-10 items-center gap-2 rounded-xl border border-slate-200 px-3 text-sm font-black text-slate-600 transition hover:border-teal-200 hover:bg-teal-50 hover:text-teal-700"
+                            className="inline-flex h-10 items-center gap-2 rounded-xl border border-slate-200 px-3 text-sm font-black text-slate-600 transition hover:border-teal-200 hover:bg-teal-50 hover:text-teal-700 dark:border-slate-700 dark:text-slate-300 dark:hover:border-emerald-500/60 dark:hover:bg-emerald-500/10 dark:hover:text-emerald-300"
                           >
                             <Edit3 className="h-4 w-4" />
                             Editar
@@ -197,7 +197,7 @@ export function ExpenseTable({
                             type="button"
                             aria-label={`Excluir ${expense.title}`}
                             onClick={() => onDelete(expense.id)}
-                            className="inline-flex h-10 items-center gap-2 rounded-xl border border-slate-200 px-3 text-sm font-black text-slate-600 transition hover:border-rose-200 hover:bg-rose-50 hover:text-rose-700"
+                            className="inline-flex h-10 items-center gap-2 rounded-xl border border-slate-200 px-3 text-sm font-black text-slate-600 transition hover:border-rose-200 hover:bg-rose-50 hover:text-rose-700 dark:border-slate-700 dark:text-slate-300 dark:hover:border-rose-500/60 dark:hover:bg-rose-500/10 dark:hover:text-rose-300"
                           >
                             <Trash2 className="h-4 w-4" />
                             Excluir
@@ -210,13 +210,13 @@ export function ExpenseTable({
               ) : (
                 <motion.tr
                   key="empty-expenses"
-                  className="border-t border-slate-100"
+                  className="border-t border-slate-100 dark:border-slate-800"
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   exit={{ opacity: 0 }}
                 >
                   <td colSpan={canManage ? 6 : 5} className="px-7 py-8">
-                    <p className="rounded-2xl bg-slate-50 px-4 py-4 text-sm font-bold text-slate-500">
+                    <p className="rounded-2xl bg-slate-50 px-4 py-4 text-sm font-bold text-slate-500 dark:bg-slate-800 dark:text-slate-300">
                       Nenhum gasto cadastrado nesta categoria.
                     </p>
                   </td>
@@ -233,16 +233,16 @@ export function ExpenseTable({
             <motion.article
               layout
               key={expense.id}
-              className="rounded-2xl border border-slate-200 bg-white p-4"
+              className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-800/70"
               initial={{ opacity: 0, scale: 0.96 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.96 }}
             >
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <h3 className="font-black text-slate-950">{expense.title}</h3>
-                  {expense.detail ? <p className="text-sm text-slate-500">{expense.detail}</p> : null}
-                  <span className="mt-2 inline-flex rounded-full bg-slate-100 px-3 py-1 text-xs font-black text-slate-600">
+                  <h3 className="font-black text-slate-950 dark:text-slate-50">{expense.title}</h3>
+                  {expense.detail ? <p className="text-sm text-slate-500 dark:text-slate-400">{expense.detail}</p> : null}
+                  <span className="mt-2 inline-flex rounded-full bg-slate-100 px-3 py-1 text-xs font-black text-slate-600 dark:bg-slate-700 dark:text-slate-200">
                     {getCountryName(expense)}
                   </span>
                   <div className="mt-3">
@@ -255,7 +255,7 @@ export function ExpenseTable({
                       type="button"
                       aria-label={`Editar ${expense.title}`}
                       onClick={() => onEdit(expense)}
-                      className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-slate-200 px-3 text-sm font-black text-slate-600"
+                      className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-slate-200 px-3 text-sm font-black text-slate-600 dark:border-slate-700 dark:text-slate-200"
                     >
                       <Edit3 className="h-4 w-4" />
                       Editar
@@ -264,7 +264,7 @@ export function ExpenseTable({
                       type="button"
                       aria-label={`Excluir ${expense.title}`}
                       onClick={() => onDelete(expense.id)}
-                      className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-slate-200 px-3 text-sm font-black text-rose-700"
+                      className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-slate-200 px-3 text-sm font-black text-rose-700 dark:border-slate-700 dark:text-rose-300"
                     >
                       <Trash2 className="h-4 w-4" />
                       Excluir
@@ -273,22 +273,22 @@ export function ExpenseTable({
                 ) : null}
               </div>
               <div className="mt-4 grid grid-cols-2 gap-3">
-                <div className="rounded-2xl bg-slate-50 p-3">
-                  <p className="text-xs font-bold uppercase text-slate-400">Moeda</p>
-                  <p className="mt-1 font-black text-slate-950">
+                <div className="rounded-2xl bg-slate-50 p-3 dark:bg-slate-900">
+                  <p className="text-xs font-bold uppercase text-slate-400 dark:text-slate-500">Moeda</p>
+                  <p className="mt-1 font-black text-slate-950 dark:text-slate-50">
                     {formatRange(getExpenseOriginalRange(expense), getExpenseCurrency(expense))}
                   </p>
                 </div>
-                <div className="rounded-2xl bg-slate-50 p-3">
-                  <p className="text-xs font-bold uppercase text-slate-400">Real</p>
-                  <p className="mt-1 font-black text-slate-950">{formatRange(getExpenseRealRange(expense, exchangeRates), 'BRL')}</p>
+                <div className="rounded-2xl bg-slate-50 p-3 dark:bg-slate-900">
+                  <p className="text-xs font-bold uppercase text-slate-400 dark:text-slate-500">Real</p>
+                  <p className="mt-1 font-black text-slate-950 dark:text-slate-50">{formatRange(getExpenseRealRange(expense, exchangeRates), 'BRL')}</p>
                 </div>
               </div>
             </motion.article>
           )) : (
             <motion.p
               key="empty-expenses"
-              className="rounded-2xl bg-slate-50 px-4 py-5 text-sm font-bold text-slate-500"
+              className="rounded-2xl bg-slate-50 px-4 py-5 text-sm font-bold text-slate-500 dark:bg-slate-800 dark:text-slate-300"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}

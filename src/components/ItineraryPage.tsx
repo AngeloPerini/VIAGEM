@@ -414,7 +414,7 @@ function ItineraryFormModal({
         >
           <motion.form
             onSubmit={handleSubmit}
-            className="max-h-[92vh] w-full max-w-3xl overflow-y-auto rounded-[2rem] bg-white p-5 shadow-2xl shadow-slate-950/30 md:p-7"
+            className="max-h-[92vh] w-full max-w-3xl overflow-y-auto rounded-[2rem] bg-white p-5 shadow-2xl shadow-slate-950/30 md:p-7 dark:border dark:border-slate-700 dark:bg-slate-900"
             initial={{ opacity: 0, y: 40, scale: 0.98 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 30, scale: 0.98 }}
@@ -423,22 +423,22 @@ function ItineraryFormModal({
           >
             <div className="mb-6 flex items-start justify-between gap-4">
               <div>
-                <p className="text-sm font-bold uppercase tracking-[0.2em] text-slate-400">
+                <p className="text-sm font-bold uppercase tracking-[0.2em] text-slate-400 dark:text-slate-400">
                   Roteiro
                 </p>
-                <h2 className="mt-1 text-2xl font-black text-slate-950">
+                <h2 className="mt-1 text-2xl font-black text-slate-950 dark:text-slate-50">
                   {item.title ? 'Editar item' : 'Novo item'}
                 </h2>
               </div>
-              <button type="button" onClick={onClose} aria-label="Fechar" className="rounded-2xl border border-slate-200 p-3 text-slate-500 transition hover:bg-slate-50">
+              <button type="button" onClick={onClose} aria-label="Fechar" className="rounded-2xl border border-slate-200 p-3 text-slate-500 transition hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800">
                 <X className="h-5 w-5" />
               </button>
             </div>
 
             <div className="grid gap-4 md:grid-cols-2">
               <label>
-                <span className="mb-2 block text-sm font-bold text-slate-600">Dia</span>
-                <input required list="itinerary-day-options" value={draft.day} onChange={(event) => updateDraft('day', event.target.value)} className="h-12 w-full rounded-2xl border border-slate-200 px-4 font-semibold outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-100" />
+                <span className="mb-2 block text-sm font-bold text-slate-600 dark:text-slate-300">Dia</span>
+                <input required list="itinerary-day-options" value={draft.day} onChange={(event) => updateDraft('day', event.target.value)} className="h-12 w-full rounded-2xl border border-slate-200 px-4 font-semibold outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-50 dark:placeholder:text-slate-400 dark:focus:border-emerald-400 dark:focus:ring-emerald-400/20" />
                 <datalist id="itinerary-day-options">
                   {dayOptions.map((day) => (
                     <option key={day.value} value={day.value}>
@@ -448,40 +448,40 @@ function ItineraryFormModal({
                 </datalist>
               </label>
               <label>
-                <span className="mb-2 block text-sm font-bold text-slate-600">Pais</span>
-                <select value={draft.country} onChange={(event) => updateDraft('country', event.target.value as CountryId)} className="h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 font-semibold outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-100">
+                <span className="mb-2 block text-sm font-bold text-slate-600 dark:text-slate-300">Pais</span>
+                <select value={draft.country} onChange={(event) => updateDraft('country', event.target.value as CountryId)} className="h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 font-semibold outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-50 dark:focus:border-emerald-400 dark:focus:ring-emerald-400/20">
                   {selectableCountryOptions.filter((country) => country.id !== 'all').map((country) => (
                     <option key={country.id} value={country.id}>{country.name}</option>
                   ))}
                 </select>
               </label>
               <label>
-                <span className="mb-2 block text-sm font-bold text-slate-600">Cidade</span>
-                <input required value={draft.city} onChange={(event) => updateDraft('city', event.target.value)} className="h-12 w-full rounded-2xl border border-slate-200 px-4 font-semibold outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-100" />
+                <span className="mb-2 block text-sm font-bold text-slate-600 dark:text-slate-300">Cidade</span>
+                <input required value={draft.city} onChange={(event) => updateDraft('city', event.target.value)} className="h-12 w-full rounded-2xl border border-slate-200 px-4 font-semibold outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-50 dark:placeholder:text-slate-400 dark:focus:border-emerald-400 dark:focus:ring-emerald-400/20" />
               </label>
               <TimeField value={draft.time} onChange={(value) => updateDraft('time', value)} label="Horario" />
               <label className="md:col-span-2">
-                <span className="mb-2 block text-sm font-bold text-slate-600">Titulo</span>
-                <input required value={draft.title} onChange={(event) => updateDraft('title', event.target.value)} className="h-12 w-full rounded-2xl border border-slate-200 px-4 font-semibold outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-100" />
+                <span className="mb-2 block text-sm font-bold text-slate-600 dark:text-slate-300">Titulo</span>
+                <input required value={draft.title} onChange={(event) => updateDraft('title', event.target.value)} className="h-12 w-full rounded-2xl border border-slate-200 px-4 font-semibold outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-50 dark:placeholder:text-slate-400 dark:focus:border-emerald-400 dark:focus:ring-emerald-400/20" />
               </label>
               <label>
-                <span className="mb-2 block text-sm font-bold text-slate-600">Tipo</span>
-                <select value={draft.type} onChange={(event) => updateDraft('type', event.target.value as ItineraryType)} className="h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 font-semibold outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-100">
+                <span className="mb-2 block text-sm font-bold text-slate-600 dark:text-slate-300">Tipo</span>
+                <select value={draft.type} onChange={(event) => updateDraft('type', event.target.value as ItineraryType)} className="h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 font-semibold outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-50 dark:focus:border-emerald-400 dark:focus:ring-emerald-400/20">
                   {editableTypes.map((type) => (
                     <option key={type.id} value={type.id}>{type.label}</option>
                   ))}
                 </select>
               </label>
               <label className="md:col-span-2">
-                <span className="mb-2 block text-sm font-bold text-slate-600">Descricao</span>
-                <textarea required value={draft.description} onChange={(event) => updateDraft('description', event.target.value)} rows={4} className="w-full rounded-2xl border border-slate-200 px-4 py-3 font-semibold outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-100" />
+                <span className="mb-2 block text-sm font-bold text-slate-600 dark:text-slate-300">Descricao</span>
+                <textarea required value={draft.description} onChange={(event) => updateDraft('description', event.target.value)} rows={4} className="w-full rounded-2xl border border-slate-200 px-4 py-3 font-semibold outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-50 dark:placeholder:text-slate-400 dark:focus:border-emerald-400 dark:focus:ring-emerald-400/20" />
               </label>
               <LinksEditor links={links} onChange={setLinks} />
             </div>
 
             <div className="mt-7 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
-              <button type="button" onClick={onClose} className="h-12 rounded-2xl border border-slate-200 px-5 font-bold text-slate-600 transition hover:bg-slate-50">Cancelar</button>
-              <button type="submit" className="h-12 rounded-2xl bg-slate-950 px-6 font-bold text-white shadow-xl shadow-slate-900/20 transition hover:bg-teal-700">Salvar item</button>
+              <button type="button" onClick={onClose} className="h-12 rounded-2xl border border-slate-200 px-5 font-bold text-slate-600 transition hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800">Cancelar</button>
+              <button type="submit" className="h-12 rounded-2xl bg-slate-950 px-6 font-bold text-white shadow-xl shadow-slate-900/20 transition hover:bg-teal-700 dark:bg-emerald-400 dark:text-emerald-950 dark:hover:bg-emerald-300">Salvar item</button>
             </div>
           </motion.form>
         </motion.div>
@@ -768,9 +768,9 @@ export function ItineraryPage({
     >
       <section className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
         <div className="min-w-0">
-          <h1 className="text-lg font-semibold tracking-tight text-[#0b1c30] md:text-xl">{itineraryTitle}</h1>
-          <p className="mt-2 flex flex-wrap items-center gap-2 text-sm font-medium text-[#45464d] md:text-base">
-            <MapPin className="h-5 w-5 text-[#007c68]" />
+          <h1 className="text-lg font-semibold tracking-tight text-[#0b1c30] md:text-xl dark:text-slate-50">{itineraryTitle}</h1>
+          <p className="mt-2 flex flex-wrap items-center gap-2 text-sm font-medium text-[#45464d] md:text-base dark:text-slate-300">
+            <MapPin className="h-5 w-5 text-[#007c68] dark:text-emerald-300" />
             <span>{filteredItems.length} atividades planejadas • Roteiro da viagem</span>
           </p>
         </div>
@@ -781,7 +781,7 @@ export function ItineraryPage({
             <select
               value={selectedCountry}
               onChange={(event) => onCountryChange(event.target.value)}
-              className="h-11 w-full appearance-none rounded-xl border border-[#c6c6cd] bg-[#eff4ff] px-4 pr-11 text-sm font-semibold text-[#0b1c30] outline-none transition focus:border-[#007c68] focus:ring-4 focus:ring-[#48fdd3]/20 sm:w-64"
+              className="h-11 w-full appearance-none rounded-xl border border-[#c6c6cd] bg-[#eff4ff] px-4 pr-11 text-sm font-semibold text-[#0b1c30] outline-none transition focus:border-[#007c68] focus:ring-4 focus:ring-[#48fdd3]/20 sm:w-64 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-50 dark:focus:border-emerald-400 dark:focus:ring-emerald-400/20"
             >
               {countryOptions.map((country) => (
                 <option key={country.id} value={country.id}>
@@ -789,12 +789,12 @@ export function ItineraryPage({
                 </option>
               ))}
             </select>
-            <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-5 w-5 -translate-y-1/2 text-[#45464d]" />
+            <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-5 w-5 -translate-y-1/2 text-[#45464d] dark:text-slate-300" />
           </label>
           <button
             type="button"
             onClick={openNewItemModal}
-            className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-black px-6 text-sm font-bold text-white shadow-[0_12px_28px_rgba(15,23,42,0.12)] transition hover:bg-[#111827]"
+            className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-black px-6 text-sm font-bold text-white shadow-[0_12px_28px_rgba(15,23,42,0.12)] transition hover:bg-[#111827] dark:bg-emerald-400 dark:text-emerald-950 dark:hover:bg-emerald-300"
           >
             <Plus className="h-5 w-5" /> Nova Atividade
           </button>
@@ -802,7 +802,7 @@ export function ItineraryPage({
             <button
               type="button"
               onClick={() => void restoreDefaults()}
-              className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-[#c6c6cd] bg-white px-4 text-sm font-bold text-[#45464d] transition hover:border-[#007c68] hover:text-[#007c68]"
+              className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-[#c6c6cd] bg-white px-4 text-sm font-bold text-[#45464d] transition hover:border-[#007c68] hover:text-[#007c68] dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-emerald-400 dark:hover:text-emerald-300"
             >
               <RotateCcw className="h-4 w-4" /> Restaurar
             </button>
@@ -811,7 +811,7 @@ export function ItineraryPage({
       </section>
 
       {syncWarning || isLoading || isSaving ? (
-        <p className="rounded-xl border border-[#d3e4fe] bg-white px-4 py-3 text-sm font-semibold text-[#45464d] shadow-sm">
+        <p className="rounded-xl border border-[#d3e4fe] bg-white px-4 py-3 text-sm font-semibold text-[#45464d] shadow-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300">
           {isSaving ? 'Salvando roteiro no Supabase...' : isLoading ? 'Sincronizando roteiro...' : syncWarning}
         </p>
       ) : null}
@@ -836,21 +836,21 @@ export function ItineraryPage({
                   <span
                     className={`flex h-20 w-16 flex-col items-center justify-center rounded-2xl border transition ${
                       selected
-                        ? 'border-2 border-[#007c68] bg-[#48fdd3]/15 text-[#007c68]'
+                        ? 'border-2 border-[#007c68] bg-[#48fdd3]/15 text-[#007c68] dark:border-emerald-400 dark:bg-emerald-400/15 dark:text-emerald-200'
                         : day.isComplete
-                          ? 'border-[#bfd2f0] bg-[#dce9ff] text-[#0b1c30] hover:border-[#007c68]'
-                          : 'border-[#d7dbe4] bg-white text-[#667085] hover:border-[#007c68]'
+                          ? 'border-[#bfd2f0] bg-[#dce9ff] text-[#0b1c30] hover:border-[#007c68] dark:border-emerald-500/40 dark:bg-emerald-500/15 dark:text-emerald-100 dark:hover:border-emerald-400'
+                          : 'border-[#d7dbe4] bg-white text-[#667085] hover:border-[#007c68] dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-emerald-400'
                     }`}
                   >
-                    <span className={`text-xs font-semibold uppercase ${selected ? 'text-[#007c68]' : 'text-[#8c8f9a]'}`}>
+                    <span className={`text-xs font-semibold uppercase ${selected ? 'text-[#007c68] dark:text-emerald-200' : 'text-[#8c8f9a] dark:text-slate-400'}`}>
                       Dia
                     </span>
                     <span className={`mt-1 text-lg ${selected ? 'font-black' : 'font-medium'}`}>
                       {getDayNumberLabel(day.title, index)}
                     </span>
                   </span>
-                  <span className={`h-1 w-16 rounded-full ${selected || day.isComplete ? 'bg-[#007c68]' : 'bg-transparent group-hover:bg-[#d7dbe4]'}`} />
-                  <span className={`text-sm font-medium ${selected || hasItems ? 'text-[#007c68]' : 'text-[#8c8f9a]'}`}>
+                  <span className={`h-1 w-16 rounded-full ${selected || day.isComplete ? 'bg-[#007c68] dark:bg-emerald-400' : 'bg-transparent group-hover:bg-[#d7dbe4] dark:group-hover:bg-slate-600'}`} />
+                  <span className={`text-sm font-medium ${selected || hasItems ? 'text-[#007c68] dark:text-emerald-300' : 'text-[#8c8f9a] dark:text-slate-400'}`}>
                     {statusLabel}
                   </span>
                 </button>
@@ -858,9 +858,9 @@ export function ItineraryPage({
             })}
           </div>
         ) : (
-          <div className="rounded-2xl border border-[#dfe5ee] bg-white px-5 py-6 text-sm font-semibold text-[#667085]">
+          <div className="rounded-2xl border border-[#dfe5ee] bg-white px-5 py-6 text-sm font-semibold text-[#667085] dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300">
             Seu roteiro ainda nao foi criado.
-            <button type="button" onClick={openNewItemModal} className="ml-2 font-black text-[#007c68]">
+            <button type="button" onClick={openNewItemModal} className="ml-2 font-black text-[#007c68] dark:text-emerald-300">
               Adicionar primeira atividade
             </button>
           </div>
@@ -877,28 +877,28 @@ export function ItineraryPage({
         >
           {selectedDay ? (
             <>
-              <div className="mb-7 ml-0 rounded-2xl border border-[#007c68] bg-white/75 p-5 shadow-sm md:ml-16">
+              <div className="mb-7 ml-0 rounded-2xl border border-[#007c68] bg-white/75 p-5 shadow-sm md:ml-16 dark:border-emerald-500/60 dark:bg-emerald-500/10">
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                   <div className="flex min-w-0 items-center gap-4">
-                    <span className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-[#d8fbf4] text-[#007c68]">
+                    <span className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-[#d8fbf4] text-[#007c68] dark:bg-emerald-400/15 dark:text-emerald-200">
                       <NextActivityIcon className="h-6 w-6" />
                     </span>
                     <div className="min-w-0">
-                      <p className="text-sm font-semibold uppercase tracking-[0.12em] text-[#007c68]">Proxima atividade</p>
-                      <h2 className="mt-1 truncate text-lg font-semibold text-[#0b1c30]">
+                      <p className="text-sm font-semibold uppercase tracking-[0.12em] text-[#007c68] dark:text-emerald-300">Proxima atividade</p>
+                      <h2 className="mt-1 truncate text-lg font-semibold text-[#0b1c30] dark:text-slate-50">
                         {nextActivity?.title ?? 'Nenhuma atividade pendente'}
                       </h2>
                     </div>
                   </div>
                   <div className="text-left sm:text-right">
-                    <p className="text-lg font-medium text-[#0b1c30]">{nextActivity?.time || '--:--'}</p>
-                    <p className="text-sm font-medium text-[#45464d]">{getRelativeTimeLabel(nextActivity, selectedDay)}</p>
+                    <p className="text-lg font-medium text-[#0b1c30] dark:text-slate-100">{nextActivity?.time || '--:--'}</p>
+                    <p className="text-sm font-medium text-[#45464d] dark:text-slate-300">{getRelativeTimeLabel(nextActivity, selectedDay)}</p>
                   </div>
                 </div>
               </div>
 
               {selectedDayItems.length ? (
-                <div className="relative space-y-5 before:absolute before:bottom-6 before:left-6 before:top-4 before:w-px before:bg-[#c6c6cd]/55">
+                <div className="relative space-y-5 before:absolute before:bottom-6 before:left-6 before:top-4 before:w-px before:bg-[#c6c6cd]/55 dark:before:bg-slate-700">
                   <AnimatePresence mode="popLayout">
                     {selectedDayItems.map((item) => {
                       const Icon = typeIcons[item.type];
@@ -910,24 +910,24 @@ export function ItineraryPage({
                         <motion.article
                           layout
                           key={item.id}
-                          className={`relative ml-16 rounded-2xl border bg-white p-5 transition ${
+                          className={`relative ml-16 rounded-2xl border bg-white p-5 transition dark:bg-slate-900 ${
                             isNext
-                              ? 'border-2 border-[#131b2e] shadow-[0_10px_24px_rgba(15,23,42,0.12)]'
+                              ? 'border-2 border-[#131b2e] shadow-[0_10px_24px_rgba(15,23,42,0.12)] dark:border-emerald-400 dark:shadow-emerald-950/20'
                               : completed
-                                ? 'border-[#dfe5ee] shadow-sm'
-                                : 'border-[#e5e9f0] opacity-70 shadow-sm hover:opacity-100'
+                                ? 'border-[#dfe5ee] shadow-sm dark:border-emerald-500/35'
+                                : 'border-[#e5e9f0] opacity-70 shadow-sm hover:opacity-100 dark:border-slate-700 dark:opacity-100'
                           }`}
                           initial={{ opacity: 1, x: 0 }}
                           animate={{ opacity: 1, x: 0 }}
                           exit={{ opacity: 0, x: 14 }}
                         >
                           <span
-                            className={`absolute -left-[4.25rem] top-5 grid h-12 w-12 place-items-center rounded-full border-4 border-[#f7f8fd] shadow-lg ${
+                            className={`absolute -left-[4.25rem] top-5 grid h-12 w-12 place-items-center rounded-full border-4 border-[#f7f8fd] shadow-lg dark:border-slate-950 ${
                               completed
-                                ? 'bg-[#007c68] text-white'
+                                ? 'bg-[#007c68] text-white dark:bg-emerald-400 dark:text-emerald-950'
                                 : isNext
-                                  ? 'bg-[#131b2e] text-[#dce9ff]'
-                                  : 'bg-[#dce9ff] text-[#7c839b]'
+                                  ? 'bg-[#131b2e] text-[#dce9ff] dark:bg-emerald-500/20 dark:text-emerald-200'
+                                  : 'bg-[#dce9ff] text-[#7c839b] dark:bg-slate-800 dark:text-slate-300'
                             }`}
                           >
                             {completed ? <Check className="h-6 w-6" /> : <Icon className="h-6 w-6" />}
@@ -935,14 +935,14 @@ export function ItineraryPage({
 
                           <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
                             <button type="button" onClick={() => toggleExpanded(item.id)} className="min-w-0 flex-1 text-left">
-                              <p className={`text-base font-semibold ${isNext ? 'text-[#007c68]' : 'text-[#45464d]'}`}>
+                              <p className={`text-base font-semibold ${isNext ? 'text-[#007c68] dark:text-emerald-300' : 'text-[#45464d] dark:text-slate-300'}`}>
                                 {item.time || 'Sem horario'}
                               </p>
-                              <h3 className="mt-2 text-lg font-semibold text-[#0b1c30]">{item.title}</h3>
+                              <h3 className="mt-2 text-lg font-semibold text-[#0b1c30] dark:text-slate-50">{item.title}</h3>
                               {item.description ? (
-                                <p className="mt-4 text-sm leading-6 text-[#45464d]">{item.description}</p>
+                                <p className="mt-4 text-sm leading-6 text-[#45464d] dark:text-slate-300">{item.description}</p>
                               ) : null}
-                              <div className="mt-4 flex flex-wrap items-center gap-3 text-sm font-medium text-[#45464d]">
+                              <div className="mt-4 flex flex-wrap items-center gap-3 text-sm font-medium text-[#45464d] dark:text-slate-300">
                                 <span className="inline-flex items-center gap-1.5">
                                   <MapPin className="h-4 w-4" />
                                   {item.city || countryLabel(item.country)}
@@ -955,7 +955,7 @@ export function ItineraryPage({
                               <AnimatePresence>
                                 {expanded ? (
                                   <motion.div
-                                    className="mt-4 rounded-xl bg-[#f8f9ff] px-4 py-3 text-sm font-medium text-[#667085]"
+                                    className="mt-4 rounded-xl bg-[#f8f9ff] px-4 py-3 text-sm font-medium text-[#667085] dark:bg-slate-800 dark:text-slate-300"
                                     initial={{ opacity: 0, height: 0 }}
                                     animate={{ opacity: 1, height: 'auto' }}
                                     exit={{ opacity: 0, height: 0 }}
@@ -972,7 +972,7 @@ export function ItineraryPage({
                                   type="button"
                                   aria-label={`Marcar ${item.title}`}
                                   onClick={() => void toggleCompleted(item)}
-                                  className="inline-flex h-9 items-center justify-center rounded-full bg-[#007c68] px-4 text-sm font-bold text-white transition hover:bg-[#005141]"
+                                  className="inline-flex h-9 items-center justify-center rounded-full bg-[#007c68] px-4 text-sm font-bold text-white transition hover:bg-[#005141] dark:bg-emerald-400 dark:text-emerald-950 dark:hover:bg-emerald-300"
                                 >
                                   Check-in
                                 </button>
@@ -983,18 +983,18 @@ export function ItineraryPage({
                                 aria-label={`${completed ? 'Desmarcar' : 'Marcar'} ${item.title}`}
                                 onClick={() => void toggleCompleted(item)}
                                 className={`grid h-9 w-9 place-items-center rounded-xl transition ${
-                                  completed ? 'bg-[#007c68] text-white' : 'border border-[#dfe5ee] text-[#45464d] hover:bg-[#eef8f6] hover:text-[#007c68]'
+                                  completed ? 'bg-[#007c68] text-white dark:bg-emerald-400 dark:text-emerald-950' : 'border border-[#dfe5ee] text-[#45464d] hover:bg-[#eef8f6] hover:text-[#007c68] dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-emerald-300'
                                 }`}
                               >
                                 <Check className="h-4 w-4" />
                               </button>
-                              <button type="button" aria-label={`Editar ${item.title}`} onClick={() => setEditingItem(item)} className="grid h-9 w-9 place-items-center rounded-xl text-[#45464d] transition hover:bg-[#eef8f6] hover:text-[#007c68]">
+                              <button type="button" aria-label={`Editar ${item.title}`} onClick={() => setEditingItem(item)} className="grid h-9 w-9 place-items-center rounded-xl text-[#45464d] transition hover:bg-[#eef8f6] hover:text-[#007c68] dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-emerald-300">
                                 <Edit3 className="h-4 w-4" />
                               </button>
-                              <button type="button" aria-label={`Excluir ${item.title}`} onClick={() => setItemPendingDelete(item)} className="grid h-9 w-9 place-items-center rounded-xl text-rose-700 transition hover:bg-rose-50">
+                              <button type="button" aria-label={`Excluir ${item.title}`} onClick={() => setItemPendingDelete(item)} className="grid h-9 w-9 place-items-center rounded-xl text-rose-700 transition hover:bg-rose-50 dark:text-rose-300 dark:hover:bg-rose-500/15">
                                 <Trash2 className="h-4 w-4" />
                               </button>
-                              <ChevronDown className={`h-5 w-5 text-[#8c8f9a] transition ${expanded ? 'rotate-180' : ''}`} />
+                              <ChevronDown className={`h-5 w-5 text-[#8c8f9a] transition dark:text-slate-400 ${expanded ? 'rotate-180' : ''}`} />
                             </div>
                           </div>
                         </motion.article>
@@ -1003,49 +1003,49 @@ export function ItineraryPage({
                   </AnimatePresence>
                 </div>
               ) : (
-                <div className="rounded-2xl border border-[#dfe5ee] bg-white px-5 py-7 text-sm font-semibold text-[#667085] md:ml-16">
+                <div className="rounded-2xl border border-[#dfe5ee] bg-white px-5 py-7 text-sm font-semibold text-[#667085] md:ml-16 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300">
                   Nenhuma atividade cadastrada para este dia.
-                  <button type="button" onClick={openNewItemModal} className="ml-2 font-black text-[#007c68]">
+                  <button type="button" onClick={openNewItemModal} className="ml-2 font-black text-[#007c68] dark:text-emerald-300">
                     Adicionar atividade
                   </button>
                 </div>
               )}
             </>
           ) : (
-            <div className="rounded-2xl border border-[#dfe5ee] bg-white px-5 py-7 text-sm font-semibold text-[#667085]">
+            <div className="rounded-2xl border border-[#dfe5ee] bg-white px-5 py-7 text-sm font-semibold text-[#667085] dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300">
               Nenhum roteiro encontrado para esta viagem.
             </div>
           )}
         </motion.section>
 
         <aside className="space-y-6 lg:sticky lg:top-24 lg:self-start">
-          <section className="rounded-2xl border border-[#dfe5ee] bg-white p-6 shadow-sm">
+          <section className="rounded-2xl border border-[#dfe5ee] bg-white p-6 shadow-sm dark:border-slate-700 dark:bg-slate-900">
             <div className="mb-4 flex items-center gap-2">
-              <Route className="h-5 w-5 text-[#007c68]" />
-              <h2 className="text-base font-semibold text-[#0b1c30]">Resumo do dia</h2>
+              <Route className="h-5 w-5 text-[#007c68] dark:text-emerald-300" />
+              <h2 className="text-base font-semibold text-[#0b1c30] dark:text-slate-50">Resumo do dia</h2>
             </div>
             <dl className="space-y-3 text-sm">
               <div className="flex items-center justify-between gap-4">
-                <dt className="font-medium text-[#667085]">Concluídas</dt>
-                <dd className="font-black text-[#0b1c30]">{selectedDay?.completedCount ?? 0}</dd>
+                <dt className="font-medium text-[#667085] dark:text-slate-300">Concluídas</dt>
+                <dd className="font-black text-[#0b1c30] dark:text-slate-50">{selectedDay?.completedCount ?? 0}</dd>
               </div>
               <div className="flex items-center justify-between gap-4">
-                <dt className="font-medium text-[#667085]">Pendentes</dt>
-                <dd className="font-black text-[#0b1c30]">{Math.max(0, selectedDayPendingCount)}</dd>
+                <dt className="font-medium text-[#667085] dark:text-slate-300">Pendentes</dt>
+                <dd className="font-black text-[#0b1c30] dark:text-slate-50">{Math.max(0, selectedDayPendingCount)}</dd>
               </div>
               <div className="flex items-start justify-between gap-4">
-                <dt className="font-medium text-[#667085]">Próxima</dt>
-                <dd className="min-w-0 max-w-[13rem] text-right font-black text-[#0b1c30]">
+                <dt className="font-medium text-[#667085] dark:text-slate-300">Próxima</dt>
+                <dd className="min-w-0 max-w-[13rem] text-right font-black text-[#0b1c30] dark:text-slate-50">
                   {nextActivity?.title ?? 'Nenhuma atividade pendente'}
                 </dd>
               </div>
               <div className="flex items-start justify-between gap-4">
-                <dt className="font-medium text-[#667085]">Local</dt>
-                <dd className="min-w-0 max-w-[13rem] text-right font-black text-[#0b1c30]">{selectedDayLocation}</dd>
+                <dt className="font-medium text-[#667085] dark:text-slate-300">Local</dt>
+                <dd className="min-w-0 max-w-[13rem] text-right font-black text-[#0b1c30] dark:text-slate-50">{selectedDayLocation}</dd>
               </div>
               <div className="flex items-center justify-between gap-4">
-                <dt className="font-medium text-[#667085]">Tempo</dt>
-                <dd className="font-black text-[#0b1c30]">{selectedDayTimeEstimate}</dd>
+                <dt className="font-medium text-[#667085] dark:text-slate-300">Tempo</dt>
+                <dd className="font-black text-[#0b1c30] dark:text-slate-50">{selectedDayTimeEstimate}</dd>
               </div>
             </dl>
           </section>
@@ -1103,7 +1103,7 @@ export function ItineraryPage({
             onMouseDown={() => setItemPendingDelete(null)}
           >
             <motion.div
-              className="w-full max-w-md rounded-[2rem] bg-white p-6 shadow-2xl shadow-slate-950/30"
+              className="w-full max-w-md rounded-[2rem] bg-white p-6 shadow-2xl shadow-slate-950/30 dark:border dark:border-slate-700 dark:bg-slate-900"
               initial={{ opacity: 0, y: 28, scale: 0.98 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 20, scale: 0.98 }}
@@ -1111,15 +1111,15 @@ export function ItineraryPage({
               onMouseDown={(event) => event.stopPropagation()}
             >
               <div className="flex items-start gap-4">
-                <span className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-rose-50 text-rose-700">
+                <span className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-rose-50 text-rose-700 dark:bg-rose-500/15 dark:text-rose-300">
                   <AlertTriangle className="h-6 w-6" />
                 </span>
                 <div>
-                  <p className="text-sm font-black uppercase tracking-[0.18em] text-rose-700">Excluir atividade</p>
-                  <h2 className="mt-1 text-2xl font-black text-slate-950">
+                  <p className="text-sm font-black uppercase tracking-[0.18em] text-rose-700 dark:text-rose-300">Excluir atividade</p>
+                  <h2 className="mt-1 text-2xl font-black text-slate-950 dark:text-slate-50">
                     Tem certeza que deseja excluir esta atividade?
                   </h2>
-                  <p className="mt-3 text-sm font-semibold leading-6 text-slate-500">
+                  <p className="mt-3 text-sm font-semibold leading-6 text-slate-500 dark:text-slate-300">
                     {itemPendingDelete.title}
                   </p>
                 </div>
@@ -1128,7 +1128,7 @@ export function ItineraryPage({
                 <button
                   type="button"
                   onClick={() => setItemPendingDelete(null)}
-                  className="h-12 rounded-2xl border border-slate-200 px-5 font-bold text-slate-600 transition hover:bg-slate-50"
+                  className="h-12 rounded-2xl border border-slate-200 px-5 font-bold text-slate-600 transition hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
                 >
                   Cancelar
                 </button>

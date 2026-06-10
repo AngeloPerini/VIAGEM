@@ -250,10 +250,10 @@ const statusLabels: Record<TripStatus, string> = {
 };
 
 const statusClasses: Record<TripStatus, string> = {
-  planned: 'bg-sky-50 text-sky-700',
-  active: 'bg-teal-50 text-teal-700',
-  completed: 'bg-emerald-50 text-emerald-700',
-  canceled: 'bg-rose-50 text-rose-700',
+  planned: 'bg-sky-50 text-sky-700 dark:bg-sky-400/10 dark:text-sky-200',
+  active: 'bg-teal-50 text-teal-700 dark:bg-emerald-400/10 dark:text-emerald-200',
+  completed: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-400/10 dark:text-emerald-200',
+  canceled: 'bg-rose-50 text-rose-700 dark:bg-rose-400/10 dark:text-rose-200',
 };
 
 const tripTabs = [
@@ -365,12 +365,12 @@ function DetailTile({
   value: string;
 }) {
   return (
-    <div className="min-w-0 rounded-2xl bg-slate-50 px-4 py-3">
-      <p className="flex items-center gap-2 text-xs font-black uppercase tracking-[0.14em] text-slate-400">
-        <Icon className="h-4 w-4 shrink-0 text-teal-700" />
+    <div className="min-w-0 rounded-2xl bg-slate-50 px-4 py-3 dark:bg-slate-800 dark:bg-slate-800">
+      <p className="flex items-center gap-2 text-xs font-black uppercase tracking-[0.14em] text-slate-400 dark:text-slate-500">
+        <Icon className="h-4 w-4 shrink-0 text-teal-700 dark:text-emerald-300" />
         {label}
       </p>
-      <p className="mt-2 truncate text-sm font-black text-slate-800">{value}</p>
+      <p className="mt-2 truncate text-sm font-black text-slate-800 dark:text-slate-100">{value}</p>
     </div>
   );
 }
@@ -387,13 +387,13 @@ function ProfileMetricCard({
   value: string;
 }) {
   return (
-    <article className="rounded-xl border border-[#e6ebf3] bg-white p-6 shadow-[0_8px_24px_rgba(15,23,42,0.045)]">
+    <article className="rounded-xl border border-[#e6ebf3] bg-white p-6 shadow-[0_8px_24px_rgba(15,23,42,0.045)] dark:border-slate-700 dark:bg-slate-900 dark:shadow-black/30 dark:border-slate-700 dark:bg-slate-900 dark:shadow-black/30">
       <div className="mb-5 flex items-start justify-between gap-4">
-        <Icon className="h-6 w-6 text-[#007c68]" />
+        <Icon className="h-6 w-6 text-[#007c68] dark:text-emerald-300" />
       </div>
-      <p className="text-sm font-semibold text-[#45464d]">{label}</p>
-      <p className="mt-2 text-3xl font-bold tracking-tight text-[#0b1326]">{value}</p>
-      <p className="mt-2 text-sm font-medium leading-6 text-[#667085]">{detail}</p>
+      <p className="text-sm font-semibold text-[#45464d] dark:text-slate-300">{label}</p>
+      <p className="mt-2 text-3xl font-bold tracking-tight text-[#0b1326] dark:text-slate-50">{value}</p>
+      <p className="mt-2 text-sm font-medium leading-6 text-[#667085] dark:text-slate-400">{detail}</p>
     </article>
   );
 }
@@ -403,11 +403,11 @@ function ProgressLine({ label, value }: { label: string; value: number }) {
 
   return (
     <div>
-      <div className="mb-2 flex items-center justify-between gap-3 text-sm font-semibold text-[#45464d]">
+      <div className="mb-2 flex items-center justify-between gap-3 text-sm font-semibold text-[#45464d] dark:text-slate-300">
         <span>{label}</span>
         <span>{safeValue}%</span>
       </div>
-      <div className="h-2 overflow-hidden rounded-full bg-[#dce9ff]">
+      <div className="h-2 overflow-hidden rounded-full bg-[#dce9ff] dark:bg-slate-800">
         <div className="h-full rounded-full bg-[#007c68]" style={{ width: `${safeValue}%` }} />
       </div>
     </div>
@@ -429,18 +429,18 @@ function SettingsActionRow({
     <button
       type="button"
       onClick={onClick}
-      className="group flex w-full items-center justify-between gap-4 rounded-xl px-3 py-4 text-left transition hover:bg-[#f4f7fb]"
+      className="group flex w-full items-center justify-between gap-4 rounded-xl px-3 py-4 text-left transition hover:bg-[#f4f7fb] dark:hover:bg-slate-800"
     >
       <span className="flex min-w-0 items-center gap-4">
-        <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-[#eef4ff] text-[#1f2430] transition group-hover:text-[#007c68]">
+        <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-[#eef4ff] text-[#1f2430] transition group-hover:text-[#007c68] dark:bg-slate-800 dark:text-slate-200 dark:group-hover:text-emerald-300">
           <Icon className="h-5 w-5" />
         </span>
         <span className="min-w-0">
-          <span className="block font-semibold text-[#0b1326]">{title}</span>
-          <span className="mt-1 block text-sm font-medium leading-5 text-[#667085]">{description}</span>
+          <span className="block font-semibold text-[#0b1326] dark:text-slate-50">{title}</span>
+          <span className="mt-1 block text-sm font-medium leading-5 text-[#667085] dark:text-slate-400">{description}</span>
         </span>
       </span>
-      <ArrowRight className="h-4 w-4 shrink-0 text-[#a4acba] transition group-hover:translate-x-0.5 group-hover:text-[#007c68]" />
+      <ArrowRight className="h-4 w-4 shrink-0 text-[#a4acba] transition group-hover:translate-x-0.5 group-hover:text-[#007c68] dark:text-slate-500 dark:group-hover:text-emerald-300" />
     </button>
   );
 }
@@ -457,12 +457,12 @@ function EmptyState({
   title: string;
 }) {
   return (
-    <div className="rounded-3xl border border-dashed border-slate-200 bg-slate-50 px-4 py-6 text-center">
-      <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-white text-teal-700 shadow-lg shadow-slate-900/5">
+    <div className="rounded-3xl border border-dashed border-slate-200 bg-slate-50 px-4 py-6 text-center dark:border-slate-700 dark:bg-slate-800/70">
+      <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-white text-teal-700 shadow-lg shadow-slate-900/5 dark:bg-slate-900 dark:text-emerald-300 dark:shadow-black/20">
         <Icon className="h-5 w-5" />
       </span>
-      <p className="mt-4 font-black text-slate-950">{title}</p>
-      <p className="mx-auto mt-2 max-w-sm text-sm font-bold leading-6 text-slate-500">{description}</p>
+      <p className="mt-4 font-black text-slate-950 dark:text-slate-50">{title}</p>
+      <p className="mx-auto mt-2 max-w-sm text-sm font-bold leading-6 text-slate-500 dark:text-slate-300">{description}</p>
       {action ? <div className="mt-4">{action}</div> : null}
     </div>
   );
@@ -485,31 +485,31 @@ function TripHistoryCard({
     : 'Paises nao informados';
 
   return (
-    <article className="flex h-full flex-col justify-between rounded-[1.5rem] border border-white/80 bg-white/90 p-5 shadow-xl shadow-slate-900/10">
+    <article className="flex h-full flex-col justify-between rounded-[1.5rem] border border-white/80 bg-white/90 p-5 shadow-xl shadow-slate-900/10 dark:border-slate-700 dark:bg-slate-900/90 dark:shadow-black/30">
       <div>
         <div className="flex items-start justify-between gap-3">
-          <h3 className="min-w-0 truncate text-2xl font-black text-slate-950">{group.name}</h3>
+          <h3 className="min-w-0 truncate text-2xl font-black text-slate-950 dark:text-slate-50">{group.name}</h3>
           <span className={`shrink-0 rounded-2xl px-3 py-2 text-xs font-black uppercase tracking-[0.12em] ${statusClasses[status]}`}>
             {statusLabels[status]}
           </span>
         </div>
 
-        <div className="mt-4 grid gap-2 text-sm font-bold text-slate-600 sm:grid-cols-2">
-          <span className="rounded-2xl bg-slate-50 px-3 py-2">
-            <MapPin className="mr-2 inline h-4 w-4 text-teal-700" />
+        <div className="mt-4 grid gap-2 text-sm font-bold text-slate-600 dark:text-slate-300 sm:grid-cols-2">
+          <span className="rounded-2xl bg-slate-50 px-3 py-2 dark:bg-slate-800">
+            <MapPin className="mr-2 inline h-4 w-4 text-teal-700 dark:text-emerald-300" />
             {countries}
           </span>
-          <span className="rounded-2xl bg-slate-50 px-3 py-2">
-            <CalendarDays className="mr-2 inline h-4 w-4 text-teal-700" />
+          <span className="rounded-2xl bg-slate-50 px-3 py-2 dark:bg-slate-800">
+            <CalendarDays className="mr-2 inline h-4 w-4 text-teal-700 dark:text-emerald-300" />
             {formatDate(group.startDate)} - {formatDate(group.endDate)}
           </span>
-          <span className="rounded-2xl bg-slate-50 px-3 py-2">
+          <span className="rounded-2xl bg-slate-50 px-3 py-2 dark:bg-slate-800">
             Total: {formatRange(summary?.totalReal ?? { min: 0, max: 0 }, 'BRL', true)}
           </span>
-          <span className="rounded-2xl bg-slate-50 px-3 py-2">
+          <span className="rounded-2xl bg-slate-50 px-3 py-2 dark:bg-slate-800">
             Participantes: {summary?.participantsCount ?? 0}
           </span>
-          <span className="rounded-2xl bg-slate-50 px-3 py-2 sm:col-span-2">
+          <span className="rounded-2xl bg-slate-50 px-3 py-2 dark:bg-slate-800 sm:col-span-2">
             Pontos visitados: {summary?.visitedAttractionsCount ?? 0}
             {isActive ? ' / viagem aberta agora' : ''}
           </span>
@@ -519,7 +519,7 @@ function TripHistoryCard({
       <button
         type="button"
         onClick={() => onDetails(group)}
-        className="mt-5 inline-flex h-11 w-full items-center justify-center gap-2 rounded-2xl bg-slate-950 px-4 text-sm font-black text-white transition hover:bg-teal-700"
+        className="mt-5 inline-flex h-11 w-full items-center justify-center gap-2 rounded-2xl bg-slate-950 px-4 text-sm font-black text-white transition hover:bg-teal-700 dark:bg-emerald-400 dark:text-emerald-950 dark:hover:bg-emerald-300"
       >
         <Eye className="h-4 w-4" />
         Ver detalhes
@@ -622,7 +622,7 @@ function TripDetailsModal({
         role="dialog"
         aria-modal="true"
         aria-label={`Detalhes da viagem ${group.name}`}
-        className="max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-[2rem] border border-white/80 bg-white p-5 shadow-2xl shadow-slate-950/25 md:p-7"
+        className="max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-[2rem] border border-white/80 bg-white p-5 shadow-2xl shadow-slate-950/25 dark:border-slate-700 dark:bg-slate-900 md:p-7"
         initial={{ opacity: 0, y: 24, scale: 0.98 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
         exit={{ opacity: 0, y: 18, scale: 0.98 }}
@@ -631,8 +631,8 @@ function TripDetailsModal({
       >
         <div className="flex items-start justify-between gap-4">
           <div className="min-w-0">
-            <p className="text-sm font-black uppercase tracking-[0.18em] text-slate-400">Detalhes da viagem</p>
-            <h2 className="mt-2 truncate text-3xl font-black text-slate-950">{group.name}</h2>
+            <p className="text-sm font-black uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500">Detalhes da viagem</p>
+            <h2 className="mt-2 truncate text-3xl font-black text-slate-950 dark:text-slate-50">{group.name}</h2>
           </div>
           <div className="flex shrink-0 items-center gap-2">
             {isOwner ? (
@@ -640,7 +640,7 @@ function TripDetailsModal({
                 type="button"
                 onClick={() => setIsEditing((current) => !current)}
                 aria-label="Editar viagem"
-                className="inline-flex h-10 w-10 items-center justify-center rounded-2xl bg-teal-50 text-teal-700 transition hover:bg-teal-100"
+                className="inline-flex h-10 w-10 items-center justify-center rounded-2xl bg-teal-50 text-teal-700 transition hover:bg-teal-100 dark:bg-emerald-400/10 dark:text-emerald-300 dark:hover:bg-emerald-400/20"
               >
                 <Pencil className="h-5 w-5" />
               </button>
@@ -649,7 +649,7 @@ function TripDetailsModal({
               type="button"
               onClick={onClose}
               aria-label="Fechar detalhes"
-              className="inline-flex h-10 w-10 items-center justify-center rounded-2xl bg-slate-100 text-slate-600 transition hover:bg-slate-200"
+              className="inline-flex h-10 w-10 items-center justify-center rounded-2xl bg-slate-100 text-slate-600 transition hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
             >
               <X className="h-5 w-5" />
             </button>
@@ -657,47 +657,47 @@ function TripDetailsModal({
         </div>
 
         {isEditing ? (
-          <form onSubmit={handleEditSubmit} className="mt-5 space-y-4 rounded-3xl border border-teal-100 bg-teal-50/60 p-4">
+          <form onSubmit={handleEditSubmit} className="mt-5 space-y-4 rounded-3xl border border-teal-100 bg-teal-50/60 p-4 dark:border-emerald-400/30 dark:bg-emerald-400/10">
             <div className="grid gap-4 sm:grid-cols-2">
               <label className="block">
-                <span className="mb-2 block text-sm font-bold text-slate-600">Nome</span>
+                <span className="mb-2 block text-sm font-bold text-slate-600 dark:text-slate-300">Nome</span>
                 <input
                   required
                   value={draft.name}
                   onChange={(event) => setDraft((current) => ({ ...current, name: event.target.value }))}
-                  className="h-11 w-full rounded-2xl border border-slate-200 px-4 font-semibold outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-100"
+                  className="h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 font-semibold text-slate-900 outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-50 dark:focus:border-emerald-400 dark:focus:ring-emerald-400/20"
                 />
               </label>
               <label className="block">
-                <span className="mb-2 block text-sm font-bold text-slate-600">Paises</span>
+                <span className="mb-2 block text-sm font-bold text-slate-600 dark:text-slate-300">Paises</span>
                 <input
                   value={draft.countries}
                   onChange={(event) => setDraft((current) => ({ ...current, countries: event.target.value }))}
-                  className="h-11 w-full rounded-2xl border border-slate-200 px-4 font-semibold outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-100"
+                  className="h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 font-semibold text-slate-900 outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-50 dark:focus:border-emerald-400 dark:focus:ring-emerald-400/20"
                 />
               </label>
             </div>
             <label className="block">
-              <span className="mb-2 block text-sm font-bold text-slate-600">Descricao</span>
+              <span className="mb-2 block text-sm font-bold text-slate-600 dark:text-slate-300">Descricao</span>
               <textarea
                 value={draft.description}
                 onChange={(event) => setDraft((current) => ({ ...current, description: event.target.value }))}
                 rows={3}
-                className="w-full rounded-2xl border border-slate-200 px-4 py-3 font-semibold outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-100"
+                className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 font-semibold text-slate-900 outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-50 dark:focus:border-emerald-400 dark:focus:ring-emerald-400/20"
               />
             </label>
             <div className="grid gap-4 sm:grid-cols-2">
               <label className="block">
-                <span className="mb-2 block text-sm font-bold text-slate-600">Data inicial</span>
+                <span className="mb-2 block text-sm font-bold text-slate-600 dark:text-slate-300">Data inicial</span>
                 <input
                   type="date"
                   value={draft.startDate}
                   onChange={(event) => setDraft((current) => ({ ...current, startDate: event.target.value }))}
-                  className="h-11 w-full rounded-2xl border border-slate-200 px-4 font-semibold outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-100"
+                  className="h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 font-semibold text-slate-900 outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-50 dark:focus:border-emerald-400 dark:focus:ring-emerald-400/20"
                 />
               </label>
               <label className="block">
-                <span className="mb-2 block text-sm font-bold text-slate-600">Data final</span>
+                <span className="mb-2 block text-sm font-bold text-slate-600 dark:text-slate-300">Data final</span>
                 <input
                   type="date"
                   value={draft.endDate}
@@ -706,17 +706,17 @@ function TripDetailsModal({
                   onChange={(event) => setDraft((current) => ({ ...current, endDate: event.target.value }))}
                   className={`h-11 w-full rounded-2xl border px-4 font-semibold outline-none focus:ring-4 ${
                     isDraftDateRangeInvalid
-                      ? 'border-rose-300 focus:border-rose-400 focus:ring-rose-100'
-                      : 'border-slate-200 focus:border-teal-400 focus:ring-teal-100'
+                      ? 'border-rose-300 bg-white text-slate-900 focus:border-rose-400 focus:ring-rose-100 dark:border-rose-500/60 dark:bg-slate-900 dark:text-slate-50 dark:focus:ring-rose-400/20'
+                      : 'border-slate-200 bg-white text-slate-900 focus:border-teal-400 focus:ring-teal-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-50 dark:focus:border-emerald-400 dark:focus:ring-emerald-400/20'
                   }`}
                 />
               </label>
               <label className="block">
-                <span className="mb-2 block text-sm font-bold text-slate-600">Estilo</span>
+                <span className="mb-2 block text-sm font-bold text-slate-600 dark:text-slate-300">Estilo</span>
                 <select
                   value={draft.travelStyle}
                   onChange={(event) => setDraft((current) => ({ ...current, travelStyle: event.target.value }))}
-                  className="h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 font-semibold outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-100"
+                  className="h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 font-semibold text-slate-900 outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-50 dark:focus:border-emerald-400 dark:focus:ring-emerald-400/20"
                 >
                   <option value="economica">Economica</option>
                   <option value="intermediaria">Intermediaria</option>
@@ -724,11 +724,11 @@ function TripDetailsModal({
                 </select>
               </label>
               <label className="block">
-                <span className="mb-2 block text-sm font-bold text-slate-600">Status</span>
+                <span className="mb-2 block text-sm font-bold text-slate-600 dark:text-slate-300">Status</span>
                 <select
                   value={draft.status}
                   onChange={(event) => setDraft((current) => ({ ...current, status: event.target.value as TripStatus }))}
-                  className="h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 font-semibold outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-100"
+                  className="h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 font-semibold text-slate-900 outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-50 dark:focus:border-emerald-400 dark:focus:ring-emerald-400/20"
                 >
                   <option value="planned">Planejada</option>
                   <option value="active">Ativa</option>
@@ -738,7 +738,7 @@ function TripDetailsModal({
               </label>
             </div>
             {isDraftDateRangeInvalid ? (
-              <p className="rounded-2xl bg-rose-50 px-4 py-3 text-sm font-bold text-rose-700">
+              <p className="rounded-2xl bg-rose-50 px-4 py-3 text-sm font-bold text-rose-700 dark:bg-rose-400/10 dark:text-rose-200">
                 {INVALID_DATE_RANGE_MESSAGE}
               </p>
             ) : null}
@@ -746,7 +746,7 @@ function TripDetailsModal({
               <button
                 type="submit"
                 disabled={isSaving || isDraftDateRangeInvalid}
-                className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl bg-slate-950 px-4 text-sm font-black text-white transition hover:bg-teal-700 disabled:opacity-60"
+                className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl bg-slate-950 px-4 text-sm font-black text-white transition hover:bg-teal-700 disabled:opacity-60 dark:bg-emerald-400 dark:text-emerald-950 dark:hover:bg-emerald-300"
               >
                 {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
                 Salvar alteracoes
@@ -755,7 +755,7 @@ function TripDetailsModal({
                 type="button"
                 onClick={() => setIsEditing(false)}
                 disabled={isSaving}
-                className="inline-flex h-11 items-center justify-center rounded-2xl bg-white px-4 text-sm font-black text-slate-600 transition hover:bg-slate-100 disabled:opacity-60"
+                className="inline-flex h-11 items-center justify-center rounded-2xl bg-white px-4 text-sm font-black text-slate-600 transition hover:bg-slate-100 disabled:opacity-60 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
               >
                 Cancelar
               </button>
@@ -767,32 +767,32 @@ function TripDetailsModal({
           <span className={`rounded-2xl px-3 py-2 text-xs font-black uppercase tracking-[0.12em] ${statusClasses[status]}`}>
             {statusLabels[status]}
           </span>
-          <span className="rounded-2xl bg-slate-100 px-3 py-2 text-xs font-black uppercase tracking-[0.12em] text-slate-500">
+          <span className="rounded-2xl bg-slate-100 px-3 py-2 text-xs font-black uppercase tracking-[0.12em] text-slate-500 dark:bg-slate-800 dark:text-slate-300">
             {isOwner ? 'Owner' : 'Member'}
           </span>
           {isActive ? (
-            <span className="rounded-2xl bg-teal-50 px-3 py-2 text-xs font-black uppercase tracking-[0.12em] text-teal-700">
+            <span className="rounded-2xl bg-teal-50 px-3 py-2 text-xs font-black uppercase tracking-[0.12em] text-teal-700 dark:bg-emerald-400/10 dark:text-emerald-200">
               Aberta agora
             </span>
           ) : null}
         </div>
 
-        <div className="mt-5 grid gap-3 text-sm font-bold text-slate-600 sm:grid-cols-2">
-          <span className="rounded-2xl bg-slate-50 px-4 py-3">
-            <MapPin className="mr-2 inline h-4 w-4 text-teal-700" />
+        <div className="mt-5 grid gap-3 text-sm font-bold text-slate-600 dark:text-slate-300 sm:grid-cols-2">
+          <span className="rounded-2xl bg-slate-50 px-4 py-3 dark:bg-slate-800 dark:bg-slate-800">
+            <MapPin className="mr-2 inline h-4 w-4 text-teal-700 dark:text-emerald-300" />
             {countries}
           </span>
-          <span className="rounded-2xl bg-slate-50 px-4 py-3">
-            <CalendarDays className="mr-2 inline h-4 w-4 text-teal-700" />
+          <span className="rounded-2xl bg-slate-50 px-4 py-3 dark:bg-slate-800 dark:bg-slate-800">
+            <CalendarDays className="mr-2 inline h-4 w-4 text-teal-700 dark:text-emerald-300" />
             {formatDate(group.startDate)} - {formatDate(group.endDate)}
           </span>
-          <span className="rounded-2xl bg-slate-50 px-4 py-3">
+          <span className="rounded-2xl bg-slate-50 px-4 py-3 dark:bg-slate-800 dark:bg-slate-800">
             Total estimado: {formatRange(summary?.totalReal ?? { min: 0, max: 0 }, 'BRL', true)}
           </span>
-          <span className="rounded-2xl bg-slate-50 px-4 py-3">
+          <span className="rounded-2xl bg-slate-50 px-4 py-3 dark:bg-slate-800 dark:bg-slate-800">
             Participantes: {summary?.participantsCount ?? 0}
           </span>
-          <span className="rounded-2xl bg-slate-50 px-4 py-3 sm:col-span-2">
+          <span className="rounded-2xl bg-slate-50 px-4 py-3 dark:bg-slate-800 dark:bg-slate-800 sm:col-span-2">
             Pontos visitados: {summary?.visitedAttractionsCount ?? 0}
           </span>
         </div>
@@ -801,7 +801,7 @@ function TripDetailsModal({
           <button
             type="button"
             onClick={() => onOpen(group)}
-            className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl bg-slate-950 px-5 font-black text-white transition hover:bg-teal-700"
+            className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl bg-slate-950 px-5 font-black text-white transition hover:bg-teal-700 dark:bg-emerald-400 dark:text-emerald-950 dark:hover:bg-emerald-300 dark:bg-emerald-400 dark:text-emerald-950 dark:hover:bg-emerald-300"
           >
             Abrir viagem
           </button>
@@ -810,7 +810,7 @@ function TripDetailsModal({
               type="button"
               onClick={() => onComplete(group)}
               disabled={isBusy}
-              className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl bg-emerald-50 px-5 font-black text-emerald-700 transition hover:bg-emerald-100 disabled:opacity-60"
+              className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl bg-emerald-50 px-5 font-black text-emerald-700 transition hover:bg-emerald-100 disabled:opacity-60 dark:bg-emerald-400/10 dark:text-emerald-200 dark:hover:bg-emerald-400/20"
             >
               <CheckCircle2 className="h-5 w-5" />
               Marcar realizada
@@ -821,7 +821,7 @@ function TripDetailsModal({
               type="button"
               onClick={() => onCancel(group)}
               disabled={isBusy}
-              className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl bg-amber-50 px-5 font-black text-amber-800 transition hover:bg-amber-100 disabled:opacity-60"
+              className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl bg-amber-50 px-5 font-black text-amber-800 transition hover:bg-amber-100 disabled:opacity-60 dark:bg-amber-400/10 dark:text-amber-200 dark:hover:bg-amber-400/20"
             >
               Cancelar viagem
             </button>
@@ -831,7 +831,7 @@ function TripDetailsModal({
               type="button"
               onClick={() => onDelete(group)}
               disabled={isBusy}
-              className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl bg-rose-50 px-5 font-black text-rose-700 transition hover:bg-rose-100 disabled:opacity-60"
+              className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl bg-rose-50 px-5 font-black text-rose-700 transition hover:bg-rose-100 disabled:opacity-60 dark:bg-rose-400/10 dark:text-rose-200 dark:hover:bg-rose-400/20"
             >
               <Trash2 className="h-5 w-5" />
               Apagar viagem
@@ -842,12 +842,12 @@ function TripDetailsModal({
                 type="button"
                 onClick={() => onLeave(group)}
                 disabled={isBusy}
-                className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl bg-rose-50 px-5 font-black text-rose-700 transition hover:bg-rose-100 disabled:opacity-60"
+                className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl bg-rose-50 px-5 font-black text-rose-700 transition hover:bg-rose-100 disabled:opacity-60 dark:bg-rose-400/10 dark:text-rose-200 dark:hover:bg-rose-400/20"
               >
                 <LogOut className="h-5 w-5" />
                 Sair desta viagem
               </button>
-              <p className="rounded-2xl bg-slate-50 px-4 py-3 text-sm font-bold text-slate-500">
+              <p className="rounded-2xl bg-slate-50 px-4 py-3 dark:bg-slate-800 text-sm font-bold text-slate-500 dark:bg-slate-800 dark:text-slate-300">
                 Acoes administrativas ficam disponiveis apenas para o owner.
               </p>
             </>
@@ -2085,24 +2085,24 @@ export function ProfilePage() {
       <article
         key={notification.id}
         className={`rounded-3xl border p-4 ${
-          notification.read ? 'border-slate-100 bg-slate-50' : 'border-teal-100 bg-teal-50/70'
+          notification.read ? 'border-slate-100 bg-slate-50 dark:border-slate-700 dark:bg-slate-800/80' : 'border-teal-100 bg-teal-50/70 dark:border-emerald-400/30 dark:bg-emerald-400/10'
         }`}
       >
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div className="min-w-0">
             <div className="flex items-center gap-2">
-              <Bell className={`h-4 w-4 ${notification.read ? 'text-slate-400' : 'text-teal-700'}`} />
-              <h3 className="truncate font-black text-slate-950">{notification.title}</h3>
+              <Bell className={`h-4 w-4 ${notification.read ? 'text-slate-400 dark:text-slate-500' : 'text-teal-700 dark:text-emerald-300'}`} />
+              <h3 className="truncate font-black text-slate-950 dark:text-slate-50">{notification.title}</h3>
               {!notification.read ? (
-                <span className="rounded-full bg-teal-700 px-2 py-1 text-[0.65rem] font-black uppercase tracking-[0.12em] text-white">
+                <span className="rounded-full bg-teal-700 px-2 py-1 text-[0.65rem] font-black uppercase tracking-[0.12em] text-white dark:bg-emerald-400 dark:text-emerald-950">
                   Nova
                 </span>
               ) : null}
             </div>
-            <p className={`mt-2 text-sm font-semibold leading-6 text-slate-600 ${compact ? 'line-clamp-2' : ''}`}>
+            <p className={`mt-2 text-sm font-semibold leading-6 text-slate-600 dark:text-slate-300 ${compact ? 'line-clamp-2' : ''}`}>
               {notification.message}
             </p>
-            <p className="mt-2 text-xs font-bold text-slate-400">{formatDate(notification.createdAt)}</p>
+            <p className="mt-2 text-xs font-bold text-slate-400 dark:text-slate-500">{formatDate(notification.createdAt)}</p>
           </div>
           <div className="flex flex-wrap gap-2 sm:justify-end">
             {isInviteNotification && !notification.read ? (
@@ -2111,7 +2111,7 @@ export function ProfilePage() {
                   type="button"
                   onClick={() => void handleAcceptNotificationInvite(notification)}
                   disabled={isBusy}
-                  className="inline-flex h-10 items-center justify-center gap-2 rounded-2xl bg-teal-700 px-3 text-sm font-black text-white transition hover:bg-teal-800 disabled:opacity-60"
+                  className="inline-flex h-10 items-center justify-center gap-2 rounded-2xl bg-teal-700 px-3 text-sm font-black text-white transition hover:bg-teal-800 disabled:opacity-60 dark:bg-emerald-400 dark:text-emerald-950 dark:hover:bg-emerald-300"
                 >
                   {isBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
                   Aceitar
@@ -2120,7 +2120,7 @@ export function ProfilePage() {
                   type="button"
                   onClick={() => void handleRejectNotificationInvite(notification)}
                   disabled={isBusy}
-                  className="inline-flex h-10 items-center justify-center gap-2 rounded-2xl bg-white px-3 text-sm font-black text-rose-700 transition hover:bg-rose-50 disabled:opacity-60"
+                  className="inline-flex h-10 items-center justify-center gap-2 rounded-2xl bg-white px-3 text-sm font-black text-rose-700 transition hover:bg-rose-50 disabled:opacity-60 dark:bg-slate-900 dark:text-rose-300 dark:hover:bg-rose-500/10"
                 >
                   <X className="h-4 w-4" />
                   Recusar
@@ -2132,7 +2132,7 @@ export function ProfilePage() {
                 type="button"
                 onClick={() => void handleMarkNotificationRead(notification)}
                 disabled={isBusy}
-                className="inline-flex h-10 items-center justify-center rounded-2xl bg-white px-3 text-sm font-black text-slate-700 transition hover:bg-slate-100 disabled:opacity-60"
+                className="inline-flex h-10 items-center justify-center rounded-2xl bg-white px-3 text-sm font-black text-slate-700 transition hover:bg-slate-100 disabled:opacity-60 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-700"
               >
                 Marcar lida
               </button>
@@ -2145,7 +2145,7 @@ export function ProfilePage() {
 
   const renderCreateTripForm = () => (
     <motion.section
-      className="rounded-[2rem] border border-white/80 bg-white/90 p-6 shadow-xl shadow-slate-900/10 md:p-8"
+      className="rounded-[2rem] border border-white/80 bg-white/90 p-6 shadow-xl shadow-slate-900/10 dark:border-slate-700 dark:bg-slate-900/90 dark:shadow-black/30 md:p-8"
       initial={{ opacity: 0, y: 18 }}
       animate={{ opacity: 1, y: 0 }}
     >
@@ -2154,36 +2154,36 @@ export function ProfilePage() {
           <Plus className="h-6 w-6" />
         </span>
         <div>
-          <p className="text-sm font-black uppercase tracking-[0.18em] text-slate-400">{t('profile.newTrip')}</p>
+          <p className="text-sm font-black uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500">{t('profile.newTrip')}</p>
           <h2 className="text-2xl font-black">{activeGroup ? t('profile.createNewTrip') : t('profile.createTrip')}</h2>
         </div>
       </div>
-      <p className="mb-6 rounded-2xl bg-teal-50 px-4 py-3 text-sm font-bold text-teal-800">
+      <p className="mb-6 rounded-2xl bg-teal-50 dark:bg-emerald-400/10 px-4 py-3 text-sm font-bold text-teal-800 dark:text-emerald-200">
         {activeGroup ? t('profile.createAnotherGroup') : t('profile.noTripYet')}
       </p>
       <form onSubmit={handleCreateTrip} className="space-y-4">
         <div className="grid gap-4 md:grid-cols-2">
           <label className="block">
-            <span className="mb-2 block text-sm font-bold text-slate-600">{t('profile.tripName')}</span>
+            <span className="mb-2 block text-sm font-bold text-slate-600 dark:text-slate-300">{t('profile.tripName')}</span>
             <input
               required
               value={tripName}
               onChange={(event) => setTripName(event.target.value)}
-              className="h-12 w-full rounded-2xl border border-slate-200 px-4 font-semibold outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-100"
+              className="h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 font-semibold text-slate-900 outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-50 dark:focus:border-emerald-400 dark:focus:ring-emerald-400/20"
             />
           </label>
           <label className="block">
-            <span className="mb-2 block text-sm font-bold text-slate-600">{t('profile.tripCountries')}</span>
+            <span className="mb-2 block text-sm font-bold text-slate-600 dark:text-slate-300">{t('profile.tripCountries')}</span>
             <input
               value={tripCountries}
               onChange={(event) => setTripCountries(event.target.value)}
               placeholder={t('profile.tripCountriesPlaceholder')}
-              className="h-12 w-full rounded-2xl border border-slate-200 px-4 font-semibold outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-100"
+              className="h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 font-semibold text-slate-900 outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-50 dark:focus:border-emerald-400 dark:focus:ring-emerald-400/20"
             />
           </label>
         </div>
         <label className="block">
-          <span className="mb-2 block text-sm font-bold text-slate-600">{t('profile.description')}</span>
+          <span className="mb-2 block text-sm font-bold text-slate-600 dark:text-slate-300">{t('profile.description')}</span>
           <textarea
             value={tripDescription}
             onChange={(event) => setTripDescription(event.target.value)}
@@ -2197,29 +2197,29 @@ export function ProfilePage() {
             }`}
           />
           <span className={`mt-2 flex justify-between gap-3 text-xs font-black ${
-            isTripDescriptionTooLong ? 'text-rose-600' : 'text-slate-400'
+            isTripDescriptionTooLong ? 'text-rose-600' : 'text-slate-400 dark:text-slate-500'
           }`}>
             <span>{isTripDescriptionTooLong ? TRIP_DESCRIPTION_TOO_LONG_MESSAGE : 'Use este campo para todos os detalhes que a IA deve considerar.'}</span>
             <span className="shrink-0">{tripDescription.length} / {TRIP_DESCRIPTION_MAX_LENGTH}</span>
           </span>
         </label>
         {createTripCountryOnlyAIHint ? (
-          <p className="rounded-2xl bg-sky-50 px-4 py-3 text-sm font-bold text-sky-800">
+          <p className="rounded-2xl bg-sky-50 dark:bg-sky-400/10 px-4 py-3 text-sm font-bold text-sky-800 dark:text-sky-200">
             {createTripCountryOnlyAIHint}
           </p>
         ) : null}
         <div className="grid gap-4 md:grid-cols-3">
           <label className="block">
-            <span className="mb-2 block text-sm font-bold text-slate-600">{t('profile.startDate')}</span>
+            <span className="mb-2 block text-sm font-bold text-slate-600 dark:text-slate-300">{t('profile.startDate')}</span>
             <input
               type="date"
               value={tripStartDate}
               onChange={(event) => setTripStartDate(event.target.value)}
-              className="h-12 w-full rounded-2xl border border-slate-200 px-4 font-semibold outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-100"
+              className="h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 font-semibold text-slate-900 outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-50 dark:focus:border-emerald-400 dark:focus:ring-emerald-400/20"
             />
           </label>
           <label className="block">
-            <span className="mb-2 block text-sm font-bold text-slate-600">{t('profile.endDate')}</span>
+            <span className="mb-2 block text-sm font-bold text-slate-600 dark:text-slate-300">{t('profile.endDate')}</span>
             <input
               type="date"
               value={tripEndDate}
@@ -2234,11 +2234,11 @@ export function ProfilePage() {
             />
           </label>
           <label className="block">
-            <span className="mb-2 block text-sm font-bold text-slate-600">{t('profile.style')}</span>
+            <span className="mb-2 block text-sm font-bold text-slate-600 dark:text-slate-300">{t('profile.style')}</span>
             <select
               value={tripStyle}
               onChange={(event) => setTripStyle(event.target.value)}
-              className="h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 font-semibold outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-100"
+              className="h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 font-semibold text-slate-900 outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-50 dark:focus:border-emerald-400 dark:focus:ring-emerald-400/20"
             >
               <option value="economica">{t('profile.economic')}</option>
               <option value="intermediaria">{t('profile.balanced')}</option>
@@ -2247,14 +2247,14 @@ export function ProfilePage() {
           </label>
         </div>
         {isTripDateRangeInvalid ? (
-          <p className="rounded-2xl bg-rose-50 px-4 py-3 text-sm font-bold text-rose-700">
+          <p className="rounded-2xl bg-rose-50 dark:bg-rose-400/10 px-4 py-3 text-sm font-bold text-rose-700 dark:text-rose-200">
             {INVALID_DATE_RANGE_MESSAGE}
           </p>
         ) : null}
         <button
           type="submit"
           disabled={isCreatingTrip || isTripDescriptionTooLong || isTripDateRangeInvalid}
-          className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-slate-950 px-5 font-black text-white transition hover:bg-teal-700 disabled:cursor-not-allowed disabled:opacity-70"
+          className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-slate-950 px-5 font-black text-white transition hover:bg-teal-700 dark:bg-emerald-400 dark:text-emerald-950 dark:hover:bg-emerald-300 disabled:cursor-not-allowed disabled:opacity-70 dark:bg-emerald-400 dark:text-emerald-950 dark:hover:bg-emerald-300"
         >
           <Plus className="h-5 w-5" />
           {isCreatingTrip ? t('profile.creatingTrip') : t('profile.createTrip')}
@@ -2265,7 +2265,7 @@ export function ProfilePage() {
 
   const renderJoinInviteCard = () => (
     <motion.section
-      className="rounded-[2rem] border border-white/80 bg-white/90 p-6 shadow-xl shadow-slate-900/10 md:p-8"
+      className="rounded-[2rem] border border-white/80 bg-white/90 p-6 shadow-xl shadow-slate-900/10 dark:border-slate-700 dark:bg-slate-900/90 dark:shadow-black/30 md:p-8"
       initial={{ opacity: 0, y: 18 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: 0.05 }}
@@ -2275,24 +2275,24 @@ export function ProfilePage() {
           <MapPin className="h-6 w-6" />
         </span>
         <div>
-          <p className="text-sm font-black uppercase tracking-[0.18em] text-slate-400">{t('profile.invite')}</p>
+          <p className="text-sm font-black uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500">{t('profile.invite')}</p>
           <h2 className="text-2xl font-black">{t('profile.joinWithCode')}</h2>
         </div>
       </div>
       <form onSubmit={handleAcceptInvite} className="space-y-4">
         <label className="block">
-          <span className="mb-2 block text-sm font-bold text-slate-600">{t('profile.inviteCodeOrLink')}</span>
+          <span className="mb-2 block text-sm font-bold text-slate-600 dark:text-slate-300">{t('profile.inviteCodeOrLink')}</span>
           <input
             value={inviteCodeInput}
             onChange={(event) => setInviteCodeInput(event.target.value.toUpperCase())}
             placeholder="EUROPA-7K9X2"
-            className="h-12 w-full rounded-2xl border border-slate-200 px-4 font-semibold outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-100"
+            className="h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 font-semibold text-slate-900 outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-50 dark:focus:border-emerald-400 dark:focus:ring-emerald-400/20"
           />
         </label>
         <button
           type="submit"
           disabled={isJoiningTrip || !normalizeInviteToken(inviteCodeInput)}
-          className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-5 font-black text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+          className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-5 font-black text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700"
         >
           <Ticket className="h-5 w-5" />
           {isJoiningTrip ? t('profile.joining') : t('profile.joinWithInviteCode')}
@@ -2302,66 +2302,66 @@ export function ProfilePage() {
   );
 
   const renderActiveTripAiCard = () => (
-    <section className="rounded-[2rem] border border-white/80 bg-white/90 p-6 shadow-xl shadow-slate-900/10 md:p-8">
+    <section className="rounded-[2rem] border border-white/80 bg-white/90 p-6 shadow-xl shadow-slate-900/10 dark:border-slate-700 dark:bg-slate-900/90 dark:shadow-black/30 md:p-8">
       {activeGroup ? (
         <>
           <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
             <div>
-              <p className="text-sm font-black uppercase tracking-[0.18em] text-slate-400">Viagem ativa</p>
-              <h2 className="mt-2 text-3xl font-black tracking-tight text-slate-950">{activeGroup.name}</h2>
-              <p className="mt-3 max-w-2xl text-sm font-bold leading-6 text-slate-600">
+              <p className="text-sm font-black uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500">Viagem ativa</p>
+              <h2 className="mt-2 text-3xl font-black tracking-tight text-slate-950 dark:text-slate-50">{activeGroup.name}</h2>
+              <p className="mt-3 max-w-2xl text-sm font-bold leading-6 text-slate-600 dark:text-slate-300">
                 {recentlyCreatedTripId === activeGroup.id
                   ? t('profile.aiTripCreatedPrompt')
                   : t('profile.aiActiveTripPrompt')}
               </p>
             </div>
-            <span className="rounded-2xl bg-teal-50 px-3 py-2 text-sm font-black text-teal-700">
+            <span className="rounded-2xl bg-teal-50 dark:bg-emerald-400/10 px-3 py-2 text-sm font-black text-teal-700 dark:text-emerald-300">
               {activeGroup.role}
             </span>
           </div>
           <div className={`mt-6 rounded-3xl border p-5 ${
-            recentlyCreatedTripId === activeGroup.id ? 'border-teal-200 bg-teal-50/80' : 'border-slate-100 bg-slate-50'
+            recentlyCreatedTripId === activeGroup.id ? 'border-teal-200 bg-teal-50/80 dark:border-emerald-400/30 dark:bg-emerald-400/10' : 'border-slate-100 bg-slate-50 dark:border-slate-700 dark:bg-slate-800'
           }`}>
-            <p className="text-sm font-black uppercase tracking-[0.16em] text-teal-700">
+            <p className="text-sm font-black uppercase tracking-[0.16em] text-teal-700 dark:text-emerald-300">
               {t('profile.aiNextStepTitle')}
             </p>
-            <p className="mt-2 text-sm font-bold leading-6 text-slate-600">
+            <p className="mt-2 text-sm font-bold leading-6 text-slate-600 dark:text-slate-300">
               A IA roda pela Edge Function do Supabase e abre a tela de revisão antes de aplicar qualquer roteiro.
             </p>
             <button
               type="button"
               onClick={() => void handleGenerateActiveTripPreview()}
               disabled={isGeneratingAI || aiGenerationBlocked || isActiveTripDateRangeInvalid}
-              className="mt-4 inline-flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-teal-700 px-5 font-black text-white transition hover:bg-teal-800 disabled:cursor-not-allowed disabled:opacity-70 sm:w-auto"
+              className="mt-4 inline-flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-teal-700 dark:bg-emerald-400 px-5 font-black text-white dark:text-emerald-950 transition hover:bg-teal-800 disabled:cursor-not-allowed disabled:opacity-70 sm:w-auto"
             >
               {isGeneratingAI ? <Loader2 className="h-5 w-5 animate-spin" /> : <Sparkles className="h-5 w-5" />}
               {isGeneratingAI ? aiGenerationMessage ?? t('profile.generatingAI') : t('profile.generateAI')}
             </button>
             {isGeneratingAI && aiGenerationMessage ? (
-              <p className="mt-3 rounded-2xl bg-white px-4 py-3 text-sm font-black text-teal-800">
+              <p className="mt-3 rounded-2xl bg-white px-4 py-3 text-sm font-black text-teal-800 dark:bg-slate-800 dark:text-emerald-200">
                 {aiGenerationMessage}
               </p>
             ) : null}
             {!isGeneratingAI && activeTripCountryOnlyAIHint ? (
-              <p className="mt-3 rounded-2xl bg-sky-50 px-4 py-3 text-sm font-bold text-sky-800">
+              <p className="mt-3 rounded-2xl bg-sky-50 dark:bg-sky-400/10 px-4 py-3 text-sm font-bold text-sky-800 dark:text-sky-200">
                 {activeTripCountryOnlyAIHint}
               </p>
             ) : null}
-            <p className="mt-3 rounded-2xl bg-white px-4 py-3 text-sm font-bold text-slate-600">
+            <p className="mt-3 rounded-2xl bg-white px-4 py-3 text-sm font-bold text-slate-600 dark:bg-slate-800 dark:text-slate-300">
               {isActiveTripDateRangeInvalid ? INVALID_DATE_RANGE_MESSAGE : aiUsageLabel}
             </p>
           </div>
           <button
             type="button"
             onClick={() => setShowCreateTripForm(true)}
-            className="mt-5 inline-flex h-11 items-center justify-center gap-2 rounded-2xl bg-slate-100 px-4 text-sm font-black text-slate-700 transition hover:bg-slate-200"
+            className="mt-5 inline-flex h-11 items-center justify-center gap-2 rounded-2xl bg-slate-100 dark:bg-slate-800 px-4 text-sm font-black text-slate-700 dark:text-slate-200 transition hover:bg-slate-200"
           >
             <Plus className="h-4 w-4" />
             Criar outra viagem
           </button>
         </>
       ) : (
-        <p className="rounded-2xl bg-teal-50 px-4 py-3 text-sm font-bold text-teal-800">
+        <p className="rounded-2xl bg-teal-50 dark:bg-emerald-400/10 px-4 py-3 text-sm font-bold text-teal-800 dark:text-emerald-200">
           Primeiro crie sua viagem. Depois o botao Gerar com IA aparece aqui para montar uma previa revisavel.
         </p>
       )}
@@ -2369,9 +2369,9 @@ export function ProfilePage() {
   );
 
   const renderMembersSection = () => (
-    <section className="rounded-[2rem] border border-white/80 bg-white/90 p-6 shadow-xl shadow-slate-900/10 md:p-8">
+    <section className="rounded-[2rem] border border-white/80 bg-white/90 p-6 shadow-xl shadow-slate-900/10 dark:border-slate-700 dark:bg-slate-900/90 dark:shadow-black/30 md:p-8">
       <div className="mb-5 flex items-center gap-3">
-        <Users className="h-5 w-5 text-teal-700" />
+        <Users className="h-5 w-5 text-teal-700 dark:text-emerald-300" />
         <h2 className="text-2xl font-black">{t('profile.tripMembers')}</h2>
       </div>
       <div className="space-y-3">
@@ -2384,7 +2384,7 @@ export function ProfilePage() {
           return (
             <div
               key={member.id}
-              className="flex flex-col gap-3 rounded-3xl border border-slate-100 bg-slate-50 p-4 sm:flex-row sm:items-center sm:justify-between"
+              className="flex flex-col gap-3 rounded-3xl border border-slate-100 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-800 sm:flex-row sm:items-center sm:justify-between"
             >
               <div className="flex min-w-0 items-center gap-3">
                 {member.profile?.avatarUrl ? (
@@ -2395,13 +2395,13 @@ export function ProfilePage() {
                   </span>
                 )}
                 <div className="min-w-0">
-                  <p className="truncate font-black text-slate-950">{memberName}</p>
-                  <p className="truncate text-sm font-bold text-slate-500">{memberEmail}</p>
-                  <p className="text-xs font-bold text-slate-400">Entrada: {formatDate(member.createdAt)}</p>
+                  <p className="truncate font-black text-slate-950 dark:text-slate-50">{memberName}</p>
+                  <p className="truncate text-sm font-bold text-slate-500 dark:text-slate-400 dark:text-slate-500">{memberEmail}</p>
+                  <p className="text-xs font-bold text-slate-400 dark:text-slate-500">Entrada: {formatDate(member.createdAt)}</p>
                 </div>
               </div>
               <div className="flex items-center gap-2">
-                <span className="rounded-2xl bg-white px-3 py-2 text-xs font-black uppercase tracking-[0.12em] text-slate-600">
+                <span className="rounded-2xl bg-white px-3 py-2 text-xs font-black uppercase tracking-[0.12em] text-slate-600 dark:bg-slate-900 dark:text-slate-300">
                   {member.role}
                 </span>
                 {canRemove ? (
@@ -2409,7 +2409,7 @@ export function ProfilePage() {
                     type="button"
                     onClick={() => void handleRemoveMember(member)}
                     disabled={removingUserId === member.userId}
-                    className="inline-flex h-10 items-center justify-center gap-2 rounded-2xl bg-rose-50 px-3 text-sm font-black text-rose-700 transition hover:bg-rose-100 disabled:opacity-60"
+                    className="inline-flex h-10 items-center justify-center gap-2 rounded-2xl bg-rose-50 dark:bg-rose-400/10 px-3 text-sm font-black text-rose-700 dark:text-rose-200 transition hover:bg-rose-100 disabled:opacity-60"
                   >
                     <Trash2 className="h-4 w-4" />
                     Remover
@@ -2424,29 +2424,29 @@ export function ProfilePage() {
   );
 
   const renderInviteSection = () => (
-    <section className="rounded-[2rem] border border-white/80 bg-white/90 p-6 shadow-xl shadow-slate-900/10 md:p-8">
+    <section className="rounded-[2rem] border border-white/80 bg-white/90 p-6 shadow-xl shadow-slate-900/10 dark:border-slate-700 dark:bg-slate-900/90 dark:shadow-black/30 md:p-8">
       <div className="mb-6 flex items-center gap-3">
-        <Ticket className="h-5 w-5 text-teal-700" />
+        <Ticket className="h-5 w-5 text-teal-700 dark:text-emerald-300" />
         <h2 className="text-2xl font-black">{t('profile.invitePerson')}</h2>
       </div>
       {isOwner ? (
         <>
           <form onSubmit={handleInvite} className="space-y-4">
             <label className="block">
-              <span className="mb-2 block text-sm font-bold text-slate-600">{t('profile.inviteEmail')}</span>
+              <span className="mb-2 block text-sm font-bold text-slate-600 dark:text-slate-300">{t('profile.inviteEmail')}</span>
               <input
                 type="email"
                 required
                 value={inviteEmail}
                 onChange={(event) => setInviteEmail(event.target.value)}
                 placeholder="amigo@email.com"
-                className="h-12 w-full rounded-2xl border border-slate-200 px-4 font-semibold outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-100"
+                className="h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 font-semibold text-slate-900 outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-50 dark:focus:border-emerald-400 dark:focus:ring-emerald-400/20"
               />
             </label>
             <button
               type="submit"
               disabled={isInviting}
-              className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-slate-950 px-5 font-black text-white transition hover:bg-teal-700 disabled:cursor-not-allowed disabled:opacity-70"
+              className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-slate-950 px-5 font-black text-white transition hover:bg-teal-700 dark:bg-emerald-400 dark:text-emerald-950 dark:hover:bg-emerald-300 disabled:cursor-not-allowed disabled:opacity-70 dark:bg-emerald-400 dark:text-emerald-950 dark:hover:bg-emerald-300"
             >
               <Send className="h-5 w-5" />
               {isInviting ? t('profile.sendingInvite') : t('profile.sendInvite')}
@@ -2454,23 +2454,23 @@ export function ProfilePage() {
           </form>
 
           {latestInvite ? (
-            <div className="mt-6 space-y-3 rounded-3xl bg-teal-50 p-4 text-sm font-bold text-teal-900">
+            <div className="mt-6 space-y-3 rounded-3xl bg-teal-50 dark:bg-emerald-400/10 p-4 text-sm font-bold text-teal-900 dark:text-emerald-200">
               <div className="flex items-center gap-2">
                 <Ticket className="h-4 w-4" />
                 <span className="break-all">{latestInvite.code}</span>
               </div>
-              <div className="flex items-center gap-2 text-teal-800">
+              <div className="flex items-center gap-2 text-teal-800 dark:text-emerald-200">
                 <Link2 className="h-4 w-4" />
                 <span className="break-all">{latestInvite.link}</span>
               </div>
-              <div className="grid gap-2 text-teal-700 sm:grid-cols-2">
+              <div className="grid gap-2 text-teal-700 dark:text-emerald-300 sm:grid-cols-2">
                 {latestInvite.email ? (
-                  <span className="rounded-2xl bg-white/70 px-3 py-2">E-mail: {latestInvite.email}</span>
+                  <span className="rounded-2xl bg-white/70 px-3 py-2 dark:bg-slate-900/70 dark:text-slate-200">E-mail: {latestInvite.email}</span>
                 ) : null}
-                <span className="rounded-2xl bg-white/70 px-3 py-2">
+                <span className="rounded-2xl bg-white/70 px-3 py-2 dark:bg-slate-900/70 dark:text-slate-200">
                   {t('profile.inviteValidity')}: {latestInvite.expiresAt ? formatDate(latestInvite.expiresAt) : '7 dias'}
                 </span>
-                <span className="rounded-2xl bg-white/70 px-3 py-2">
+                <span className="rounded-2xl bg-white/70 px-3 py-2 dark:bg-slate-900/70 dark:text-slate-200">
                   Envio: {latestInvite.emailSent ? 'e-mail enviado' : latestInvite.emailError ? 'e-mail pendente' : 'salvo'}
                 </span>
               </div>
@@ -2478,7 +2478,7 @@ export function ProfilePage() {
                 <button
                   type="button"
                   onClick={() => void copyToClipboard(latestInvite.code, 'codigo')}
-                  className="inline-flex h-10 items-center justify-center gap-2 rounded-2xl bg-white px-3 text-teal-800"
+                  className="inline-flex h-10 items-center justify-center gap-2 rounded-2xl bg-white px-3 text-teal-800 dark:bg-slate-900 dark:text-emerald-300"
                 >
                   <Copy className="h-4 w-4" />
                   {t('actions.copyCode')}
@@ -2486,27 +2486,27 @@ export function ProfilePage() {
                 <button
                   type="button"
                   onClick={() => void copyToClipboard(latestInvite.link, 'link')}
-                  className="inline-flex h-10 items-center justify-center gap-2 rounded-2xl bg-white px-3 text-teal-800"
+                  className="inline-flex h-10 items-center justify-center gap-2 rounded-2xl bg-white px-3 text-teal-800 dark:bg-slate-900 dark:text-emerald-300"
                 >
                   <Copy className="h-4 w-4" />
                   {t('actions.copyLink')}
                 </button>
               </div>
               {copied ? (
-                <p className="flex items-center gap-2 rounded-2xl bg-white px-3 py-2 text-teal-700">
+                <p className="flex items-center gap-2 rounded-2xl bg-white px-3 py-2 text-teal-700 dark:bg-slate-900 dark:text-emerald-300">
                   <CheckCircle2 className="h-4 w-4" />
                   {copied === 'codigo' ? 'Codigo copiado.' : 'Link copiado.'}
                 </p>
               ) : null}
             </div>
           ) : (
-            <p className="mt-6 rounded-2xl bg-slate-50 px-4 py-3 text-sm font-bold text-slate-500">
+            <p className="mt-6 rounded-2xl bg-slate-50 px-4 py-3 dark:bg-slate-800 text-sm font-bold text-slate-500 dark:text-slate-400 dark:text-slate-500">
               {t('profile.generateInviteHint')}
             </p>
           )}
         </>
       ) : (
-        <p className="rounded-2xl bg-slate-50 px-4 py-3 text-sm font-bold text-slate-600">
+        <p className="rounded-2xl bg-slate-50 px-4 py-3 dark:bg-slate-800 text-sm font-bold text-slate-600 dark:text-slate-300">
           {t('profile.ownerInviteOnly')}
         </p>
       )}
@@ -2599,7 +2599,7 @@ export function ProfilePage() {
       </nav>
 
       {(status || error || isLoading) ? (
-        <p className="rounded-2xl border border-white/80 bg-white/85 px-4 py-3 text-sm font-bold text-slate-600 shadow-lg shadow-slate-900/5">
+        <p className="rounded-2xl border border-white/80 bg-white/85 px-4 py-3 text-sm font-bold text-slate-600 shadow-lg shadow-slate-900/5 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:shadow-black/30">
           {isLoading ? t('profile.loading') : error ?? status}
         </p>
       ) : null}
@@ -2629,11 +2629,11 @@ export function ProfilePage() {
                   />
                 </div>
 
-                <article className="grid gap-6 rounded-xl border border-[#00a98b] bg-white p-6 shadow-[0_14px_36px_rgba(15,23,42,0.06)] md:grid-cols-[minmax(0,1fr)_17rem] md:p-8">
+                <article className="grid gap-6 rounded-xl border border-[#00a98b] bg-white p-6 shadow-[0_14px_36px_rgba(15,23,42,0.06)] dark:border-emerald-500/50 dark:bg-slate-900 dark:shadow-black/30 md:grid-cols-[minmax(0,1fr)_17rem] md:p-8">
                   <div className="min-w-0">
                     <div className="flex items-center gap-2 text-[#007c68]">
                       <Sparkles className="h-5 w-5 fill-[#48fdd3]" />
-                      <p className="text-sm font-bold uppercase tracking-[0.16em]">Sugestão IA para você</p>
+                      <p className="text-sm font-bold uppercase tracking-[0.16em] text-teal-100">Sugestão IA para você</p>
                     </div>
                     <h2 className="mt-5 text-3xl font-black tracking-tight text-[#0b1326]">{aiSuggestionTitle}</h2>
                     <p className="mt-4 max-w-2xl text-base font-medium leading-7 text-[#45464d]">
@@ -2642,7 +2642,7 @@ export function ProfilePage() {
                     <button
                       type="button"
                       onClick={() => navigateProfileSection(activeGroup ? 'checklist' : 'create-ai')}
-                      className="mt-7 inline-flex h-12 items-center justify-center rounded-xl bg-black px-7 text-base font-bold text-white transition hover:bg-[#111827]"
+                      className="mt-7 inline-flex h-12 items-center justify-center rounded-xl bg-black px-7 text-base font-bold text-white transition hover:bg-[#111827] dark:bg-emerald-400 dark:text-emerald-950 dark:hover:bg-emerald-300"
                     >
                       {activeGroup ? 'Continuar planejamento' : 'Criar viagem'}
                     </button>
@@ -2657,7 +2657,7 @@ export function ProfilePage() {
                   </div>
                 </article>
 
-                <section className="rounded-xl border border-[#e6ebf3] bg-white p-6 shadow-[0_8px_24px_rgba(15,23,42,0.045)] md:p-8">
+                <section className="rounded-xl border border-[#e6ebf3] bg-white p-6 shadow-[0_8px_24px_rgba(15,23,42,0.045)] dark:border-slate-700 dark:bg-slate-900 dark:shadow-black/30 dark:border-slate-700 dark:bg-slate-900 dark:shadow-black/30 md:p-8">
                   <h2 className="text-2xl font-black tracking-tight text-[#0b1326]">Configurações da Conta</h2>
                   <div className="mt-6 divide-y divide-[#edf1f7]">
                     <SettingsActionRow
@@ -2726,14 +2726,14 @@ export function ProfilePage() {
                   </button>
                 </section>
 
-                <section className="rounded-xl border border-[#e6ebf3] bg-white p-6 shadow-[0_8px_24px_rgba(15,23,42,0.045)]">
+                <section className="rounded-xl border border-[#e6ebf3] bg-white p-6 shadow-[0_8px_24px_rgba(15,23,42,0.045)] dark:border-slate-700 dark:bg-slate-900 dark:shadow-black/30">
                   <h2 className="text-lg font-bold text-[#0b1326]">Progresso da viagem</h2>
                   <div className="mt-6 space-y-5">
                     <ProgressLine label="Planejamento" value={tripPlanningProgress} />
                     <ProgressLine label="Checklist" value={checklistProgress} />
                     <ProgressLine label="Documentos" value={documentsProgress} />
                   </div>
-                  <p className="mt-5 rounded-xl bg-[#f4f7fb] px-4 py-3 text-sm font-medium leading-6 text-[#45464d]">
+                  <p className="mt-5 rounded-xl bg-[#f4f7fb] px-4 py-3 text-sm font-medium leading-6 text-[#45464d] dark:bg-slate-800 dark:text-slate-300">
                     {profileDocumentCount
                       ? `${pendingDocumentCount} documento${pendingDocumentCount === 1 ? '' : 's'} pendente${pendingDocumentCount === 1 ? '' : 's'}.`
                       : 'Nenhum documento adicionado.'}
@@ -2743,7 +2743,7 @@ export function ProfilePage() {
                 <button
                   type="button"
                   onClick={() => void handleSignOut()}
-                  className="inline-flex h-12 w-full items-center justify-start gap-3 rounded-xl px-4 text-base font-semibold text-[#45464d] transition hover:bg-white hover:text-rose-700"
+                  className="inline-flex h-12 w-full items-center justify-start gap-3 rounded-xl px-4 text-base font-semibold text-[#45464d] transition hover:bg-white hover:text-rose-700 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-rose-300"
                 >
                   <LogOut className="h-5 w-5" />
                   Sair da conta
@@ -2756,20 +2756,20 @@ export function ProfilePage() {
           {false && activeProfileSection === 'overview' ? (
             <>
               <section className="grid gap-6 xl:grid-cols-3">
-                <article className="flex min-h-full flex-col rounded-[2rem] border border-white/80 bg-white/95 p-6 shadow-xl shadow-slate-900/10 md:p-7">
+                <article className="flex min-h-full flex-col rounded-[2rem] border border-white/80 bg-white/95 p-6 shadow-xl shadow-slate-900/10 dark:border-slate-700 dark:bg-slate-900/95 dark:shadow-black/30 md:p-7">
                   <div className="flex items-start justify-between gap-3">
                     <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-950 text-white">
                       <MapPin className="h-5 w-5" />
                     </span>
-                    <span className={`rounded-full px-3 py-2 text-xs font-black uppercase tracking-[0.12em] ${activeGroup ? statusClasses[activeTripStatus] : 'bg-slate-100 text-slate-500'}`}>
+                    <span className={`rounded-full px-3 py-2 text-xs font-black uppercase tracking-[0.12em] ${activeGroup ? statusClasses[activeTripStatus] : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 dark:text-slate-500'}`}>
                       {activeGroup ? statusLabels[activeTripStatus] : 'Sem ativa'}
                     </span>
                   </div>
-                  <p className="mt-5 text-sm font-black uppercase tracking-[0.18em] text-slate-400">Viagem ativa</p>
-                  <h2 className="mt-2 text-2xl font-black tracking-tight text-slate-950">
+                  <p className="mt-5 text-sm font-black uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500">Viagem ativa</p>
+                  <h2 className="mt-2 text-2xl font-black tracking-tight text-slate-950 dark:text-slate-50">
                     {activeGroup?.name ?? 'Nenhuma viagem ativa'}
                   </h2>
-                  <p className="mt-3 text-sm font-bold leading-6 text-slate-500">
+                  <p className="mt-3 text-sm font-bold leading-6 text-slate-500 dark:text-slate-400 dark:text-slate-500">
                     {activeGroup?.description || 'Crie uma viagem ou entre por convite para organizar roteiro, gastos e documentos em um unico lugar.'}
                   </p>
                   {activeGroup ? (
@@ -2789,27 +2789,27 @@ export function ProfilePage() {
                   <button
                     type="button"
                     onClick={() => navigateProfileSection(activeGroup ? 'trip' : 'create-ai')}
-                    className="mt-5 inline-flex h-12 items-center justify-center gap-2 rounded-2xl bg-slate-950 px-5 font-black text-white transition hover:bg-teal-700"
+                    className="mt-5 inline-flex h-12 items-center justify-center gap-2 rounded-2xl bg-slate-950 px-5 font-black text-white transition hover:bg-teal-700 dark:bg-emerald-400 dark:text-emerald-950 dark:hover:bg-emerald-300"
                   >
                     {activeGroup ? 'Ver detalhes da viagem' : 'Criar viagem'}
                     <ArrowRight className="h-4 w-4" />
                   </button>
                 </article>
 
-                <article className="flex min-h-full flex-col rounded-[2rem] border border-white/80 bg-white/95 p-6 shadow-xl shadow-slate-900/10 md:p-7">
-                  <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-teal-50 text-teal-700">
+                <article className="flex min-h-full flex-col rounded-[2rem] border border-white/80 bg-white/95 p-6 shadow-xl shadow-slate-900/10 dark:border-slate-700 dark:bg-slate-900/95 dark:shadow-black/30 md:p-7">
+                  <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-teal-50 dark:bg-emerald-400/10 text-teal-700 dark:text-emerald-300">
                     <Route className="h-5 w-5" />
                   </span>
-                  <p className="mt-5 text-sm font-black uppercase tracking-[0.18em] text-slate-400">Resumo do roteiro</p>
-                  <h2 className="mt-2 text-2xl font-black tracking-tight text-slate-950">
+                  <p className="mt-5 text-sm font-black uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500">Resumo do roteiro</p>
+                  <h2 className="mt-2 text-2xl font-black tracking-tight text-slate-950 dark:text-slate-50">
                     {tripItineraryItems.length ? `${tripItineraryItems.length} itens planejados` : 'Roteiro em construcao'}
                   </h2>
                   <div className="mt-5 flex-1 space-y-3">
                     {tripItineraryItems.length ? (
                       tripItineraryItems.slice(0, 3).map((item) => (
-                        <article key={item.id} className="rounded-3xl border border-slate-100 bg-slate-50 px-4 py-3">
-                          <p className="truncate font-black text-slate-950">{item.title}</p>
-                          <p className="mt-1 text-sm font-bold text-slate-500">
+                        <article key={item.id} className="rounded-3xl border border-slate-100 bg-slate-50 px-4 py-3 dark:border-slate-700 dark:bg-slate-800">
+                          <p className="truncate font-black text-slate-950 dark:text-slate-50">{item.title}</p>
+                          <p className="mt-1 text-sm font-bold text-slate-500 dark:text-slate-400 dark:text-slate-500">
                             {item.day || 'Sem dia'} - {item.city || 'Cidade nao informada'} / {countryLabel(item.country)}
                           </p>
                         </article>
@@ -2825,22 +2825,22 @@ export function ProfilePage() {
                   <button
                     type="button"
                     onClick={() => activeGroup ? navigateWorkspaceView('itinerary') : navigateProfileSection('create-ai')}
-                    className="mt-5 inline-flex h-12 items-center justify-center gap-2 rounded-2xl bg-slate-950 px-5 font-black text-white transition hover:bg-teal-700"
+                    className="mt-5 inline-flex h-12 items-center justify-center gap-2 rounded-2xl bg-slate-950 px-5 font-black text-white transition hover:bg-teal-700 dark:bg-emerald-400 dark:text-emerald-950 dark:hover:bg-emerald-300"
                   >
                     Ver roteiro
                     <ArrowRight className="h-4 w-4" />
                   </button>
                 </article>
 
-                <article className="flex min-h-full flex-col rounded-[2rem] border border-white/80 bg-white/95 p-6 shadow-xl shadow-slate-900/10 md:p-7">
-                  <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-sky-50 text-sky-700">
+                <article className="flex min-h-full flex-col rounded-[2rem] border border-white/80 bg-white/95 p-6 shadow-xl shadow-slate-900/10 dark:border-slate-700 dark:bg-slate-900/95 dark:shadow-black/30 md:p-7">
+                  <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-sky-50 dark:bg-sky-400/10 text-sky-700 dark:text-sky-200">
                     <WalletCards className="h-5 w-5" />
                   </span>
-                  <p className="mt-5 text-sm font-black uppercase tracking-[0.18em] text-slate-400">Resumo de gastos</p>
-                  <h2 className="mt-2 text-2xl font-black tracking-tight text-slate-950">
+                  <p className="mt-5 text-sm font-black uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500">Resumo de gastos</p>
+                  <h2 className="mt-2 text-2xl font-black tracking-tight text-slate-950 dark:text-slate-50">
                     {formatRange(tripExpenseGrandTotal.real, 'BRL', true)}
                   </h2>
-                  <p className="mt-2 text-sm font-bold leading-6 text-slate-500">
+                  <p className="mt-2 text-sm font-bold leading-6 text-slate-500 dark:text-slate-400 dark:text-slate-500">
                     {tripExpenses.length
                       ? `${tripExpenses.length} gasto${tripExpenses.length === 1 ? '' : 's'} cadastrado${tripExpenses.length === 1 ? '' : 's'} na viagem ativa.`
                       : 'Nenhum gasto cadastrado nesta viagem ainda.'}
@@ -2851,10 +2851,10 @@ export function ProfilePage() {
                         const percent = Math.max(8, Math.round((midpoint(total.real) / topTripExpenseMax) * 100));
 
                         return (
-                          <div key={category.id} className="rounded-3xl bg-slate-50 px-4 py-3">
+                          <div key={category.id} className="rounded-3xl bg-slate-50 px-4 py-3 dark:bg-slate-800">
                             <div className="flex items-center justify-between gap-3 text-sm font-black">
-                              <span className="truncate text-slate-800">{category.name}</span>
-                              <span className="shrink-0 text-slate-500">{formatRange(total.real, 'BRL', true)}</span>
+                              <span className="truncate text-slate-800 dark:text-slate-100">{category.name}</span>
+                              <span className="shrink-0 text-slate-500 dark:text-slate-400 dark:text-slate-500">{formatRange(total.real, 'BRL', true)}</span>
                             </div>
                             <div className="mt-3 h-2 overflow-hidden rounded-full bg-white">
                               <div
@@ -2876,7 +2876,7 @@ export function ProfilePage() {
                   <button
                     type="button"
                     onClick={() => activeGroup ? navigateWorkspaceView('expenses') : navigateProfileSection('create-ai')}
-                    className="mt-5 inline-flex h-12 items-center justify-center gap-2 rounded-2xl bg-slate-950 px-5 font-black text-white transition hover:bg-teal-700"
+                    className="mt-5 inline-flex h-12 items-center justify-center gap-2 rounded-2xl bg-slate-950 px-5 font-black text-white transition hover:bg-teal-700 dark:bg-emerald-400 dark:text-emerald-950 dark:hover:bg-emerald-300"
                   >
                     Ver todos os gastos
                     <ArrowRight className="h-4 w-4" />
@@ -2884,11 +2884,11 @@ export function ProfilePage() {
                 </article>
               </section>
 
-              <section className="rounded-[2rem] border border-white/80 bg-white/95 p-6 shadow-xl shadow-slate-900/10 md:p-8">
+              <section className="rounded-[2rem] border border-white/80 bg-white/95 p-6 shadow-xl shadow-slate-900/10 dark:border-slate-700 dark:bg-slate-900/95 dark:shadow-black/30 dark:border-slate-700 dark:bg-slate-900/95 dark:shadow-black/30 md:p-8">
                 <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
                   <div>
-                    <p className="text-sm font-black uppercase tracking-[0.18em] text-teal-700">Documentos da viagem</p>
-                    <h2 className="mt-2 text-3xl font-black tracking-tight text-slate-950">
+                    <p className="text-sm font-black uppercase tracking-[0.18em] text-teal-700 dark:text-emerald-300">Documentos da viagem</p>
+                    <h2 className="mt-2 text-3xl font-black tracking-tight text-slate-950 dark:text-slate-50">
                       {checklistDocumentItems.length || legacyItineraryDocuments.length
                         ? `${checklistDocumentItems.length || legacyItineraryDocuments.length} documento${(checklistDocumentItems.length || legacyItineraryDocuments.length) === 1 ? '' : 's'}`
                         : 'Nenhum documento listado'}
@@ -2897,7 +2897,7 @@ export function ProfilePage() {
                   <button
                     type="button"
                     onClick={() => navigateProfileSection('checklist')}
-                    className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl bg-slate-950 px-4 text-sm font-black text-white transition hover:bg-teal-700"
+                    className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl bg-slate-950 px-4 text-sm font-black text-white transition hover:bg-teal-700 dark:bg-emerald-400 dark:text-emerald-950 dark:hover:bg-emerald-300"
                   >
                     Ver todos
                     <ArrowRight className="h-4 w-4" />
@@ -2912,21 +2912,21 @@ export function ProfilePage() {
                         <article
                           key={item.id}
                           className={`rounded-3xl border px-4 py-4 ${
-                            item.checked ? 'border-emerald-100 bg-emerald-50/70' : 'border-slate-100 bg-slate-50'
+                            item.checked ? 'border-emerald-100 bg-emerald-50/70 dark:border-emerald-400/30 dark:bg-emerald-400/10' : 'border-slate-100 bg-slate-50 dark:border-slate-700 dark:bg-slate-800'
                           }`}
                         >
                           <div className="flex items-start justify-between gap-3">
-                            <FileText className={`mt-1 h-5 w-5 shrink-0 ${item.checked ? 'text-emerald-700' : 'text-teal-700'}`} />
+                            <FileText className={`mt-1 h-5 w-5 shrink-0 ${item.checked ? 'text-emerald-700 dark:text-emerald-300' : 'text-teal-700 dark:text-emerald-300'}`} />
                             <span className={`rounded-full px-2 py-1 text-[0.65rem] font-black uppercase tracking-[0.1em] ${
-                              item.checked ? 'bg-emerald-600 text-white' : 'bg-white text-slate-500'
+                              item.checked ? 'bg-emerald-600 text-white dark:bg-emerald-400 dark:text-emerald-950' : 'bg-white text-slate-500 dark:bg-slate-900 dark:text-slate-300'
                             }`}>
                               {item.checked ? 'Ok' : 'Pendente'}
                             </span>
                           </div>
-                          <p className={`mt-4 font-black ${item.checked ? 'text-emerald-900 line-through' : 'text-slate-950'}`}>
+                          <p className={`mt-4 font-black ${item.checked ? 'text-emerald-900 line-through dark:text-emerald-200' : 'text-slate-950 dark:text-slate-50'}`}>
                             {item.title}
                           </p>
-                          <p className="mt-2 text-xs font-black uppercase tracking-[0.12em] text-slate-400">
+                          <p className="mt-2 text-xs font-black uppercase tracking-[0.12em] text-slate-400 dark:text-slate-500">
                             Qtd. {item.quantity}{assignedName ? ` - ${assignedName}` : ''}
                           </p>
                         </article>
@@ -2934,10 +2934,10 @@ export function ProfilePage() {
                     })
                   ) : legacyItineraryDocuments.length ? (
                     legacyItineraryDocuments.slice(0, 4).map((item) => (
-                      <article key={item.id} className="rounded-3xl border border-slate-100 bg-slate-50 px-4 py-4">
-                        <FileText className="h-5 w-5 text-teal-700" />
-                        <p className="mt-4 font-black text-slate-950">{item.title}</p>
-                        <p className="mt-2 text-xs font-black uppercase tracking-[0.12em] text-slate-400">Fallback do roteiro</p>
+                      <article key={item.id} className="rounded-3xl border border-slate-100 bg-slate-50 px-4 py-4 dark:border-slate-700 dark:bg-slate-800">
+                        <FileText className="h-5 w-5 text-teal-700 dark:text-emerald-300" />
+                        <p className="mt-4 font-black text-slate-950 dark:text-slate-50">{item.title}</p>
+                        <p className="mt-2 text-xs font-black uppercase tracking-[0.12em] text-slate-400 dark:text-slate-500">Fallback do roteiro</p>
                       </article>
                     ))
                   ) : (
@@ -2953,12 +2953,12 @@ export function ProfilePage() {
               </section>
 
               <section className="grid gap-6 xl:grid-cols-[minmax(0,1.35fr)_minmax(20rem,0.65fr)]">
-                <section className="rounded-[2rem] border border-white/80 bg-white/95 p-6 shadow-xl shadow-slate-900/10 md:p-8">
+                <section className="rounded-[2rem] border border-white/80 bg-white/95 p-6 shadow-xl shadow-slate-900/10 dark:border-slate-700 dark:bg-slate-900/95 dark:shadow-black/30 dark:border-slate-700 dark:bg-slate-900/95 dark:shadow-black/30 md:p-8">
                   <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
                     <div>
-                      <p className="text-sm font-black uppercase tracking-[0.18em] text-slate-400">{t('profile.history')}</p>
-                      <h2 className="mt-2 text-3xl font-black tracking-tight text-slate-950">{t('profile.myTrips')}</h2>
-                      <p className="mt-2 max-w-2xl text-sm font-bold leading-6 text-slate-500">
+                      <p className="text-sm font-black uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500">{t('profile.history')}</p>
+                      <h2 className="mt-2 text-3xl font-black tracking-tight text-slate-950 dark:text-slate-50">{t('profile.myTrips')}</h2>
+                      <p className="mt-2 max-w-2xl text-sm font-bold leading-6 text-slate-500 dark:text-slate-400 dark:text-slate-500">
                         {t('profile.historyDescription')}
                       </p>
                     </div>
@@ -2971,7 +2971,7 @@ export function ProfilePage() {
                           className={`inline-flex h-11 items-center justify-center rounded-2xl px-4 text-sm font-black transition ${
                             activeTripTab === tab.id
                               ? 'bg-slate-950 text-white'
-                              : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                              : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200'
                           }`}
                         >
                           {tab.label} ({tripCounts[tab.id]})
@@ -2992,7 +2992,7 @@ export function ProfilePage() {
                         />
                       ))
                     ) : (
-                      <p className="rounded-3xl bg-slate-50 px-4 py-6 text-sm font-bold text-slate-500 lg:col-span-2">
+                      <p className="rounded-3xl bg-slate-50 px-4 py-6 text-sm font-bold text-slate-500 dark:bg-slate-800 dark:text-slate-300 lg:col-span-2">
                         Nenhuma viagem encontrada neste filtro.
                       </p>
                     )}
@@ -3000,17 +3000,17 @@ export function ProfilePage() {
                 </section>
 
                 <aside className="space-y-6">
-                  <section className="rounded-[2rem] border border-white/80 bg-white/95 p-6 shadow-xl shadow-slate-900/10">
-                    <p className="text-sm font-black uppercase tracking-[0.18em] text-slate-400">
+                  <section className="rounded-[2rem] border border-white/80 bg-white/95 p-6 shadow-xl shadow-slate-900/10 dark:border-slate-700 dark:bg-slate-900/95 dark:shadow-black/30">
+                    <p className="text-sm font-black uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500">
                       {t('language.selectorTitle')}
                     </p>
-                    <p className="mt-2 text-sm font-bold leading-6 text-slate-600">
+                    <p className="mt-2 text-sm font-bold leading-6 text-slate-600 dark:text-slate-300">
                       {t('language.selectorDescription')}
                     </p>
                     <select
                       value={language}
                       onChange={(event) => setLanguage(event.target.value as LanguageCode)}
-                      className="mt-5 h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 font-black text-slate-800 outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-100"
+                      className="mt-5 h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 font-black text-slate-800 outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-50 dark:focus:border-emerald-400 dark:focus:ring-emerald-400/20"
                     >
                       {languageOptions.map((option) => (
                         <option key={option.code} value={option.code}>
@@ -3020,8 +3020,8 @@ export function ProfilePage() {
                     </select>
                   </section>
 
-                  <section className="rounded-[2rem] border border-white/80 bg-white/95 p-6 shadow-xl shadow-slate-900/10">
-                    <p className="text-sm font-black uppercase tracking-[0.18em] text-slate-400">Conta TripFlow</p>
+                  <section className="rounded-[2rem] border border-white/80 bg-white/95 p-6 shadow-xl shadow-slate-900/10 dark:border-slate-700 dark:bg-slate-900/95 dark:shadow-black/30">
+                    <p className="text-sm font-black uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500">Conta TripFlow</p>
                     <div className="mt-5 grid gap-3">
                       <DetailTile icon={UserRound} label="Nome" value={displayName} />
                       <DetailTile icon={WalletCards} label="Total geral" value={formatRange(stats.totalAllReal, 'BRL', true)} />
@@ -3057,7 +3057,7 @@ export function ProfilePage() {
                     <button
                       type="button"
                       onClick={openTripCreationWithAI}
-                      className="inline-flex h-14 items-center justify-center rounded-2xl bg-black px-7 text-base font-black text-white transition hover:-translate-y-0.5 hover:bg-[#111827]"
+                      className="inline-flex h-14 items-center justify-center rounded-2xl bg-black dark:bg-emerald-400 px-7 text-base font-black text-white dark:text-emerald-950 transition hover:-translate-y-0.5 hover:bg-[#111827]"
                     >
                       Começar agora
                     </button>
@@ -3066,7 +3066,7 @@ export function ProfilePage() {
                   <button
                     type="button"
                     onClick={openManualTripCreation}
-                    className="group flex min-h-[8.5rem] flex-col items-center justify-center rounded-[1.5rem] border border-[#dfe5ee] bg-white p-6 text-center shadow-[0_12px_28px_rgba(15,23,42,0.04)] transition hover:-translate-y-0.5 hover:border-[#007c68]"
+                    className="group flex min-h-[8.5rem] flex-col items-center justify-center rounded-[1.5rem] border border-[#dfe5ee] bg-white p-6 text-center shadow-[0_12px_28px_rgba(15,23,42,0.04)] transition hover:-translate-y-0.5 hover:border-[#007c68] dark:border-slate-700 dark:bg-slate-900 dark:shadow-black/30 dark:hover:border-emerald-400"
                   >
                     <span className="grid h-12 w-12 place-items-center rounded-full bg-[#e7f0ff] text-[#0b1326] transition group-hover:bg-[#48fdd3] group-hover:text-[#007c68]">
                       <Plus className="h-6 w-6" />
@@ -3078,7 +3078,7 @@ export function ProfilePage() {
                   </button>
                 </div>
 
-                <section className="rounded-[1.5rem] border border-[#e6ebf3] bg-white p-5 shadow-[0_12px_28px_rgba(15,23,42,0.04)] md:p-6">
+                <section className="rounded-[1.5rem] border border-[#e6ebf3] bg-white p-5 shadow-[0_12px_28px_rgba(15,23,42,0.04)] dark:border-slate-700 dark:bg-slate-900 dark:shadow-black/30 md:p-6">
                   <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
                     <div>
                       <p className="text-sm font-black uppercase tracking-[0.18em] text-[#007c68]">{t('profile.history')}</p>
@@ -3095,7 +3095,7 @@ export function ProfilePage() {
                           onClick={() => setActiveTripTab(tab.id)}
                           className={`inline-flex h-10 items-center justify-center rounded-full px-4 text-sm font-black transition ${
                             activeTripTab === tab.id
-                              ? 'bg-black text-white'
+                              ? 'bg-black dark:bg-emerald-400 text-white dark:text-emerald-950'
                               : 'bg-[#f4f7fb] text-[#667085] hover:bg-[#e7edf7] hover:text-[#0b1326]'
                           }`}
                         >
@@ -3127,13 +3127,13 @@ export function ProfilePage() {
 
               {activeGroup ? (
               <>
-                <section className="rounded-[2rem] border border-white/80 bg-white/95 p-6 shadow-xl shadow-slate-900/10 md:p-8">
+                <section className="rounded-[2rem] border border-white/80 bg-white/95 p-6 shadow-xl shadow-slate-900/10 dark:border-slate-700 dark:bg-slate-900/95 dark:shadow-black/30 dark:border-slate-700 dark:bg-slate-900/95 dark:shadow-black/30 md:p-8">
                   <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
                     <div>
-                      <p className="text-sm font-black uppercase tracking-[0.18em] text-slate-400">{t('profile.activeTripSection')}</p>
-                      <h2 className="mt-2 text-3xl font-black tracking-tight text-slate-950">{activeGroup.name}</h2>
+                      <p className="text-sm font-black uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500">{t('profile.activeTripSection')}</p>
+                      <h2 className="mt-2 text-3xl font-black tracking-tight text-slate-950 dark:text-slate-50">{activeGroup.name}</h2>
                       {activeGroup.description ? (
-                        <p className="mt-3 leading-7 text-slate-600">{activeGroup.description}</p>
+                        <p className="mt-3 leading-7 text-slate-600 dark:text-slate-300">{activeGroup.description}</p>
                       ) : null}
                     </div>
                     <span className={`rounded-2xl px-3 py-2 text-sm font-black ${statusClasses[activeGroup.status ?? 'planned']}`}>
@@ -3141,7 +3141,7 @@ export function ProfilePage() {
                     </span>
                   </div>
                   {tripInfoWarning ? (
-                    <p className="mt-4 rounded-2xl bg-amber-50 px-4 py-3 text-sm font-bold text-amber-700">
+                    <p className="mt-4 rounded-2xl bg-amber-50 dark:bg-amber-400/10 px-4 py-3 text-sm font-bold text-amber-700 dark:text-amber-200">
                       {tripInfoWarning}
                     </p>
                   ) : null}
@@ -3160,7 +3160,7 @@ export function ProfilePage() {
                       type="button"
                       onClick={() => void handleLeaveTrip(activeGroup)}
                       disabled={tripActionId === activeGroup.id}
-                      className="mt-5 inline-flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-rose-50 px-5 font-black text-rose-700 transition hover:bg-rose-100 disabled:opacity-60 sm:w-auto"
+                      className="mt-5 inline-flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-rose-50 dark:bg-rose-400/10 px-5 font-black text-rose-700 dark:text-rose-200 transition hover:bg-rose-100 disabled:opacity-60 sm:w-auto"
                     >
                       {tripActionId === activeGroup.id ? <Loader2 className="h-5 w-5 animate-spin" /> : <LogOut className="h-5 w-5" />}
                       Sair desta viagem
@@ -3169,13 +3169,13 @@ export function ProfilePage() {
                 </section>
 
                 <section className="grid gap-6 xl:grid-cols-3">
-                  <div className="rounded-[2rem] border border-white/80 bg-white/95 p-6 shadow-xl shadow-slate-900/10 xl:col-span-2">
-                    <h3 className="text-2xl font-black text-slate-950">Resumo do roteiro</h3>
+                  <div className="rounded-[2rem] border border-white/80 bg-white/95 p-6 shadow-xl shadow-slate-900/10 dark:border-slate-700 dark:bg-slate-900/95 dark:shadow-black/30 xl:col-span-2">
+                    <h3 className="text-2xl font-black text-slate-950 dark:text-slate-50">Resumo do roteiro</h3>
                     <div className="mt-4 space-y-3">
                       {tripItineraryItems.slice(0, 5).map((item) => (
-                        <div key={item.id} className="rounded-3xl bg-slate-50 px-4 py-3">
-                          <p className="font-black text-slate-900">{item.title}</p>
-                          <p className="mt-1 text-sm font-bold text-slate-500">{item.day} - {countryLabel(item.country)} - {item.city || 'Cidade nao informada'}</p>
+                        <div key={item.id} className="rounded-3xl bg-slate-50 px-4 py-3 dark:bg-slate-800">
+                          <p className="font-black text-slate-900 dark:text-slate-50">{item.title}</p>
+                          <p className="mt-1 text-sm font-bold text-slate-500 dark:text-slate-400 dark:text-slate-500">{item.day} - {countryLabel(item.country)} - {item.city || 'Cidade nao informada'}</p>
                         </div>
                       ))}
                       {!tripItineraryItems.length ? (
@@ -3187,13 +3187,13 @@ export function ProfilePage() {
                       ) : null}
                     </div>
                   </div>
-                  <div className="rounded-[2rem] border border-white/80 bg-white/95 p-6 shadow-xl shadow-slate-900/10">
+                  <div className="rounded-[2rem] border border-white/80 bg-white/95 p-6 shadow-xl shadow-slate-900/10 dark:border-slate-700 dark:bg-slate-900/95 dark:shadow-black/30">
                     <div className="flex items-center justify-between gap-3">
                       <div>
-                        <p className="text-sm font-black uppercase tracking-[0.18em] text-slate-400">Checklist</p>
-                        <h3 className="text-2xl font-black text-slate-950">Documentos</h3>
+                        <p className="text-sm font-black uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500">Checklist</p>
+                        <h3 className="text-2xl font-black text-slate-950 dark:text-slate-50">Documentos</h3>
                       </div>
-                      <FileText className="h-6 w-6 text-teal-700" />
+                      <FileText className="h-6 w-6 text-teal-700 dark:text-emerald-300" />
                     </div>
                     <div className="mt-4 space-y-3">
                       {checklistDocumentItems.length ? (
@@ -3204,35 +3204,35 @@ export function ProfilePage() {
                             <article
                               key={item.id}
                               className={`rounded-3xl border px-4 py-3 ${
-                                item.checked ? 'border-emerald-100 bg-emerald-50/70' : 'border-slate-100 bg-slate-50'
+                                item.checked ? 'border-emerald-100 bg-emerald-50/70 dark:border-emerald-400/30 dark:bg-emerald-400/10' : 'border-slate-100 bg-slate-50 dark:border-slate-700 dark:bg-slate-800'
                               }`}
                             >
                               <div className="flex items-start justify-between gap-3">
                                 <div className="min-w-0">
-                                  <p className={`font-black ${item.checked ? 'text-emerald-900 line-through' : 'text-slate-950'}`}>
+                                  <p className={`font-black ${item.checked ? 'text-emerald-900 line-through' : 'text-slate-950 dark:text-slate-50'}`}>
                                     {item.title}
                                   </p>
-                                  <p className="mt-1 text-xs font-black uppercase tracking-[0.12em] text-slate-400">
+                                  <p className="mt-1 text-xs font-black uppercase tracking-[0.12em] text-slate-400 dark:text-slate-500">
                                     Qtd. {item.quantity}{assignedName ? ` - ${assignedName}` : ''}
                                   </p>
                                 </div>
                                 <span className={`shrink-0 rounded-full px-3 py-1 text-[0.7rem] font-black uppercase tracking-[0.1em] ${
-                                  item.checked ? 'bg-emerald-600 text-white' : 'bg-white text-slate-500'
+                                  item.checked ? 'bg-emerald-600 text-white dark:bg-emerald-400 dark:text-emerald-950' : 'bg-white text-slate-500 dark:bg-slate-900 dark:text-slate-300'
                                 }`}>
                                   {item.checked ? 'Concluido' : 'Pendente'}
                                 </span>
                               </div>
                               {item.notes ? (
-                                <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">{item.notes}</p>
+                                <p className="mt-2 text-sm font-semibold leading-6 text-slate-600 dark:text-slate-300">{item.notes}</p>
                               ) : null}
                             </article>
                           );
                         })
                       ) : legacyItineraryDocuments.length ? (
                         legacyItineraryDocuments.slice(0, 4).map((item) => (
-                          <article key={item.id} className="rounded-3xl border border-slate-100 bg-slate-50 px-4 py-3">
-                            <p className="font-black text-slate-950">{item.title}</p>
-                            <p className="mt-1 text-xs font-black uppercase tracking-[0.12em] text-slate-400">
+                          <article key={item.id} className="rounded-3xl border border-slate-100 bg-slate-50 px-4 py-3 dark:border-slate-700 dark:bg-slate-800">
+                            <p className="font-black text-slate-950 dark:text-slate-50">{item.title}</p>
+                            <p className="mt-1 text-xs font-black uppercase tracking-[0.12em] text-slate-400 dark:text-slate-500">
                               Fallback do roteiro
                             </p>
                           </article>
@@ -3258,24 +3258,24 @@ export function ProfilePage() {
                       description={`${tripExpenses.length} gasto${tripExpenses.length === 1 ? '' : 's'} cadastrado${tripExpenses.length === 1 ? '' : 's'} nesta viagem, com totais convertidos para BRL e agrupados por categoria.`}
                       summary={(
                         <>
-                          <div className="rounded-2xl bg-slate-50 px-4 py-3">
-                            <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-400">Total em BRL</p>
-                            <p className="mt-1 text-lg font-black text-slate-950">
+                          <div className="rounded-2xl bg-slate-50 px-4 py-3 dark:bg-slate-800">
+                            <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-400 dark:text-slate-500">Total em BRL</p>
+                            <p className="mt-1 text-lg font-black text-slate-950 dark:text-slate-50">
                               {formatRange(tripExpenseGrandTotal.real, 'BRL', true)}
                             </p>
                           </div>
-                          <div className="rounded-2xl bg-slate-50 px-4 py-3">
-                            <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-400">Moeda original</p>
-                            <p className="mt-1 text-sm font-black leading-6 text-slate-950">
+                          <div className="rounded-2xl bg-slate-50 px-4 py-3 dark:bg-slate-800">
+                            <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-400 dark:text-slate-500">Moeda original</p>
+                            <p className="mt-1 text-sm font-black leading-6 text-slate-950 dark:text-slate-50">
                               {formatOriginalCurrencyBreakdown(tripExpenseGrandTotal.originalByCurrency)}
                             </p>
                           </div>
                           {topTripExpenseCategories.length ? (
-                            <div className="rounded-2xl bg-teal-50 px-4 py-3 sm:col-span-2">
-                              <p className="text-xs font-black uppercase tracking-[0.14em] text-teal-700">Maiores categorias</p>
+                            <div className="rounded-2xl bg-teal-50 dark:bg-emerald-400/10 px-4 py-3 sm:col-span-2">
+                              <p className="text-xs font-black uppercase tracking-[0.14em] text-teal-700 dark:text-emerald-300">Maiores categorias</p>
                               <div className="mt-2 flex flex-wrap gap-2">
                                 {topTripExpenseCategories.map(({ category, total }) => (
-                                  <span key={category.id} className="rounded-full bg-white px-3 py-2 text-xs font-black text-slate-700">
+                                  <span key={category.id} className="rounded-full bg-white px-3 py-2 text-xs font-black text-slate-700 dark:bg-slate-900 dark:text-slate-300">
                                     {category.name}: {formatRange(total.real, 'BRL', true)}
                                   </span>
                                 ))}
@@ -3286,9 +3286,9 @@ export function ProfilePage() {
                       )}
                     />
                   ) : (
-                    <div className="rounded-[2rem] border border-white/80 bg-white/95 p-6 shadow-xl shadow-slate-900/10 md:p-8">
-                      <p className="text-sm font-black uppercase tracking-[0.18em] text-slate-400">Resumo de gastos</p>
-                      <h3 className="mt-2 text-2xl font-black text-slate-950">Controle financeiro</h3>
+                    <div className="rounded-[2rem] border border-white/80 bg-white/95 p-6 shadow-xl shadow-slate-900/10 dark:border-slate-700 dark:bg-slate-900/95 dark:shadow-black/30 dark:border-slate-700 dark:bg-slate-900/95 dark:shadow-black/30 md:p-8">
+                      <p className="text-sm font-black uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500">Resumo de gastos</p>
+                      <h3 className="mt-2 text-2xl font-black text-slate-950 dark:text-slate-50">Controle financeiro</h3>
                       <div className="mt-4">
                         <EmptyState
                           icon={WalletCards}
@@ -3298,11 +3298,11 @@ export function ProfilePage() {
                       </div>
                     </div>
                   )}
-                  <div className="rounded-[2rem] border border-white/80 bg-white/95 p-6 shadow-xl shadow-slate-900/10">
-                    <h3 className="text-2xl font-black text-slate-950">Pontos turisticos</h3>
+                  <div className="rounded-[2rem] border border-white/80 bg-white/95 p-6 shadow-xl shadow-slate-900/10 dark:border-slate-700 dark:bg-slate-900/95 dark:shadow-black/30">
+                    <h3 className="text-2xl font-black text-slate-950 dark:text-slate-50">Pontos turisticos</h3>
                     <div className="mt-4 space-y-3">
                       {tripAttractions.slice(0, 4).map((attraction) => (
-                        <p key={attraction.id} className="rounded-2xl bg-slate-50 px-4 py-3 text-sm font-bold text-slate-600">
+                        <p key={attraction.id} className="rounded-2xl bg-slate-50 px-4 py-3 dark:bg-slate-800 text-sm font-bold text-slate-600 dark:text-slate-300">
                           {attraction.name} - {countryLabel(attraction.country)}
                         </p>
                       ))}
@@ -3323,7 +3323,7 @@ export function ProfilePage() {
                 </section>
               </>
             ) : (
-              <section className="rounded-[2rem] border border-white/80 bg-white/95 p-6 shadow-xl shadow-slate-900/10 md:p-8">
+              <section className="rounded-[2rem] border border-white/80 bg-white/95 p-6 shadow-xl shadow-slate-900/10 dark:border-slate-700 dark:bg-slate-900/95 dark:shadow-black/30 dark:border-slate-700 dark:bg-slate-900/95 dark:shadow-black/30 md:p-8">
                 <EmptyState
                   icon={Plus}
                   title="Nenhuma viagem ativa"
@@ -3332,7 +3332,7 @@ export function ProfilePage() {
                     <button
                       type="button"
                       onClick={openManualTripCreation}
-                      className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl bg-slate-950 px-5 font-black text-white transition hover:bg-teal-700"
+                      className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl bg-slate-950 px-5 font-black text-white transition hover:bg-teal-700 dark:bg-emerald-400 dark:text-emerald-950 dark:hover:bg-emerald-300"
                     >
                       <Plus className="h-5 w-5" />
                       Criar minha viagem
@@ -3347,16 +3347,16 @@ export function ProfilePage() {
           {activeProfileSection === 'create-ai' ? (
             <>
               {aiFailedGroup && aiRetryInput ? (
-                <section className="rounded-[2rem] border border-amber-200 bg-amber-50 p-5 shadow-xl shadow-amber-900/10 md:p-6">
+                <section className="rounded-[2rem] border border-amber-200 bg-amber-50 dark:bg-amber-400/10 p-5 shadow-xl shadow-amber-900/10 md:p-6">
                   <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                     <div>
-                      <p className="text-sm font-black uppercase tracking-[0.16em] text-amber-700">{t('ai.notCompleted')}</p>
-                      <h2 className="mt-1 text-2xl font-black text-slate-950">{t('ai.tripSaved')}</h2>
-                      <p className="mt-2 text-sm font-bold leading-6 text-amber-900">
+                      <p className="text-sm font-black uppercase tracking-[0.16em] text-amber-700 dark:text-amber-200">{t('ai.notCompleted')}</p>
+                      <h2 className="mt-1 text-2xl font-black text-slate-950 dark:text-slate-50">{t('ai.tripSaved')}</h2>
+                      <p className="mt-2 text-sm font-bold leading-6 text-amber-900 dark:text-amber-100">
                         {t('ai.retryOrManual', { tripName: aiFailedGroup.name })}
                       </p>
                       {(isGeneratingAI && aiGenerationMessage) || retryCountryOnlyAIHint ? (
-                        <p className="mt-3 rounded-2xl bg-white/80 px-4 py-3 text-sm font-black text-amber-900">
+                        <p className="mt-3 rounded-2xl bg-white/80 px-4 py-3 text-sm font-black text-amber-900 dark:bg-slate-900/80 dark:text-amber-200">
                           {isGeneratingAI && aiGenerationMessage ? aiGenerationMessage : retryCountryOnlyAIHint}
                         </p>
                       ) : null}
@@ -3366,7 +3366,7 @@ export function ProfilePage() {
                         type="button"
                         onClick={() => void handleRetryAI()}
                         disabled={isGeneratingAI || aiGenerationBlocked || isDateRangeInvalid(aiRetryInput.startDate, aiRetryInput.endDate)}
-                        className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl bg-teal-700 px-5 font-black text-white transition hover:bg-teal-800 disabled:cursor-not-allowed disabled:opacity-70"
+                        className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl bg-teal-700 dark:bg-emerald-400 px-5 font-black text-white dark:text-emerald-950 transition hover:bg-teal-800 disabled:cursor-not-allowed disabled:opacity-70"
                       >
                         {isGeneratingAI ? <Loader2 className="h-5 w-5 animate-spin" /> : <Sparkles className="h-5 w-5" />}
                         {t('ai.retry')}
@@ -3374,7 +3374,7 @@ export function ProfilePage() {
                       <button
                         type="button"
                         onClick={() => void handleContinueWithoutAI()}
-                        className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl bg-white px-5 font-black text-amber-900 transition hover:bg-amber-100"
+                        className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl bg-white px-5 font-black text-amber-900 transition hover:bg-amber-100 dark:bg-slate-900 dark:text-amber-200 dark:hover:bg-amber-400/10"
                       >
                         {t('ai.continueWithout')}
                       </button>
@@ -3392,7 +3392,7 @@ export function ProfilePage() {
                     <button
                       type="button"
                       onClick={() => setShowCreateTripForm(false)}
-                      className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl bg-slate-100 px-5 font-black text-slate-700 transition hover:bg-slate-200"
+                      className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl bg-slate-100 dark:bg-slate-800 px-5 font-black text-slate-700 dark:text-slate-200 transition hover:bg-slate-200"
                     >
                       <Sparkles className="h-5 w-5" />
                       Voltar para gerar com IA
@@ -3417,23 +3417,23 @@ export function ProfilePage() {
           ) : null}
 
           {activeProfileSection === 'documents' ? (
-            <section className="rounded-xl border border-[#e6ebf3] bg-white p-6 shadow-[0_8px_24px_rgba(15,23,42,0.045)] md:p-8">
+            <section className="rounded-xl border border-[#e6ebf3] bg-white p-6 shadow-[0_8px_24px_rgba(15,23,42,0.045)] dark:border-slate-700 dark:bg-slate-900 dark:shadow-black/30 dark:border-slate-700 dark:bg-slate-900 dark:shadow-black/30 md:p-8">
               <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
                 <div>
-                  <p className="text-sm font-bold uppercase tracking-[0.16em] text-[#007c68]">Documentos</p>
-                  <h2 className="mt-2 text-3xl font-black tracking-tight text-[#0b1326]">
+                  <p className="text-sm font-bold uppercase tracking-[0.16em] text-[#007c68] dark:text-emerald-300">Documentos</p>
+                  <h2 className="mt-2 text-3xl font-black tracking-tight text-[#0b1326] dark:text-slate-50">
                     {profileDocumentCount
                       ? `${profileDocumentCount} documento${profileDocumentCount === 1 ? '' : 's'} da viagem`
                       : 'Nenhum documento adicionado'}
                   </h2>
-                  <p className="mt-3 max-w-3xl text-sm font-semibold leading-6 text-[#667085]">
+                  <p className="mt-3 max-w-3xl text-sm font-semibold leading-6 text-[#667085] dark:text-slate-300">
                     Documentos vêm do checklist da viagem ativa e respeitam o group_id atual.
                   </p>
                 </div>
                 <button
                   type="button"
                   onClick={() => navigateProfileSection('checklist')}
-                  className="inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-black px-5 font-bold text-white transition hover:bg-[#111827]"
+                  className="inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-black px-5 font-bold text-white transition hover:bg-[#111827] dark:bg-emerald-400 dark:text-emerald-950 dark:hover:bg-emerald-300"
                 >
                   Abrir checklist
                   <ArrowRight className="h-4 w-4" />
@@ -3449,23 +3449,23 @@ export function ProfilePage() {
                       <article
                         key={item.id}
                         className={`rounded-xl border p-5 ${
-                          item.checked ? 'border-emerald-100 bg-emerald-50/70' : 'border-[#e6ebf3] bg-[#f8fafc]'
+                          item.checked ? 'border-emerald-100 bg-emerald-50/70 dark:border-emerald-400/30 dark:bg-emerald-400/10' : 'border-[#e6ebf3] bg-[#f8fafc] dark:border-slate-700 dark:bg-slate-800'
                         }`}
                       >
                         <div className="flex items-start justify-between gap-3">
-                          <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-white text-[#007c68] shadow-sm">
+                          <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-white text-[#007c68] shadow-sm dark:bg-slate-900 dark:text-emerald-300">
                             <FileText className="h-5 w-5" />
                           </span>
                           <span className={`rounded-full px-3 py-1 text-xs font-bold ${
-                            item.checked ? 'bg-emerald-600 text-white' : 'bg-white text-[#667085]'
+                            item.checked ? 'bg-emerald-600 text-white dark:bg-emerald-400 dark:text-emerald-950' : 'bg-white text-[#667085] dark:bg-slate-900 dark:text-slate-300'
                           }`}>
                             {item.checked ? 'Concluído' : 'Pendente'}
                           </span>
                         </div>
-                        <h3 className={`mt-5 font-black ${item.checked ? 'text-emerald-950 line-through' : 'text-[#0b1326]'}`}>
+                        <h3 className={`mt-5 font-black ${item.checked ? 'text-emerald-950 line-through dark:text-emerald-200' : 'text-[#0b1326] dark:text-slate-50'}`}>
                           {item.title}
                         </h3>
-                        <p className="mt-2 text-sm font-semibold leading-6 text-[#667085]">
+                        <p className="mt-2 text-sm font-semibold leading-6 text-[#667085] dark:text-slate-300">
                           Qtd. {item.quantity}
                           {assignedName ? ` · ${assignedName}` : ''}
                         </p>
@@ -3474,12 +3474,12 @@ export function ProfilePage() {
                   })
                 ) : legacyItineraryDocuments.length ? (
                   legacyItineraryDocuments.map((item) => (
-                    <article key={item.id} className="rounded-xl border border-[#e6ebf3] bg-[#f8fafc] p-5">
-                      <span className="grid h-11 w-11 place-items-center rounded-full bg-white text-[#007c68] shadow-sm">
+                    <article key={item.id} className="rounded-xl border border-[#e6ebf3] bg-[#f8fafc] p-5 dark:border-slate-700 dark:bg-slate-800">
+                      <span className="grid h-11 w-11 place-items-center rounded-full bg-white text-[#007c68] shadow-sm dark:bg-slate-900 dark:text-emerald-300">
                         <FileText className="h-5 w-5" />
                       </span>
-                      <h3 className="mt-5 font-black text-[#0b1326]">{item.title}</h3>
-                      <p className="mt-2 text-sm font-semibold text-[#667085]">Documento identificado no roteiro.</p>
+                      <h3 className="mt-5 font-black text-[#0b1326] dark:text-slate-50">{item.title}</h3>
+                      <p className="mt-2 text-sm font-semibold text-[#667085] dark:text-slate-300">Documento identificado no roteiro.</p>
                     </article>
                   ))
                 ) : (
@@ -3498,34 +3498,34 @@ export function ProfilePage() {
           {activeProfileSection === 'checklist' ? (
             activeGroup ? (
               <>
-                <section className="rounded-[2rem] border border-white/80 bg-white/90 p-6 shadow-xl shadow-slate-900/10 md:p-8">
+                <section className="rounded-[2rem] border border-white/80 bg-white/90 p-6 shadow-xl shadow-slate-900/10 dark:border-slate-700 dark:bg-slate-900/90 dark:shadow-black/30 md:p-8">
                   <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
                     <div>
-                      <p className="text-sm font-black uppercase tracking-[0.18em] text-slate-400">Checklist da viagem</p>
-                      <h2 className="mt-2 text-3xl font-black tracking-tight text-slate-950">{activeGroup.name}</h2>
-                      <p className="mt-2 text-sm font-bold leading-6 text-slate-500">
+                      <p className="text-sm font-black uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500">Checklist da viagem</p>
+                      <h2 className="mt-2 text-3xl font-black tracking-tight text-slate-950 dark:text-slate-50">{activeGroup.name}</h2>
+                      <p className="mt-2 text-sm font-bold leading-6 text-slate-500 dark:text-slate-300">
                         {checkedChecklistCount} de {checklistItems.length} itens marcados como levados.
                       </p>
                     </div>
-                    <span className="rounded-2xl bg-teal-50 px-4 py-3 text-sm font-black text-teal-700">
+                    <span className="rounded-2xl bg-teal-50 px-4 py-3 text-sm font-black text-teal-700 dark:bg-emerald-400/10 dark:text-emerald-200">
                       {checklistProgress}% concluido
                     </span>
                   </div>
                   {checklistWarning ? (
-                    <p className="mt-4 rounded-2xl bg-amber-50 px-4 py-3 text-sm font-bold text-amber-700">
+                    <p className="mt-4 rounded-2xl bg-amber-50 px-4 py-3 text-sm font-bold text-amber-700 dark:bg-amber-400/10 dark:text-amber-200">
                       {checklistWarning}
                     </p>
                   ) : null}
                 </section>
 
                 <div className="grid gap-6 xl:grid-cols-[minmax(21rem,0.75fr)_minmax(0,1.25fr)] xl:items-start">
-                  <section className="rounded-[2rem] border border-white/80 bg-white/90 p-6 shadow-xl shadow-slate-900/10 md:p-8">
+                  <section className="rounded-[2rem] border border-white/80 bg-white/90 p-6 shadow-xl shadow-slate-900/10 dark:border-slate-700 dark:bg-slate-900/90 dark:shadow-black/30 md:p-8">
                     <div className="mb-6 flex items-center justify-between gap-3">
                       <div>
-                        <p className="text-sm font-black uppercase tracking-[0.18em] text-slate-400">
+                        <p className="text-sm font-black uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500">
                           {editingChecklistItem ? 'Editar item' : 'Novo item'}
                         </p>
-                        <h3 className="text-2xl font-black text-slate-950">
+                        <h3 className="text-2xl font-black text-slate-950 dark:text-slate-50">
                           {editingChecklistItem ? editingChecklistItem.title : 'Adicionar ao checklist'}
                         </h3>
                       </div>
@@ -3533,7 +3533,7 @@ export function ProfilePage() {
                         <button
                           type="button"
                           onClick={resetChecklistDraft}
-                          className="inline-flex h-10 items-center justify-center rounded-2xl bg-slate-100 px-3 text-sm font-black text-slate-600 transition hover:bg-slate-200"
+                          className="inline-flex h-10 items-center justify-center rounded-2xl bg-slate-100 px-3 text-sm font-black text-slate-600 transition hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
                         >
                           Cancelar
                         </button>
@@ -3542,24 +3542,24 @@ export function ProfilePage() {
                     <form onSubmit={handleChecklistSubmit} className="space-y-4">
                       <div className="grid gap-4 md:grid-cols-[1.1fr_0.8fr_0.6fr] xl:grid-cols-1">
                         <label className="block">
-                          <span className="mb-2 block text-sm font-bold text-slate-600">Item</span>
+                          <span className="mb-2 block text-sm font-bold text-slate-600 dark:text-slate-300">Item</span>
                           <input
                             required
                             value={checklistDraft.title}
                             onChange={(event) => setChecklistDraft((current) => ({ ...current, title: event.target.value }))}
                             placeholder="Passaporte, carregador, casaco..."
-                            className="h-12 w-full rounded-2xl border border-slate-200 px-4 font-semibold outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-100"
+                            className="h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 font-semibold text-slate-900 outline-none placeholder:text-slate-400 focus:border-teal-400 focus:ring-4 focus:ring-teal-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-50 dark:placeholder:text-slate-500 dark:focus:border-emerald-400 dark:focus:ring-emerald-400/20"
                           />
                         </label>
                         <label className="block">
-                          <span className="mb-2 block text-sm font-bold text-slate-600">Categoria</span>
+                          <span className="mb-2 block text-sm font-bold text-slate-600 dark:text-slate-300">Categoria</span>
                           <select
                             value={checklistDraft.category}
                             onChange={(event) => setChecklistDraft((current) => ({
                               ...current,
                               category: event.target.value as TripChecklistItemCategory,
                             }))}
-                            className="h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 font-semibold outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-100"
+                            className="h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 font-semibold text-slate-900 outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-50 dark:focus:border-emerald-400 dark:focus:ring-emerald-400/20"
                           >
                             {checklistCategories.map((category) => (
                               <option key={category} value={category}>{checklistCategoryLabels[category]}</option>
@@ -3567,7 +3567,7 @@ export function ProfilePage() {
                           </select>
                         </label>
                         <label className="block">
-                          <span className="mb-2 block text-sm font-bold text-slate-600">Quantidade</span>
+                          <span className="mb-2 block text-sm font-bold text-slate-600 dark:text-slate-300">Quantidade</span>
                           <input
                             type="number"
                             min={1}
@@ -3576,17 +3576,17 @@ export function ProfilePage() {
                               ...current,
                               quantity: Math.max(1, Number(event.target.value) || 1),
                             }))}
-                            className="h-12 w-full rounded-2xl border border-slate-200 px-4 font-semibold outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-100"
+                            className="h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 font-semibold text-slate-900 outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-50 dark:focus:border-emerald-400 dark:focus:ring-emerald-400/20"
                           />
                         </label>
                       </div>
                       <div className="grid gap-4 md:grid-cols-[0.8fr_1.2fr] xl:grid-cols-1">
                         <label className="block">
-                          <span className="mb-2 block text-sm font-bold text-slate-600">Responsavel</span>
+                          <span className="mb-2 block text-sm font-bold text-slate-600 dark:text-slate-300">Responsavel</span>
                           <select
                             value={checklistDraft.assignedTo ?? ''}
                             onChange={(event) => setChecklistDraft((current) => ({ ...current, assignedTo: event.target.value }))}
-                            className="h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 font-semibold outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-100"
+                            className="h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 font-semibold text-slate-900 outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-50 dark:focus:border-emerald-400 dark:focus:ring-emerald-400/20"
                           >
                             <option value="">Sem responsavel</option>
                             {members.map((member) => {
@@ -3600,12 +3600,12 @@ export function ProfilePage() {
                           </select>
                         </label>
                         <label className="block">
-                          <span className="mb-2 block text-sm font-bold text-slate-600">Observacao</span>
+                          <span className="mb-2 block text-sm font-bold text-slate-600 dark:text-slate-300">Observacao</span>
                           <input
                             value={checklistDraft.notes ?? ''}
                             onChange={(event) => setChecklistDraft((current) => ({ ...current, notes: event.target.value }))}
                             placeholder="Detalhes, tamanho, onde comprar..."
-                            className="h-12 w-full rounded-2xl border border-slate-200 px-4 font-semibold outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-100"
+                            className="h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 font-semibold text-slate-900 outline-none placeholder:text-slate-400 focus:border-teal-400 focus:ring-4 focus:ring-teal-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-50 dark:placeholder:text-slate-500 dark:focus:border-emerald-400 dark:focus:ring-emerald-400/20"
                           />
                         </label>
                       </div>
@@ -3614,7 +3614,7 @@ export function ProfilePage() {
                         disabled={Boolean(checklistActionId) && (
                           checklistActionId === 'create' || checklistActionId === editingChecklistItemId
                         )}
-                        className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-slate-950 px-5 font-black text-white transition hover:bg-teal-700 disabled:opacity-60"
+                        className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-slate-950 px-5 font-black text-white transition hover:bg-teal-700 dark:bg-emerald-400 dark:text-emerald-950 dark:hover:bg-emerald-300 disabled:opacity-60 dark:bg-emerald-400 dark:text-emerald-950 dark:hover:bg-emerald-300"
                       >
                         {Boolean(checklistActionId) && (
                           checklistActionId === 'create' || checklistActionId === editingChecklistItemId
@@ -3628,7 +3628,7 @@ export function ProfilePage() {
                     </form>
                   </section>
 
-                  <section className="rounded-[2rem] border border-white/80 bg-white/90 p-6 shadow-xl shadow-slate-900/10 md:p-8">
+                  <section className="rounded-[2rem] border border-white/80 bg-white/90 p-6 shadow-xl shadow-slate-900/10 dark:border-slate-700 dark:bg-slate-900/90 dark:shadow-black/30 md:p-8">
                     {checklistItems.length ? (
                       <div className="space-y-5">
                         {checklistCategories.map((category) => {
@@ -3637,7 +3637,7 @@ export function ProfilePage() {
 
                           return (
                             <div key={category}>
-                              <h3 className="mb-3 text-sm font-black uppercase tracking-[0.18em] text-slate-400">
+                              <h3 className="mb-3 text-sm font-black uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500">
                                 {checklistCategoryLabels[category]}
                               </h3>
                               <div className="space-y-3">
@@ -3654,7 +3654,7 @@ export function ProfilePage() {
                                     <article
                                       key={item.id}
                                       className={`rounded-3xl border p-4 ${
-                                        item.checked ? 'border-emerald-100 bg-emerald-50/70' : 'border-slate-100 bg-slate-50'
+                                        item.checked ? 'border-emerald-100 bg-emerald-50/70 dark:border-emerald-400/30 dark:bg-emerald-400/10' : 'border-slate-100 bg-slate-50 dark:border-slate-700 dark:bg-slate-800'
                                       }`}
                                     >
                                       <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
@@ -3666,22 +3666,22 @@ export function ProfilePage() {
                                             aria-label={item.checked ? 'Desmarcar item' : 'Marcar item'}
                                             className={`mt-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl transition ${
                                               item.checked
-                                                ? 'bg-emerald-600 text-white'
-                                                : 'bg-white text-slate-400 hover:text-teal-700'
+                                                ? 'bg-emerald-600 text-white dark:bg-emerald-400 dark:text-emerald-950'
+                                                : 'bg-white text-slate-400 hover:text-teal-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:text-emerald-300'
                                             }`}
                                           >
                                             {isBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-5 w-5" />}
                                           </button>
                                           <div className="min-w-0">
-                                            <p className={`font-black ${item.checked ? 'text-emerald-900 line-through' : 'text-slate-950'}`}>
+                                            <p className={`font-black ${item.checked ? 'text-emerald-900 line-through dark:text-emerald-200' : 'text-slate-950 dark:text-slate-50'}`}>
                                               {item.title}
                                             </p>
-                                            <p className="mt-1 text-sm font-bold text-slate-500">
+                                            <p className="mt-1 text-sm font-bold text-slate-500 dark:text-slate-300">
                                               Qtd. {item.quantity}
                                               {assignedName ? ` - Responsavel: ${assignedName}` : ''}
                                             </p>
                                             {item.notes ? (
-                                              <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">{item.notes}</p>
+                                              <p className="mt-2 text-sm font-semibold leading-6 text-slate-600 dark:text-slate-300">{item.notes}</p>
                                             ) : null}
                                           </div>
                                         </div>
@@ -3689,7 +3689,7 @@ export function ProfilePage() {
                                           <button
                                             type="button"
                                             onClick={() => startChecklistEdit(item)}
-                                            className="inline-flex h-10 items-center justify-center gap-2 rounded-2xl bg-white px-3 text-sm font-black text-slate-700 transition hover:bg-slate-100"
+                                            className="inline-flex h-10 items-center justify-center gap-2 rounded-2xl bg-white px-3 text-sm font-black text-slate-700 transition hover:bg-slate-100 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-700"
                                           >
                                             <Pencil className="h-4 w-4" />
                                             Editar
@@ -3698,7 +3698,7 @@ export function ProfilePage() {
                                             type="button"
                                             onClick={() => void handleDeleteChecklistItem(item)}
                                             disabled={isBusy}
-                                            className="inline-flex h-10 items-center justify-center gap-2 rounded-2xl bg-rose-50 px-3 text-sm font-black text-rose-700 transition hover:bg-rose-100 disabled:opacity-60"
+                                            className="inline-flex h-10 items-center justify-center gap-2 rounded-2xl bg-rose-50 px-3 text-sm font-black text-rose-700 transition hover:bg-rose-100 disabled:opacity-60 dark:bg-rose-400/10 dark:text-rose-200 dark:hover:bg-rose-400/20"
                                           >
                                             <Trash2 className="h-4 w-4" />
                                             Excluir
@@ -3724,7 +3724,7 @@ export function ProfilePage() {
                 </div>
               </>
             ) : (
-              <section className="rounded-[2rem] border border-white/80 bg-white/95 p-6 shadow-xl shadow-slate-900/10 md:p-8">
+              <section className="rounded-[2rem] border border-white/80 bg-white/95 p-6 shadow-xl shadow-slate-900/10 dark:border-slate-700 dark:bg-slate-900/95 dark:shadow-black/30 dark:border-slate-700 dark:bg-slate-900/95 dark:shadow-black/30 md:p-8">
                 <EmptyState
                   icon={CheckCircle2}
                   title="Checklist indisponivel"
@@ -3735,11 +3735,11 @@ export function ProfilePage() {
           ) : null}
 
           {activeProfileSection === 'notifications' ? (
-            <section className="rounded-[2rem] border border-white/80 bg-white/90 p-6 shadow-xl shadow-slate-900/10 md:p-8">
+            <section className="rounded-[2rem] border border-white/80 bg-white/90 p-6 shadow-xl shadow-slate-900/10 dark:border-slate-700 dark:bg-slate-900/90 dark:shadow-black/30 md:p-8">
               <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
                 <div>
-                  <p className="text-sm font-black uppercase tracking-[0.18em] text-teal-700">Notificacoes</p>
-                  <h2 className="text-2xl font-black text-slate-950">
+                  <p className="text-sm font-black uppercase tracking-[0.18em] text-teal-700 dark:text-emerald-300">Notificacoes</p>
+                  <h2 className="text-2xl font-black text-slate-950 dark:text-slate-50">
                     {unreadNotifications ? `${unreadNotifications} nao lida${unreadNotifications === 1 ? '' : 's'}` : 'Tudo em dia'}
                   </h2>
                 </div>
@@ -3747,7 +3747,7 @@ export function ProfilePage() {
                   type="button"
                   onClick={() => void handleClearReadNotifications()}
                   disabled={notificationActionId === 'clear-read' || !notifications.some((notification) => notification.read)}
-                  className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl bg-slate-100 px-4 text-sm font-black text-slate-700 transition hover:bg-slate-200 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl bg-slate-100 dark:bg-slate-800 px-4 text-sm font-black text-slate-700 dark:text-slate-200 transition hover:bg-slate-200 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {notificationActionId === 'clear-read' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
                   Limpar lidas
@@ -3755,7 +3755,7 @@ export function ProfilePage() {
               </div>
 
               {notificationRealtimeWarning ? (
-                <p className="mb-4 rounded-2xl bg-amber-50 px-4 py-3 text-sm font-bold text-amber-700">
+                <p className="mb-4 rounded-2xl bg-amber-50 dark:bg-amber-400/10 px-4 py-3 text-sm font-bold text-amber-700 dark:text-amber-200">
                   {notificationRealtimeWarning}
                 </p>
               ) : null}
@@ -3776,19 +3776,19 @@ export function ProfilePage() {
 
           {activeProfileSection === 'edit-profile' ? (
             <section className="space-y-6">
-              <div className="rounded-[2rem] border border-white/80 bg-white/95 p-6 shadow-xl shadow-slate-900/10 md:p-8">
-                <p className="text-sm font-black uppercase tracking-[0.18em] text-teal-700">Configuração</p>
-                <h2 className="mt-2 text-3xl font-black tracking-tight text-slate-950">Configuração</h2>
-                <p className="mt-3 max-w-3xl text-sm font-bold leading-6 text-slate-600">
+              <div className="rounded-[2rem] border border-white/80 bg-white/95 p-6 shadow-xl shadow-slate-900/10 dark:border-slate-700 dark:bg-slate-900/95 dark:shadow-black/30 dark:border-slate-700 dark:bg-slate-900/95 dark:shadow-black/30 md:p-8">
+                <p className="text-sm font-black uppercase tracking-[0.18em] text-teal-700 dark:text-emerald-300">Configuração</p>
+                <h2 className="mt-2 text-3xl font-black tracking-tight text-slate-950 dark:text-slate-50">Configuração</h2>
+                <p className="mt-3 max-w-3xl text-sm font-bold leading-6 text-slate-600 dark:text-slate-300">
                   Atualize seus dados pessoais, credenciais e preferências da sua conta TripFlow.
                 </p>
                 {profileEditMessage ? (
-                  <p className="mt-5 rounded-2xl bg-teal-50 px-4 py-3 text-sm font-bold text-teal-700">
+                  <p className="mt-5 rounded-2xl bg-teal-50 px-4 py-3 text-sm font-bold text-teal-700 dark:bg-emerald-400/10 dark:text-emerald-200">
                     {profileEditMessage}
                   </p>
                 ) : null}
                 {profileEditError ? (
-                  <p className="mt-5 rounded-2xl bg-rose-50 px-4 py-3 text-sm font-bold text-rose-700">
+                  <p className="mt-5 rounded-2xl bg-rose-50 px-4 py-3 text-sm font-bold text-rose-700 dark:bg-rose-400/10 dark:text-rose-200">
                     {profileEditError}
                   </p>
                 ) : null}
@@ -3798,21 +3798,21 @@ export function ProfilePage() {
                 <form
                   onSubmit={handleUpdateDisplayName}
                   noValidate
-                  className="flex min-h-full flex-col rounded-[2rem] border border-white/80 bg-white/95 p-6 shadow-xl shadow-slate-900/10 md:p-7"
+                  className="flex min-h-full flex-col rounded-[2rem] border border-white/80 bg-white/95 p-6 shadow-xl shadow-slate-900/10 dark:border-slate-700 dark:bg-slate-900/95 dark:shadow-black/30 dark:border-slate-700 dark:bg-slate-900/95 dark:shadow-black/30 md:p-7"
                 >
                   <div className="flex items-center gap-3">
-                    <span className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-teal-50 text-teal-700">
+                    <span className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-teal-50 text-teal-700 dark:bg-emerald-400/10 dark:text-emerald-300">
                       <UserRound className="h-5 w-5" />
                     </span>
                     <div>
-                      <p className="text-sm font-black uppercase tracking-[0.16em] text-slate-400">Dados publicos</p>
-                      <h3 className="text-xl font-black text-slate-950">Nome de exibicao</h3>
+                      <p className="text-sm font-black uppercase tracking-[0.16em] text-slate-400 dark:text-slate-500">Dados publicos</p>
+                      <h3 className="text-xl font-black text-slate-950 dark:text-slate-50">Nome de exibicao</h3>
                     </div>
                   </div>
-                  <p className="mt-4 text-sm font-bold leading-6 text-slate-500">
+                  <p className="mt-4 text-sm font-bold leading-6 text-slate-500 dark:text-slate-300">
                     Esse nome aparece no card principal e nos membros da viagem.
                   </p>
-                  <label className="mt-6 block text-sm font-black text-slate-700" htmlFor="display-name">
+                  <label className="mt-6 block text-sm font-black text-slate-700 dark:text-slate-300" htmlFor="display-name">
                     Nome
                   </label>
                   <input
@@ -3822,13 +3822,13 @@ export function ProfilePage() {
                     autoComplete="name"
                     disabled={isProfileEditBusy}
                     aria-invalid={!displayNameDraft.trim()}
-                    className="mt-2 h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-900 outline-none transition focus:border-teal-500 focus:ring-4 focus:ring-teal-100"
+                    className="mt-2 h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-teal-500 focus:ring-4 focus:ring-teal-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-50 dark:placeholder:text-slate-500 dark:focus:border-emerald-400 dark:focus:ring-emerald-400/20"
                     placeholder="Seu nome no TripFlow"
                   />
                   <button
                     type="submit"
                     disabled={isProfileEditBusy}
-                    className="mt-6 inline-flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-slate-950 px-5 font-black text-white shadow-xl shadow-slate-900/15 transition hover:bg-teal-700 disabled:cursor-not-allowed disabled:opacity-60"
+                    className="mt-6 inline-flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-slate-950 px-5 font-black text-white shadow-xl shadow-slate-900/15 transition hover:bg-teal-700 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-emerald-400 dark:text-emerald-950 dark:shadow-black/30 dark:hover:bg-emerald-300"
                   >
                     {profileEditAction === 'name' ? <Loader2 className="h-5 w-5 animate-spin" /> : <Save className="h-5 w-5" />}
                     Salvar nome
@@ -3838,30 +3838,30 @@ export function ProfilePage() {
                 <form
                   onSubmit={handleRequestEmailChange}
                   noValidate
-                  className="flex min-h-full flex-col rounded-[2rem] border border-white/80 bg-white/95 p-6 shadow-xl shadow-slate-900/10 md:p-7"
+                  className="flex min-h-full flex-col rounded-[2rem] border border-white/80 bg-white/95 p-6 shadow-xl shadow-slate-900/10 dark:border-slate-700 dark:bg-slate-900/95 dark:shadow-black/30 dark:border-slate-700 dark:bg-slate-900/95 dark:shadow-black/30 md:p-7"
                 >
                   <div className="flex items-center gap-3">
-                    <span className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-teal-50 text-teal-700">
+                    <span className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-teal-50 text-teal-700 dark:bg-emerald-400/10 dark:text-emerald-300">
                       <Send className="h-5 w-5" />
                     </span>
                     <div>
-                      <p className="text-sm font-black uppercase tracking-[0.16em] text-slate-400">E-mail de acesso</p>
-                      <h3 className="text-xl font-black text-slate-950">Alterar e-mail</h3>
+                      <p className="text-sm font-black uppercase tracking-[0.16em] text-slate-400 dark:text-slate-500">E-mail de acesso</p>
+                      <h3 className="text-xl font-black text-slate-950 dark:text-slate-50">Alterar e-mail</h3>
                     </div>
                   </div>
-                  <p className="mt-4 text-sm font-bold leading-6 text-slate-500">
+                  <p className="mt-4 text-sm font-bold leading-6 text-slate-500 dark:text-slate-300">
                     A troca usa Supabase Auth e pode exigir confirmacao por e-mail.
                   </p>
-                  <label className="mt-6 block text-sm font-black text-slate-700" htmlFor="current-email">
+                  <label className="mt-6 block text-sm font-black text-slate-700 dark:text-slate-300" htmlFor="current-email">
                     E-mail atual
                   </label>
                   <input
                     id="current-email"
                     value={currentAccountEmail || displayEmail}
                     readOnly
-                    className="mt-2 h-12 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 text-sm font-bold text-slate-500 outline-none"
+                    className="mt-2 h-12 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 text-sm font-bold text-slate-500 outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400"
                   />
-                  <label className="mt-4 block text-sm font-black text-slate-700" htmlFor="new-email">
+                  <label className="mt-4 block text-sm font-black text-slate-700 dark:text-slate-300" htmlFor="new-email">
                     Novo e-mail
                   </label>
                   <input
@@ -3872,16 +3872,16 @@ export function ProfilePage() {
                     autoComplete="email"
                     disabled={isProfileEditBusy}
                     aria-invalid={Boolean(emailDraft.trim()) && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailDraft.trim())}
-                    className="mt-2 h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-900 outline-none transition focus:border-teal-500 focus:ring-4 focus:ring-teal-100"
+                    className="mt-2 h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-teal-500 focus:ring-4 focus:ring-teal-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-50 dark:placeholder:text-slate-500 dark:focus:border-emerald-400 dark:focus:ring-emerald-400/20"
                     placeholder="novo@email.com"
                   />
-                  <p className="mt-2 text-xs font-bold leading-5 text-slate-400">
+                  <p className="mt-2 text-xs font-bold leading-5 text-slate-400 dark:text-slate-500">
                     O e-mail atual continua valendo ate a confirmacao do novo endereco.
                   </p>
                   <button
                     type="submit"
                     disabled={isProfileEditBusy}
-                    className="mt-6 inline-flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-slate-950 px-5 font-black text-white shadow-xl shadow-slate-900/15 transition hover:bg-teal-700 disabled:cursor-not-allowed disabled:opacity-60"
+                    className="mt-6 inline-flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-slate-950 px-5 font-black text-white shadow-xl shadow-slate-900/15 transition hover:bg-teal-700 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-emerald-400 dark:text-emerald-950 dark:shadow-black/30 dark:hover:bg-emerald-300"
                   >
                     {profileEditAction === 'email' ? <Loader2 className="h-5 w-5 animate-spin" /> : <Send className="h-5 w-5" />}
                     Alterar e-mail
@@ -3891,24 +3891,24 @@ export function ProfilePage() {
                 <form
                   onSubmit={handleUpdatePassword}
                   noValidate
-                  className="flex min-h-full flex-col rounded-[2rem] border border-white/80 bg-white/95 p-6 shadow-xl shadow-slate-900/10 md:p-7"
+                  className="flex min-h-full flex-col rounded-[2rem] border border-white/80 bg-white/95 p-6 shadow-xl shadow-slate-900/10 dark:border-slate-700 dark:bg-slate-900/95 dark:shadow-black/30 dark:border-slate-700 dark:bg-slate-900/95 dark:shadow-black/30 md:p-7"
                 >
                   <div className="flex items-center gap-3">
-                    <span className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-teal-50 text-teal-700">
+                    <span className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-teal-50 text-teal-700 dark:bg-emerald-400/10 dark:text-emerald-300">
                       <ShieldCheck className="h-5 w-5" />
                     </span>
                     <div>
-                      <p className="text-sm font-black uppercase tracking-[0.16em] text-slate-400">Seguranca da conta</p>
-                      <h3 className="text-xl font-black text-slate-950">Seguranca</h3>
+                      <p className="text-sm font-black uppercase tracking-[0.16em] text-slate-400 dark:text-slate-500">Seguranca da conta</p>
+                      <h3 className="text-xl font-black text-slate-950 dark:text-slate-50">Seguranca</h3>
                     </div>
                   </div>
-                  <p className="mt-4 text-sm font-bold leading-6 text-slate-500">
+                  <p className="mt-4 text-sm font-bold leading-6 text-slate-500 dark:text-slate-300">
                     A senha e atualizada somente no Supabase Auth e nao e armazenada no TripFlow.
                   </p>
-                  <label className="mt-6 block text-sm font-black text-slate-700" htmlFor="new-password">
+                  <label className="mt-6 block text-sm font-black text-slate-700 dark:text-slate-300" htmlFor="new-password">
                     Nova senha
                   </label>
-                  <div className="mt-2 flex h-12 items-center rounded-2xl border border-slate-200 bg-white px-4 transition focus-within:border-teal-500 focus-within:ring-4 focus-within:ring-teal-100">
+                  <div className="mt-2 flex h-12 items-center rounded-2xl border border-slate-200 bg-white px-4 transition focus-within:border-teal-500 focus-within:ring-4 focus-within:ring-teal-100 dark:border-slate-700 dark:bg-slate-800 dark:focus-within:border-emerald-400 dark:focus-within:ring-emerald-400/20">
                     <input
                       id="new-password"
                       type={showPasswordDraft ? 'text' : 'password'}
@@ -3919,21 +3919,21 @@ export function ProfilePage() {
                       disabled={isProfileEditBusy}
                       aria-invalid={Boolean(passwordDraft) && passwordDraft.length < 6}
                       placeholder="Minimo de 6 caracteres"
-                      className="min-w-0 flex-1 bg-transparent text-sm font-bold text-slate-900 outline-none"
+                      className="min-w-0 flex-1 bg-transparent text-sm font-bold text-slate-900 outline-none placeholder:text-slate-400 dark:text-slate-50 dark:placeholder:text-slate-500"
                     />
                     <button
                       type="button"
                       onClick={() => setShowPasswordDraft((current) => !current)}
                       aria-label={showPasswordDraft ? 'Ocultar senha' : 'Mostrar senha'}
-                      className="ml-2 inline-flex h-9 w-9 items-center justify-center rounded-xl text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
+                      className="ml-2 inline-flex h-9 w-9 items-center justify-center rounded-xl text-slate-400 transition hover:bg-slate-100 dark:bg-slate-800 hover:text-slate-700 dark:text-slate-300 dark:hover:bg-slate-700 dark:hover:text-slate-50"
                     >
                       {showPasswordDraft ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                     </button>
                   </div>
-                  <label className="mt-4 block text-sm font-black text-slate-700" htmlFor="confirm-password">
+                  <label className="mt-4 block text-sm font-black text-slate-700 dark:text-slate-300" htmlFor="confirm-password">
                     Confirmar nova senha
                   </label>
-                  <div className="mt-2 flex h-12 items-center rounded-2xl border border-slate-200 bg-white px-4 transition focus-within:border-teal-500 focus-within:ring-4 focus-within:ring-teal-100">
+                  <div className="mt-2 flex h-12 items-center rounded-2xl border border-slate-200 bg-white px-4 transition focus-within:border-teal-500 focus-within:ring-4 focus-within:ring-teal-100 dark:border-slate-700 dark:bg-slate-800 dark:focus-within:border-emerald-400 dark:focus-within:ring-emerald-400/20">
                     <input
                       id="confirm-password"
                       type={showPasswordConfirmationDraft ? 'text' : 'password'}
@@ -3944,13 +3944,13 @@ export function ProfilePage() {
                       disabled={isProfileEditBusy}
                       aria-invalid={Boolean(passwordConfirmationDraft) && passwordDraft !== passwordConfirmationDraft}
                       placeholder="Repita a nova senha"
-                      className="min-w-0 flex-1 bg-transparent text-sm font-bold text-slate-900 outline-none"
+                      className="min-w-0 flex-1 bg-transparent text-sm font-bold text-slate-900 outline-none placeholder:text-slate-400 dark:text-slate-50 dark:placeholder:text-slate-500"
                     />
                     <button
                       type="button"
                       onClick={() => setShowPasswordConfirmationDraft((current) => !current)}
                       aria-label={showPasswordConfirmationDraft ? 'Ocultar senha' : 'Mostrar senha'}
-                      className="ml-2 inline-flex h-9 w-9 items-center justify-center rounded-xl text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
+                      className="ml-2 inline-flex h-9 w-9 items-center justify-center rounded-xl text-slate-400 transition hover:bg-slate-100 dark:bg-slate-800 hover:text-slate-700 dark:text-slate-300 dark:hover:bg-slate-700 dark:hover:text-slate-50"
                     >
                       {showPasswordConfirmationDraft ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                     </button>
@@ -3958,7 +3958,7 @@ export function ProfilePage() {
                   <button
                     type="submit"
                     disabled={isProfileEditBusy}
-                    className="mt-6 inline-flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-slate-950 px-5 font-black text-white shadow-xl shadow-slate-900/15 transition hover:bg-teal-700 disabled:cursor-not-allowed disabled:opacity-60"
+                    className="mt-6 inline-flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-slate-950 px-5 font-black text-white shadow-xl shadow-slate-900/15 transition hover:bg-teal-700 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-emerald-400 dark:text-emerald-950 dark:shadow-black/30 dark:hover:bg-emerald-300"
                   >
                     {profileEditAction === 'password' ? <Loader2 className="h-5 w-5 animate-spin" /> : <ShieldCheck className="h-5 w-5" />}
                     Atualizar senha
@@ -3968,21 +3968,21 @@ export function ProfilePage() {
                 <form
                   onSubmit={handleUpdateOriginCurrency}
                   noValidate
-                  className="flex min-h-full flex-col rounded-[2rem] border border-white/80 bg-white/95 p-6 shadow-xl shadow-slate-900/10 md:p-7"
+                  className="flex min-h-full flex-col rounded-[2rem] border border-white/80 bg-white/95 p-6 shadow-xl shadow-slate-900/10 dark:border-slate-700 dark:bg-slate-900/95 dark:shadow-black/30 dark:border-slate-700 dark:bg-slate-900/95 dark:shadow-black/30 md:p-7"
                 >
                   <div className="flex items-center gap-3">
-                    <span className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-teal-50 text-teal-700">
+                    <span className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-teal-50 text-teal-700 dark:bg-emerald-400/10 dark:text-emerald-300">
                       <WalletCards className="h-5 w-5" />
                     </span>
                     <div>
-                      <p className="text-sm font-black uppercase tracking-[0.16em] text-slate-400">Moeda de Origem</p>
-                      <h3 className="text-xl font-black text-slate-950">Moeda padrão</h3>
+                      <p className="text-sm font-black uppercase tracking-[0.16em] text-slate-400 dark:text-slate-500">Moeda de Origem</p>
+                      <h3 className="text-xl font-black text-slate-950 dark:text-slate-50">Moeda padrão</h3>
                     </div>
                   </div>
-                  <p className="mt-4 text-sm font-bold leading-6 text-slate-500">
+                  <p className="mt-4 text-sm font-bold leading-6 text-slate-500 dark:text-slate-300">
                     Defina a moeda principal usada para valores originais da sua viagem.
                   </p>
-                  <label className="mt-6 block text-sm font-black text-slate-700" htmlFor="origin-currency">
+                  <label className="mt-6 block text-sm font-black text-slate-700 dark:text-slate-300" htmlFor="origin-currency">
                     Moeda
                   </label>
                   <select
@@ -3990,7 +3990,7 @@ export function ProfilePage() {
                     value={originCurrencyDraft}
                     onChange={(event) => setOriginCurrencyDraft(event.target.value as TravelCurrencyCode)}
                     disabled={isProfileEditBusy}
-                    className="mt-2 h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-900 outline-none transition focus:border-teal-500 focus:ring-4 focus:ring-teal-100"
+                    className="mt-2 h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-900 outline-none transition focus:border-teal-500 focus:ring-4 focus:ring-teal-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-50 dark:focus:border-emerald-400 dark:focus:ring-emerald-400/20"
                   >
                     {TRAVEL_CURRENCIES.map((currency) => (
                       <option key={currency} value={currency}>
@@ -3998,13 +3998,13 @@ export function ProfilePage() {
                       </option>
                     ))}
                   </select>
-                  <p className="mt-3 text-xs font-bold leading-5 text-slate-400">
+                  <p className="mt-3 text-xs font-bold leading-5 text-slate-400 dark:text-slate-500">
                     Novos gastos usam essa moeda como padrão. Gastos antigos permanecem inalterados.
                   </p>
                   <button
                     type="submit"
                     disabled={isProfileEditBusy}
-                    className="mt-6 inline-flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-slate-950 px-5 font-black text-white shadow-xl shadow-slate-900/15 transition hover:bg-teal-700 disabled:cursor-not-allowed disabled:opacity-60"
+                    className="mt-6 inline-flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-slate-950 px-5 font-black text-white shadow-xl shadow-slate-900/15 transition hover:bg-teal-700 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-emerald-400 dark:text-emerald-950 dark:shadow-black/30 dark:hover:bg-emerald-300"
                   >
                     {profileEditAction === 'currency' ? <Loader2 className="h-5 w-5 animate-spin" /> : <Save className="h-5 w-5" />}
                     Salvar moeda
