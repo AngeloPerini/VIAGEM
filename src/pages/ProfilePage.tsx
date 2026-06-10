@@ -1,7 +1,6 @@
 import { AnimatePresence, motion } from 'framer-motion';
 import {
   ArrowRight,
-  Bell,
   CalendarDays,
   CheckCircle2,
   Copy,
@@ -54,19 +53,11 @@ import {
   getInvites,
   leaveTrip,
   normalizeInviteToken,
-  rejectInvite,
   updateTrip,
   updateTripStatus,
   type InviteDetails,
   type UpdateTravelGroupInput,
 } from '../services/groupsService';
-import {
-  clearReadNotifications,
-  getNotifications,
-  markNotificationAsRead,
-  subscribeNotifications,
-  type AppNotification,
-} from '../services/notificationsService';
 import {
   checklistCategories,
   checklistCategoryLabels,
@@ -271,7 +262,6 @@ const profileSections = [
   { id: 'trip', label: 'Viagens', path: '/perfil/viagem', icon: MapPin, visible: true },
   { id: 'map', label: 'Mapa', path: '/perfil/mapa', icon: Globe2, visible: true },
   { id: 'checklist', label: 'Checklist', path: '/perfil/checklist', icon: CheckCircle2, visible: true },
-  { id: 'notifications', label: 'Notificações', path: '/perfil/notificacoes', icon: Bell, visible: true },
   { id: 'documents', label: 'Documentos', path: '/perfil/documentos', icon: FileText, visible: true },
   { id: 'create-ai', label: 'Criar viagem / IA', path: '/perfil/criar-viagem', icon: Sparkles, visible: false },
   { id: 'edit-profile', label: 'Configuração', path: '/perfil/configuracao', icon: Pencil, visible: true },
@@ -291,8 +281,8 @@ const sectionByPath: Record<string, ProfileSectionId> = {
   '/profile/criar-viagem': 'create-ai',
   '/perfil/checklist': 'checklist',
   '/profile/checklist': 'checklist',
-  '/perfil/notificacoes': 'notifications',
-  '/profile/notificacoes': 'notifications',
+  '/perfil/notificacoes': 'overview',
+  '/profile/notificacoes': 'overview',
   '/perfil/documentos': 'documents',
   '/profile/documentos': 'documents',
   '/perfil/configuracao': 'edit-profile',
@@ -871,7 +861,6 @@ export function ProfilePage() {
   const [selectedTrip, setSelectedTrip] = useState<UserTravelGroup | null>(null);
   const [showCreateTripForm, setShowCreateTripForm] = useState(false);
   const [knownInvites, setKnownInvites] = useState<InviteDetails[]>([]);
-  const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [tripExpenses, setTripExpenses] = useState<Expense[]>([]);
   const [tripExpenseCategories, setTripExpenseCategories] = useState<CategoryMeta[]>(() => getCachedExpenseCategories());
   const [tripItineraryItems, setTripItineraryItems] = useState<ItineraryItem[]>([]);
@@ -904,7 +893,6 @@ export function ProfilePage() {
   const [inviteCodeInput, setInviteCodeInput] = useState('');
   const [status, setStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [notificationRealtimeWarning, setNotificationRealtimeWarning] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isInviting, setIsInviting] = useState(false);
   const [isCreatingTrip, setIsCreatingTrip] = useState(false);
@@ -914,7 +902,6 @@ export function ProfilePage() {
   const [aiRetryInput, setAiRetryInput] = useState<TripAIInput | null>(null);
   const [recentlyCreatedTripId, setRecentlyCreatedTripId] = useState<string | null>(null);
   const [isJoiningTrip, setIsJoiningTrip] = useState(false);
-  const [notificationActionId, setNotificationActionId] = useState<string | null>(null);
   const [tripActionId, setTripActionId] = useState<string | null>(null);
   const [removingUserId, setRemovingUserId] = useState<string | null>(null);
   const [displayNameDraft, setDisplayNameDraft] = useState('');
@@ -948,7 +935,6 @@ export function ProfilePage() {
       : getProfileName(ownerMember?.profile, ownerMember?.profile?.email, 'Dono da viagem');
 
   const latestInvite = generatedInvite ?? knownInvites[0] ?? null;
-  const unreadNotifications = notifications.filter((notification) => !notification.read).length;
   const isAiTestUser = user?.email?.trim().toLowerCase() === 'r.perini351@gmail.com';
   const aiGenerationsUsed = profile?.aiGenerationsUsed ?? 0;
   const aiGenerationsLimit = profile?.aiGenerationsLimit ?? 3;
@@ -1188,12 +1174,6 @@ export function ProfilePage() {
     goToAIReview(input, group, plan);
   };
 
-  const loadNotifications = useCallback(async () => {
-    const nextNotifications = await getNotifications();
-    setNotifications(nextNotifications);
-    return nextNotifications;
-  }, []);
-
   const loadProfile = useCallback(async () => {
     setIsLoading(true);
     setError(null);
@@ -1203,12 +1183,11 @@ export function ProfilePage() {
         await upsertCurrentProfile(user).catch(() => null);
       }
 
-      const [nextProfile, nextStats, nextMembers, nextInvites, nextNotifications, nextTripSummaries] = await Promise.all([
+      const [nextProfile, nextStats, nextMembers, nextInvites, nextTripSummaries] = await Promise.all([
         getCurrentProfile().catch(() => buildFallbackProfile(user)),
         getUserStats(user?.id, activeGroupId),
         activeGroupId ? getGroupMembers(activeGroupId) : Promise.resolve([]),
         activeGroupId && isOwner ? getInvites(activeGroupId).catch(() => []) : Promise.resolve([]),
-        getNotifications().catch(() => []),
         getProfileTripStats().catch(() => []),
       ]);
 
@@ -1216,7 +1195,6 @@ export function ProfilePage() {
       setStats(nextStats);
       setMembers(nextMembers);
       setKnownInvites(nextInvites);
-      setNotifications(nextNotifications);
       setTripSummaries(Object.fromEntries(nextTripSummaries.map((summary) => [summary.groupId, summary])));
     } catch (caughtError) {
       setError(caughtError instanceof Error ? caughtError.message : 'Nao foi possivel carregar o perfil.');
@@ -1311,37 +1289,6 @@ export function ProfilePage() {
       void supabase.removeChannel(channel);
     };
   }, [activeGroupId, loadProfile]);
-
-  useEffect(() => {
-    if (!user?.id) return undefined;
-
-    void loadNotifications().catch(() => null);
-    let fallbackInterval: number | undefined;
-    const notificationSubscription = subscribeNotifications(
-      user.id,
-      () => void loadNotifications().catch(() => null),
-      (state) => {
-        if (state.available) {
-          setNotificationRealtimeWarning(null);
-          if (fallbackInterval) {
-            window.clearInterval(fallbackInterval);
-            fallbackInterval = undefined;
-          }
-          return;
-        }
-
-        setNotificationRealtimeWarning(state.message);
-        fallbackInterval ??= window.setInterval(() => {
-          void loadNotifications().catch(() => null);
-        }, 60_000);
-      },
-    );
-
-    return () => {
-      if (fallbackInterval) window.clearInterval(fallbackInterval);
-      notificationSubscription.remove();
-    };
-  }, [loadNotifications, user?.id]);
 
   useEffect(() => {
     const syncProfileSection = () => setActiveProfileSection(getProfileSectionFromPath());
@@ -1823,7 +1770,6 @@ export function ProfilePage() {
       const group = await acceptInvite(token);
       setStatus(`Voce entrou em ${group.name}.`);
       setInviteCodeInput('');
-      await loadNotifications().catch(() => null);
       await refreshGroups({ silent: true });
       window.history.replaceState({}, '', '/dashboard');
       window.dispatchEvent(new PopStateEvent('popstate'));
@@ -1831,90 +1777,6 @@ export function ProfilePage() {
       setError(caughtError instanceof Error ? caughtError.message : 'Nao foi possivel aceitar este convite.');
     } finally {
       setIsJoiningTrip(false);
-    }
-  };
-
-  const handleMarkNotificationRead = async (notification: AppNotification) => {
-    setNotificationActionId(notification.id);
-    setError(null);
-    setStatus(null);
-
-    try {
-      await markNotificationAsRead(notification.id);
-      setNotifications((current) =>
-        current.map((item) => item.id === notification.id ? { ...item, read: true } : item),
-      );
-    } catch (caughtError) {
-      setError(caughtError instanceof Error ? caughtError.message : 'Nao foi possivel marcar a notificacao como lida.');
-    } finally {
-      setNotificationActionId(null);
-    }
-  };
-
-  const handleClearReadNotifications = async () => {
-    setNotificationActionId('clear-read');
-    setError(null);
-    setStatus(null);
-
-    try {
-      await clearReadNotifications();
-      setNotifications((current) => current.filter((notification) => !notification.read));
-      setStatus('Notificacoes lidas removidas.');
-    } catch (caughtError) {
-      setError(caughtError instanceof Error ? caughtError.message : 'Nao foi possivel limpar notificacoes.');
-    } finally {
-      setNotificationActionId(null);
-    }
-  };
-
-  const handleAcceptNotificationInvite = async (notification: AppNotification) => {
-    const token = typeof notification.metadata.token === 'string'
-      ? normalizeInviteToken(notification.metadata.token)
-      : '';
-    if (!token) return;
-
-    setNotificationActionId(notification.id);
-    setError(null);
-    setStatus(null);
-
-    try {
-      const group = await acceptInvite(token);
-      await markNotificationAsRead(notification.id).catch(() => null);
-      setNotifications((current) =>
-        current.map((item) => item.id === notification.id ? { ...item, read: true } : item),
-      );
-      setStatus(`Convite aceito. Voce entrou em ${group.name}.`);
-      await refreshGroups({ silent: true });
-      window.history.replaceState({}, '', '/dashboard');
-      window.dispatchEvent(new PopStateEvent('popstate'));
-    } catch (caughtError) {
-      setError(caughtError instanceof Error ? caughtError.message : 'Nao foi possivel aceitar o convite.');
-    } finally {
-      setNotificationActionId(null);
-    }
-  };
-
-  const handleRejectNotificationInvite = async (notification: AppNotification) => {
-    const token = typeof notification.metadata.token === 'string'
-      ? normalizeInviteToken(notification.metadata.token)
-      : '';
-    if (!token) return;
-
-    setNotificationActionId(notification.id);
-    setError(null);
-    setStatus(null);
-
-    try {
-      await rejectInvite(token);
-      await markNotificationAsRead(notification.id).catch(() => null);
-      setNotifications((current) =>
-        current.map((item) => item.id === notification.id ? { ...item, read: true } : item),
-      );
-      setStatus('Convite recusado.');
-    } catch (caughtError) {
-      setError(caughtError instanceof Error ? caughtError.message : 'Nao foi possivel recusar o convite.');
-    } finally {
-      setNotificationActionId(null);
     }
   };
 
@@ -2075,72 +1937,6 @@ export function ProfilePage() {
   const handleSignOut = async () => {
     await signOut();
     window.location.replace('/');
-  };
-
-  const renderNotificationCard = (notification: AppNotification, compact = false) => {
-    const isInviteNotification = notification.type === 'invite_received' && typeof notification.metadata.token === 'string';
-    const isBusy = notificationActionId === notification.id;
-
-    return (
-      <article
-        key={notification.id}
-        className={`rounded-3xl border p-4 ${
-          notification.read ? 'border-slate-100 bg-slate-50 dark:border-slate-700 dark:bg-slate-800/80' : 'border-teal-100 bg-teal-50/70 dark:border-emerald-400/30 dark:bg-emerald-400/10'
-        }`}
-      >
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-          <div className="min-w-0">
-            <div className="flex items-center gap-2">
-              <Bell className={`h-4 w-4 ${notification.read ? 'text-slate-400 dark:text-slate-500' : 'text-teal-700 dark:text-emerald-300'}`} />
-              <h3 className="truncate font-black text-slate-950 dark:text-slate-50">{notification.title}</h3>
-              {!notification.read ? (
-                <span className="rounded-full bg-teal-700 px-2 py-1 text-[0.65rem] font-black uppercase tracking-[0.12em] text-white dark:bg-emerald-400 dark:text-emerald-950">
-                  Nova
-                </span>
-              ) : null}
-            </div>
-            <p className={`mt-2 text-sm font-semibold leading-6 text-slate-600 dark:text-slate-300 ${compact ? 'line-clamp-2' : ''}`}>
-              {notification.message}
-            </p>
-            <p className="mt-2 text-xs font-bold text-slate-400 dark:text-slate-500">{formatDate(notification.createdAt)}</p>
-          </div>
-          <div className="flex flex-wrap gap-2 sm:justify-end">
-            {isInviteNotification && !notification.read ? (
-              <>
-                <button
-                  type="button"
-                  onClick={() => void handleAcceptNotificationInvite(notification)}
-                  disabled={isBusy}
-                  className="inline-flex h-10 items-center justify-center gap-2 rounded-2xl bg-teal-700 px-3 text-sm font-black text-white transition hover:bg-teal-800 disabled:opacity-60 dark:bg-emerald-400 dark:text-emerald-950 dark:hover:bg-emerald-300"
-                >
-                  {isBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
-                  Aceitar
-                </button>
-                <button
-                  type="button"
-                  onClick={() => void handleRejectNotificationInvite(notification)}
-                  disabled={isBusy}
-                  className="inline-flex h-10 items-center justify-center gap-2 rounded-2xl bg-white px-3 text-sm font-black text-rose-700 transition hover:bg-rose-50 disabled:opacity-60 dark:bg-slate-900 dark:text-rose-300 dark:hover:bg-rose-500/10"
-                >
-                  <X className="h-4 w-4" />
-                  Recusar
-                </button>
-              </>
-            ) : null}
-            {!notification.read ? (
-              <button
-                type="button"
-                onClick={() => void handleMarkNotificationRead(notification)}
-                disabled={isBusy}
-                className="inline-flex h-10 items-center justify-center rounded-2xl bg-white px-3 text-sm font-black text-slate-700 transition hover:bg-slate-100 disabled:opacity-60 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-700"
-              >
-                Marcar lida
-              </button>
-            ) : null}
-          </div>
-        </div>
-      </article>
-    );
   };
 
   const renderCreateTripForm = () => (
@@ -2586,11 +2382,6 @@ export function ProfilePage() {
                 }`}
               >
                 <span>{section.label}</span>
-                {section.id === 'notifications' && unreadNotifications > 0 ? (
-                  <span className="ml-2 rounded-full bg-rose-600 px-2 py-1 text-[0.65rem] font-black text-white">
-                    {unreadNotifications > 9 ? '9+' : unreadNotifications}
-                  </span>
-                ) : null}
                 {isActive ? <span className="absolute bottom-0 left-0 h-0.5 w-full bg-[#006b57]" /> : null}
               </button>
             );
@@ -2683,12 +2474,6 @@ export function ProfilePage() {
                       title="Preferências de moeda"
                       description={`Moeda de origem atual: ${profileOriginCurrency}`}
                       onClick={() => navigateProfileSection('edit-profile')}
-                    />
-                    <SettingsActionRow
-                      icon={Bell}
-                      title="Notificações"
-                      description={unreadNotifications ? `${unreadNotifications} pendente${unreadNotifications === 1 ? '' : 's'}` : 'Tudo em dia'}
-                      onClick={() => navigateProfileSection('notifications')}
                     />
                   </div>
                 </section>
@@ -3732,46 +3517,6 @@ export function ProfilePage() {
                 />
               </section>
             )
-          ) : null}
-
-          {activeProfileSection === 'notifications' ? (
-            <section className="rounded-[2rem] border border-white/80 bg-white/90 p-6 shadow-xl shadow-slate-900/10 dark:border-slate-700 dark:bg-slate-900/90 dark:shadow-black/30 md:p-8">
-              <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-                <div>
-                  <p className="text-sm font-black uppercase tracking-[0.18em] text-teal-700 dark:text-emerald-300">Notificacoes</p>
-                  <h2 className="text-2xl font-black text-slate-950 dark:text-slate-50">
-                    {unreadNotifications ? `${unreadNotifications} nao lida${unreadNotifications === 1 ? '' : 's'}` : 'Tudo em dia'}
-                  </h2>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => void handleClearReadNotifications()}
-                  disabled={notificationActionId === 'clear-read' || !notifications.some((notification) => notification.read)}
-                  className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl bg-slate-100 dark:bg-slate-800 px-4 text-sm font-black text-slate-700 dark:text-slate-200 transition hover:bg-slate-200 disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  {notificationActionId === 'clear-read' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
-                  Limpar lidas
-                </button>
-              </div>
-
-              {notificationRealtimeWarning ? (
-                <p className="mb-4 rounded-2xl bg-amber-50 dark:bg-amber-400/10 px-4 py-3 text-sm font-bold text-amber-700 dark:text-amber-200">
-                  {notificationRealtimeWarning}
-                </p>
-              ) : null}
-
-              {notifications.length ? (
-                <div className="space-y-3">
-                  {notifications.map((notification) => renderNotificationCard(notification))}
-                </div>
-              ) : (
-                <EmptyState
-                  icon={Bell}
-                  title="Nenhuma notificacao"
-                  description="Quando convites e atualizacoes chegarem, eles aparecerao aqui."
-                />
-              )}
-            </section>
           ) : null}
 
           {activeProfileSection === 'edit-profile' ? (
