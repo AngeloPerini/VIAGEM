@@ -10,19 +10,23 @@ type ThemeContextValue = {
 
 const THEME_STORAGE_KEY = 'tripflow-theme';
 
+const normalizeTheme = (value: string | null): ThemeMode | null => {
+  if (value === 'light' || value === 'claro' || value === 'false') return 'light';
+  if (value === 'dark' || value === 'escuro' || value === 'true') return 'dark';
+  return null;
+};
+
 const getPreferredTheme = (): ThemeMode => {
   if (typeof window === 'undefined') return 'light';
 
-  const stored = window.localStorage.getItem(THEME_STORAGE_KEY);
-  if (stored === 'light' || stored === 'dark') return stored;
-
-  return window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  return normalizeTheme(window.localStorage.getItem(THEME_STORAGE_KEY)) ?? 'light';
 };
 
 const applyTheme = (theme: ThemeMode) => {
   if (typeof document === 'undefined') return;
 
   const root = document.documentElement;
+  document.body?.classList.remove('dark');
   if (theme === 'dark') {
     root.classList.add('dark');
   } else {

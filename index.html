@@ -20,8 +20,15 @@
       (() => {
         try {
           const stored = localStorage.getItem('tripflow-theme');
-          const prefersDark = window.matchMedia?.('(prefers-color-scheme: dark)').matches;
-          const theme = stored === 'light' || stored === 'dark' ? stored : prefersDark ? 'dark' : 'light';
+          const normalizedTheme =
+            stored === 'light' || stored === 'claro' || stored === 'false'
+              ? 'light'
+              : stored === 'dark' || stored === 'escuro' || stored === 'true'
+                ? 'dark'
+                : 'light';
+          const theme = normalizedTheme;
+          localStorage.setItem('tripflow-theme', theme);
+          document.body?.classList.remove('dark');
           if (theme === 'dark') {
             document.documentElement.classList.add('dark');
           } else {
@@ -31,6 +38,7 @@
           document.documentElement.style.colorScheme = theme;
         } catch {
           document.documentElement.classList.remove('dark');
+          document.body?.classList.remove('dark');
           document.documentElement.dataset.theme = 'light';
           document.documentElement.style.colorScheme = 'light';
         }
