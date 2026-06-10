@@ -303,12 +303,12 @@ export function Navbar({ activeView, onNavigate, onNavigateToProfilePath }: Navb
           </button>
           <button
             type="button"
-            aria-label="Alternar tema"
-            title="Alternar tema"
+            aria-label={theme === 'dark' ? 'Tema atual: escuro. Ativar tema claro' : 'Tema atual: claro. Ativar tema escuro'}
+            title={theme === 'dark' ? 'Tema atual: Escuro' : 'Tema atual: Claro'}
             onClick={toggleTheme}
             className="theme-toggle inline-flex h-9 w-9 items-center justify-center rounded-full border border-[#dfe5ee] bg-white/80 text-[#171a26] shadow-sm transition hover:border-[#10b981] hover:text-[#007c68] focus:outline-none focus:ring-2 focus:ring-[#10b981] focus:ring-offset-2 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:hover:border-emerald-400 dark:hover:text-emerald-300 dark:focus:ring-offset-slate-950 sm:h-10 sm:w-10"
           >
-            {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+            {theme === 'dark' ? <Moon className="h-4 w-4" /> : <Sun className="h-4 w-4" />}
           </button>
           <button
             type="button"

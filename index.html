@@ -22,11 +22,17 @@
           const stored = localStorage.getItem('tripflow-theme');
           const prefersDark = window.matchMedia?.('(prefers-color-scheme: dark)').matches;
           const theme = stored === 'light' || stored === 'dark' ? stored : prefersDark ? 'dark' : 'light';
-          document.documentElement.classList.toggle('dark', theme === 'dark');
+          if (theme === 'dark') {
+            document.documentElement.classList.add('dark');
+          } else {
+            document.documentElement.classList.remove('dark');
+          }
           document.documentElement.dataset.theme = theme;
           document.documentElement.style.colorScheme = theme;
         } catch {
+          document.documentElement.classList.remove('dark');
           document.documentElement.dataset.theme = 'light';
+          document.documentElement.style.colorScheme = 'light';
         }
       })();
     </script>

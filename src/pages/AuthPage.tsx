@@ -268,12 +268,12 @@ export function AuthPage({ initialInviteCode }: AuthPageProps) {
     >
       <button
         type="button"
-        aria-label={theme === 'dark' ? 'Ativar tema claro' : 'Ativar tema escuro'}
+        aria-label={theme === 'dark' ? 'Tema atual: escuro. Ativar tema claro' : 'Tema atual: claro. Ativar tema escuro'}
         onClick={toggleTheme}
         className="theme-toggle absolute right-4 top-4 z-20 inline-flex h-10 items-center gap-2 rounded-full border border-[#dfe5ee] bg-white/85 px-3 text-sm font-black text-[#171a26] shadow-lg shadow-slate-900/10 backdrop-blur transition hover:border-[#10b981] hover:text-[#007c68] dark:border-slate-700 dark:bg-slate-900/85 dark:text-slate-100 dark:shadow-black/30 dark:hover:border-emerald-400 dark:hover:text-emerald-300"
       >
-        {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-        {theme === 'dark' ? 'Claro' : 'Escuro'}
+        {theme === 'dark' ? <Moon className="h-4 w-4" /> : <Sun className="h-4 w-4" />}
+        {theme === 'dark' ? 'Escuro' : 'Claro'}
       </button>
       <motion.section
         className="mt-12 grid w-full max-w-[1060px] grid-cols-1 overflow-hidden rounded-[1.75rem] border border-white/70 bg-white shadow-[0_24px_70px_rgba(15,23,42,0.12)] dark:border-slate-700 dark:bg-slate-900 dark:shadow-black/40 md:mt-0 lg:h-[min(660px,calc(100svh-1.5rem))] lg:grid-cols-[0.95fr_1.05fr]"
