@@ -192,37 +192,46 @@ export function QuotePage({
             <AreaChart data={chartData}>
               <defs>
                 <linearGradient id="quoteGradient" x1="0" x2="0" y1="0" y2="1">
-                  <stop offset="5%" stopColor="#0f766e" stopOpacity={0.28} />
-                  <stop offset="95%" stopColor="#0f766e" stopOpacity={0.02} />
+                  <stop offset="5%" stopColor="var(--chart-primary)" stopOpacity={0.32} />
+                  <stop offset="95%" stopColor="var(--chart-primary)" stopOpacity={0.04} />
                 </linearGradient>
               </defs>
-              <CartesianGrid stroke="#e2e8f0" strokeDasharray="4 8" vertical={false} />
-              <XAxis dataKey="time" tickLine={false} axisLine={false} tick={{ fontSize: 12 }} />
+              <CartesianGrid stroke="var(--chart-grid)" strokeDasharray="4 8" vertical={false} />
+              <XAxis
+                dataKey="time"
+                tickLine={false}
+                axisLine={false}
+                tick={{ fontSize: 12, fill: 'var(--chart-axis)' }}
+              />
               <YAxis
                 domain={['dataMin - 0.02', 'dataMax + 0.02']}
                 tickLine={false}
                 axisLine={false}
-                tick={{ fontSize: 12 }}
+                tick={{ fontSize: 12, fill: 'var(--chart-axis)' }}
                 width={56}
               />
               <Tooltip
                 formatter={(value) => [`R$ ${Number(value).toFixed(selectedCurrency === 'JPY' ? 4 : 2).replace('.', ',')}`, selectedCurrency]}
                 labelFormatter={(label) => `Atualizado as ${label}`}
                 contentStyle={{
-                  border: '0',
+                  backgroundColor: 'var(--chart-tooltip-bg)',
+                  border: '1px solid var(--border)',
                   borderRadius: '18px',
                   boxShadow: '0 20px 45px rgba(15, 23, 42, 0.16)',
+                  color: 'var(--chart-tooltip-fg)',
                   fontWeight: 700,
                 }}
+                labelStyle={{ color: 'var(--chart-tooltip-fg)', fontWeight: 800 }}
+                itemStyle={{ color: 'var(--chart-tooltip-fg)', fontWeight: 700 }}
               />
               <Area
                 type="monotone"
                 dataKey="rate"
-                stroke="#0f766e"
+                stroke="var(--chart-primary)"
                 strokeWidth={3}
                 fill="url(#quoteGradient)"
                 animationDuration={800}
-                dot={{ r: 4, strokeWidth: 2, fill: '#ffffff' }}
+                dot={{ r: 4, strokeWidth: 2, fill: 'var(--chart-dot)' }}
               />
             </AreaChart>
           </ResponsiveContainer>

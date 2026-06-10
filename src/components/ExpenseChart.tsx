@@ -88,11 +88,14 @@ export function ExpenseChart({
             <Tooltip
               formatter={(value) => [formatRange({ min: Number(value), max: Number(value) }, 'BRL', true), 'Media']}
               contentStyle={{
-                border: '0',
+                backgroundColor: 'var(--chart-tooltip-bg)',
+                border: '1px solid var(--border)',
                 borderRadius: '18px',
                 boxShadow: '0 20px 45px rgba(15, 23, 42, 0.16)',
+                color: 'var(--chart-tooltip-fg)',
                 fontWeight: 700,
               }}
+              itemStyle={{ color: 'var(--chart-tooltip-fg)', fontWeight: 700 }}
             />
           </PieChart>
         </ResponsiveContainer>
