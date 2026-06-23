@@ -202,24 +202,6 @@ const getFunctionErrorMessage = (data: unknown, fallback: string) => {
   return fallback;
 };
 
-export async function claimLegacyTripGroup() {
-  const { error } = await supabase.rpc('claim_legacy_trip_group', {
-    default_group_name: 'Viagem Europa',
-    owner_email: 'aperini351@gmail.com',
-  });
-
-  if (error) throw error;
-}
-
-export async function claimOwnerTripGroup() {
-  const { error } = await supabase.rpc('claim_owner_trip_group', {
-    owner_email: 'aperini351@gmail.com',
-    default_group_name: 'Viagem Europa',
-  });
-
-  if (error) throw error;
-}
-
 export async function getUserGroups(): Promise<UserTravelGroup[]> {
   const userId = await requireUserId();
   const { data, error } = await supabase

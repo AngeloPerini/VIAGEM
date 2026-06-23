@@ -2,8 +2,6 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import type { ReactNode } from 'react';
 import {
   acceptInvite as acceptInviteToken,
-  claimLegacyTripGroup,
-  claimOwnerTripGroup,
   createGroup as createTravelGroup,
   getStoredActiveGroupId,
   getUserGroups,
@@ -106,18 +104,6 @@ export function GroupProvider({ children }: { children: ReactNode }) {
     setError(null);
 
     const refreshTask = (async () => {
-      try {
-        await withTimeout(claimOwnerTripGroup(), 8000);
-      } catch {
-        // The SQL migration may not be applied yet. Loading memberships still gives a useful UI state.
-      }
-
-      try {
-        await withTimeout(claimLegacyTripGroup(), 8000);
-      } catch {
-        // The SQL migration may not be applied yet. Loading memberships still gives a useful UI state.
-      }
-
       const groups = await withTimeout(
         getUserGroups(),
         10000,

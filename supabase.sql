@@ -682,8 +682,6 @@ grant select on public.profiles to authenticated;
 grant insert (id, email, full_name, avatar_url, created_at, updated_at) on public.profiles to authenticated;
 grant update (email, full_name, avatar_url, origin_currency, updated_at) on public.profiles to authenticated;
 grant execute on function public.accept_group_invite(text) to authenticated;
-grant execute on function public.claim_owner_trip_group(text, text) to authenticated;
-grant execute on function public.claim_legacy_trip_group(text, text) to authenticated;
 grant execute on function public.is_group_member(uuid, uuid) to authenticated;
 grant execute on function public.is_group_owner(uuid, uuid) to authenticated;
 grant execute on function public.try_parse_uuid(text) to authenticated;
@@ -707,16 +705,14 @@ $$;
 
 revoke execute on function public.accept_group_invite(text) from public, anon;
 revoke execute on function public.add_group_owner_member() from public, anon, authenticated;
-revoke execute on function public.claim_legacy_trip_group(text, text) from public, anon;
-revoke execute on function public.claim_owner_trip_group(text, text) from public, anon;
+revoke execute on function public.claim_legacy_trip_group(text, text) from public, anon, authenticated, service_role;
+revoke execute on function public.claim_owner_trip_group(text, text) from public, anon, authenticated, service_role;
 revoke execute on function public.is_group_member(uuid, uuid) from public, anon;
 revoke execute on function public.is_group_owner(uuid, uuid) from public, anon;
 revoke execute on function public.try_parse_uuid(text) from public, anon;
 revoke execute on function public.consume_ai_generation_quota(uuid) from public, anon, authenticated;
 
 grant execute on function public.accept_group_invite(text) to authenticated;
-grant execute on function public.claim_legacy_trip_group(text, text) to authenticated;
-grant execute on function public.claim_owner_trip_group(text, text) to authenticated;
 grant execute on function public.is_group_member(uuid, uuid) to authenticated;
 grant execute on function public.is_group_owner(uuid, uuid) to authenticated;
 grant execute on function public.try_parse_uuid(text) to authenticated;
