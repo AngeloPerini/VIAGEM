@@ -132,6 +132,8 @@ export function Navbar({ activeView, onNavigate, onNavigateToProfilePath }: Navb
 
   const handleToggleTheme = () => {
     toggleTheme();
+    setUserMenuOpen(false);
+    setNotificationsOpen(false);
   };
 
   useEffect(() => {
@@ -193,6 +195,11 @@ export function Navbar({ activeView, onNavigate, onNavigateToProfilePath }: Navb
       document.removeEventListener('keydown', handleKeyDown);
     };
   }, [userMenuOpen]);
+
+  useEffect(() => {
+    setUserMenuOpen(false);
+    setNotificationsOpen(false);
+  }, [activeView]);
 
   const renderNotificationsPanel = () => (
     <div className="border-t border-slate-100 bg-slate-50/70 dark:border-slate-800 dark:bg-slate-950/35">
@@ -268,18 +275,18 @@ export function Navbar({ activeView, onNavigate, onNavigateToProfilePath }: Navb
 
   return (
     <motion.nav
-      className="sticky top-0 z-30 border-b border-[#e8ecf4] bg-white/94 shadow-[0_14px_40px_rgba(15,23,42,0.06)] backdrop-blur-xl dark:border-slate-800 dark:bg-[#071121]/94 dark:shadow-black/30"
+      className="sticky top-0 z-50 w-full max-w-full overflow-visible border-b border-[#e8ecf4] bg-white/94 shadow-[0_14px_40px_rgba(15,23,42,0.06)] backdrop-blur-xl dark:border-slate-800 dark:bg-[#071121]/94 dark:shadow-black/30"
       initial={{ opacity: 0, y: -12 }}
       animate={{ opacity: 1, y: 0 }}
     >
-      <div className="flex h-[4.7rem] w-full items-center justify-between gap-4 px-4 sm:px-6 lg:px-10 xl:px-12">
+      <div className="flex h-[4.7rem] w-full max-w-full items-center justify-between gap-3 px-4 sm:gap-4 sm:px-6 lg:px-10 xl:px-12">
         <button
           type="button"
           onClick={() => navigateAndClose('dashboard')}
-          className="flex shrink-0 items-center gap-3 text-left text-[1.35rem] font-black text-[#0b1326] transition hover:text-[#007c68] dark:text-slate-50 dark:hover:text-emerald-300"
+          className="flex min-w-0 shrink items-center gap-2 text-left text-[1.2rem] font-black text-[#0b1326] transition hover:text-[#007c68] dark:text-slate-50 dark:hover:text-emerald-300 sm:gap-3 sm:text-[1.35rem]"
         >
           <img src="/logo.png" alt="" className="h-7 w-7 object-contain sm:h-8 sm:w-8" />
-          <span>{t('app.name')}</span>
+          <span className="truncate">{t('app.name')}</span>
         </button>
 
         <div className="hidden min-w-0 flex-1 items-center justify-center gap-1.5 lg:flex">
@@ -343,7 +350,7 @@ export function Navbar({ activeView, onNavigate, onNavigateToProfilePath }: Navb
           {userMenuOpen ? (
             <div
               role="menu"
-              className="absolute right-0 top-14 z-50 w-[min(23rem,calc(100vw-1.5rem))] overflow-hidden rounded-2xl border border-[#e2e8f0] bg-white shadow-2xl shadow-slate-950/15 dark:border-slate-700 dark:bg-[#071121] dark:shadow-black/45"
+              className="absolute right-0 top-full z-[999] mt-2 w-64 max-w-[calc(100vw-2rem)] origin-top-right overflow-hidden rounded-2xl border border-[#e2e8f0] bg-white shadow-2xl shadow-slate-950/15 dark:border-slate-700 dark:bg-[#071121] dark:shadow-black/45"
             >
               <div className="p-2">
                 <button
@@ -411,34 +418,36 @@ export function Navbar({ activeView, onNavigate, onNavigateToProfilePath }: Navb
         </div>
       </div>
 
-      <div className="flex w-full gap-2 overflow-x-auto px-4 pb-3 sm:px-6 lg:hidden">
-        {navItems.map((item) => {
-          const active = activeView === item.id;
-          const Icon = item.icon;
+      <div className="w-full max-w-full overflow-x-auto overscroll-x-contain px-4 pb-3 [scrollbar-width:none] sm:px-6 lg:hidden [&::-webkit-scrollbar]:hidden">
+        <div className="flex min-w-max gap-2">
+          {navItems.map((item) => {
+            const active = activeView === item.id;
+            const Icon = item.icon;
 
-          return (
-            <a
-              key={item.id}
-              onClick={(event) => {
-                event.preventDefault();
-                if (item.id === 'profile') {
-                  navigateProfileAndClose('/perfil');
-                  return;
-                }
-                navigateAndClose(item.id);
-              }}
-              href={getNavHref(item.id)}
-              className={`inline-flex h-10 shrink-0 items-center gap-2 rounded-xl px-3 text-sm font-bold ${
-                active
-                  ? 'bg-[#e8f8f4] text-[#007c68] dark:bg-emerald-400/15 dark:text-emerald-300'
-                  : 'text-slate-500 hover:bg-white/80 hover:text-[#007c68] dark:text-slate-400 dark:hover:bg-white/8 dark:hover:text-emerald-300'
-              }`}
-            >
-              <Icon className="h-4 w-4" />
-              {item.label}
-            </a>
-          );
-        })}
+            return (
+              <a
+                key={item.id}
+                onClick={(event) => {
+                  event.preventDefault();
+                  if (item.id === 'profile') {
+                    navigateProfileAndClose('/perfil');
+                    return;
+                  }
+                  navigateAndClose(item.id);
+                }}
+                href={getNavHref(item.id)}
+                className={`inline-flex h-10 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-xl px-3 text-sm font-bold ${
+                  active
+                    ? 'bg-[#e8f8f4] text-[#007c68] dark:bg-emerald-400/15 dark:text-emerald-300'
+                    : 'text-slate-500 hover:bg-white/80 hover:text-[#007c68] dark:text-slate-400 dark:hover:bg-white/8 dark:hover:text-emerald-300'
+                }`}
+              >
+                <Icon className="h-4 w-4" />
+                {item.label}
+              </a>
+            );
+          })}
+        </div>
       </div>
     </motion.nav>
   );
