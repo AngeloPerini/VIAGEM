@@ -41,6 +41,17 @@ import {
 } from '../services/itineraryService';
 import { supabase } from '../services/supabaseClient';
 import type { CountryFilterId, CountryId, CountryMeta, ItineraryItem, ItineraryType, LinkItem } from '../types';
+import {
+  addDateOnlyDays,
+  daysBetweenDateOnlyInclusive,
+  formatDateOnlyKey,
+  formatItineraryDateShort,
+  formatItineraryDateWithYear,
+  formatItineraryDayLabel,
+  formatItineraryPeriodLabel,
+  getItineraryDate,
+  parseDateOnlyLocal,
+} from '../utils/dateRange';
 import { hasInvalidLinks, normalizeLinks } from '../utils/links';
 import { LinksEditor } from './LinksEditor';
 import { LinksMenu } from './LinksMenu';
@@ -62,8 +73,12 @@ type CalendarDay = {
   dayValue: string;
   title: string;
   subtitle: string;
+  dayNumber: number;
+  dateLabel?: string;
+  dateDayLabel?: string;
   monthLabel?: string;
   weekdayLabel?: string;
+  fullDateLabel?: string;
   dateKey?: string;
   date?: Date;
   items: ItineraryItem[];
@@ -71,6 +86,12 @@ type CalendarDay = {
   completedCount: number;
   isComplete: boolean;
   isToday: boolean;
+};
+
+type TripRange = {
+  startDate: Date;
+  endDate: Date;
+  days: number;
 };
 
 const typeIcons: Record<ItineraryType, typeof MapPin> = {
@@ -144,39 +165,14 @@ const groupByDay = (items: ItineraryItem[]) =>
 
 const dayNumberPattern = /(?:dia|day)\s*(\d{1,3})/i;
 const datePattern = /(\d{4})-(\d{2})-(\d{2})/;
-const dayLabels = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sab'];
-const monthLabels = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
-
-const parseDateKey = (value?: string) => {
-  const match = String(value ?? '').match(/^(\d{4})-(\d{2})-(\d{2})$/);
-  if (!match) return null;
-
-  const date = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
-  return Number.isNaN(date.getTime()) ? null : date;
-};
-
-const formatDateKey = (date: Date) =>
-  `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
-
-const addDays = (date: Date, days: number) => {
-  const nextDate = new Date(date);
-  nextDate.setDate(nextDate.getDate() + days);
-  return nextDate;
-};
-
-const daysBetweenInclusive = (startDate: Date, endDate: Date) => {
-  const start = new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate()).getTime();
-  const end = new Date(endDate.getFullYear(), endDate.getMonth(), endDate.getDate()).getTime();
-  return Math.round((end - start) / 86_400_000) + 1;
-};
-
-const formatDateLabel = (date: Date) =>
-  new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' }).format(date);
 
 const getDayNumberLabel = (title: string, index: number) => {
   const dayNumber = extractDayNumber(title) ?? index + 1;
   return String(dayNumber).padStart(2, '0');
 };
+
+const isDateWithinTripRange = (date: Date, tripRange: TripRange) =>
+  date >= tripRange.startDate && date <= tripRange.endDate;
 
 const getDayStatusLabel = (day: CalendarDay, selected: boolean) => {
   if (!day.itemCount) return '0%';
@@ -202,7 +198,7 @@ const getRelativeTimeLabel = (item: ItineraryItem | null, selectedDay: CalendarD
   if (itemMinutes === null) return 'horario definido';
 
   const now = new Date();
-  const sameDay = formatDateKey(now) === formatDateKey(selectedDay.date);
+  const sameDay = formatDateOnlyKey(now) === formatDateOnlyKey(selectedDay.date);
   if (!sameDay) return selectedDay.subtitle;
 
   const currentMinutes = now.getHours() * 60 + now.getMinutes();
@@ -242,34 +238,37 @@ const extractDayNumber = (day: string) => {
   return Number.isFinite(dayNumber) ? dayNumber : null;
 };
 
-const getTripRange = (tripStartDate?: string, tripEndDate?: string) => {
-  const startDate = parseDateKey(tripStartDate);
-  const endDate = parseDateKey(tripEndDate);
+const getTripRange = (tripStartDate?: string, tripEndDate?: string): TripRange | null => {
+  const startDate = parseDateOnlyLocal(tripStartDate);
+  const endDate = parseDateOnlyLocal(tripEndDate);
   if (!startDate || !endDate || endDate < startDate) return null;
 
   return {
     startDate,
     endDate,
-    days: Math.min(daysBetweenInclusive(startDate, endDate), 370),
+    days: Math.min(daysBetweenDateOnlyInclusive(startDate, endDate), 370),
   };
 };
 
-const getDateKeyForItem = (item: ItineraryItem, tripRange: ReturnType<typeof getTripRange>) => {
+const getDateKeyForItem = (item: ItineraryItem, tripRange: TripRange | null) => {
   if (!tripRange) return null;
 
-  const explicitDate = extractDateKeyFromDay(item.day);
-  if (explicitDate) return explicitDate;
+  const explicitDate = parseDateOnlyLocal(extractDateKeyFromDay(item.day));
+  if (explicitDate && isDateWithinTripRange(explicitDate, tripRange)) {
+    return formatDateOnlyKey(explicitDate);
+  }
 
   const dayNumber = extractDayNumber(item.day);
   if (!dayNumber) return null;
 
   if (dayNumber >= 1 && dayNumber <= tripRange.days) {
-    return formatDateKey(addDays(tripRange.startDate, dayNumber - 1));
+    const date = getItineraryDate(tripRange.startDate, dayNumber);
+    return date ? formatDateOnlyKey(date) : null;
   }
 
   const sameMonthDate = new Date(tripRange.startDate.getFullYear(), tripRange.startDate.getMonth(), dayNumber);
-  if (sameMonthDate >= tripRange.startDate && sameMonthDate <= tripRange.endDate) {
-    return formatDateKey(sameMonthDate);
+  if (isDateWithinTripRange(sameMonthDate, tripRange)) {
+    return formatDateOnlyKey(sameMonthDate);
   }
 
   return null;
@@ -286,7 +285,7 @@ const buildCalendarDays = ({
   tripStartDate?: string;
   tripEndDate?: string;
 }): CalendarDay[] => {
-  const todayKey = formatDateKey(new Date());
+  const todayKey = formatDateOnlyKey(new Date());
   const tripRange = getTripRange(tripStartDate, tripEndDate);
 
   if (tripRange) {
@@ -296,7 +295,7 @@ const buildCalendarDays = ({
 
       const normalizedDay = normalizeDayId(item.day);
       if (!fallbackDateByDay.has(normalizedDay) && fallbackDateByDay.size < tripRange.days) {
-        fallbackDateByDay.set(normalizedDay, formatDateKey(addDays(tripRange.startDate, fallbackDateByDay.size)));
+        fallbackDateByDay.set(normalizedDay, formatDateOnlyKey(addDateOnlyDays(tripRange.startDate, fallbackDateByDay.size)));
       }
     });
 
@@ -309,19 +308,24 @@ const buildCalendarDays = ({
     }, {});
 
     return Array.from({ length: tripRange.days }, (_, index): CalendarDay => {
-      const date = addDays(tripRange.startDate, index);
-      const dateKey = formatDateKey(date);
+      const date = addDateOnlyDays(tripRange.startDate, index);
+      const dateKey = formatDateOnlyKey(date);
       const dayItems = itemsByDate[dateKey] ?? [];
       const firstDayItem = dayItems[0];
       const completedCount = dayItems.filter((item) => item.completed).length;
+      const dateLabel = formatItineraryDayLabel(date);
 
       return {
         id: dateKey,
         dayValue: firstDayItem?.day ?? `Dia ${index + 1} - ${dateKey}`,
         title: `Dia ${index + 1}`,
-        subtitle: formatDateLabel(date),
-        monthLabel: monthLabels[date.getMonth()],
-        weekdayLabel: dayLabels[date.getDay()],
+        subtitle: formatItineraryDateWithYear(date),
+        dayNumber: index + 1,
+        dateLabel: dateLabel.compact,
+        dateDayLabel: dateLabel.day,
+        monthLabel: dateLabel.month,
+        weekdayLabel: dateLabel.weekday,
+        fullDateLabel: dateLabel.full,
         dateKey,
         date,
         items: dayItems,
@@ -337,7 +341,7 @@ const buildCalendarDays = ({
   const fallbackEntries = Object.entries(groupedItems);
   if (selectedDayId && !groupedItems[selectedDayId]) fallbackEntries.push([selectedDayId, []]);
 
-  return fallbackEntries.map(([day, dayItems]) => {
+  return fallbackEntries.map(([day, dayItems], index) => {
     const completedCount = dayItems.filter((item) => item.completed).length;
 
     return {
@@ -345,6 +349,7 @@ const buildCalendarDays = ({
       dayValue: day,
       title: day,
       subtitle: dayItems.length ? `${dayItems.length} atividade(s)` : 'Sem atividades',
+      dayNumber: extractDayNumber(day) ?? index + 1,
       items: dayItems,
       itemCount: dayItems.length,
       completedCount,
@@ -655,6 +660,10 @@ export function ItineraryPage({
   const selectedDayPendingCount = selectedDay ? selectedDay.itemCount - selectedDay.completedCount : 0;
   const selectedDayLocation = selectedDayItems.find((item) => item.city)?.city || countrySelectLabel;
   const selectedDayTimeEstimate = getDayTimeEstimate(selectedDayItems);
+  const tripRange = useMemo(() => getTripRange(tripStartDate, tripEndDate), [tripEndDate, tripStartDate]);
+  const itineraryPeriodLabel = tripRange ? formatItineraryPeriodLabel(tripRange.startDate, tripRange.endDate) : null;
+  const selectedDayDateHeading = selectedDay?.fullDateLabel ?? selectedDay?.title ?? null;
+  const nextActivityDateLabel = selectedDay?.date ? formatItineraryDateShort(selectedDay.date) : null;
 
   const toggleExpanded = (id: string) => {
     setExpandedItems((current) => {
@@ -761,7 +770,7 @@ export function ItineraryPage({
 
   return (
     <motion.div
-      className="w-full space-y-8"
+      className="w-full max-w-full space-y-8 overflow-x-hidden"
       initial={{ opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -12 }}
@@ -772,10 +781,13 @@ export function ItineraryPage({
           <p className="mt-2 flex flex-wrap items-center gap-2 text-sm font-medium text-[#45464d] md:text-base dark:text-slate-300">
             <MapPin className="h-5 w-5 text-[#007c68] dark:text-emerald-300" />
             <span>{filteredItems.length} atividades planejadas • Roteiro da viagem</span>
+            {itineraryPeriodLabel ? (
+              <span className="text-[#667085] dark:text-slate-400">{itineraryPeriodLabel}</span>
+            ) : null}
           </p>
         </div>
 
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+        <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center">
           <label className="relative block">
             <span className="sr-only">Filtrar roteiro por pais</span>
             <select
@@ -794,7 +806,7 @@ export function ItineraryPage({
           <button
             type="button"
             onClick={openNewItemModal}
-            className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-black px-6 text-sm font-bold text-white shadow-[0_12px_28px_rgba(15,23,42,0.12)] transition hover:bg-[#111827] dark:bg-emerald-400 dark:text-emerald-950 dark:hover:bg-emerald-300"
+            className="inline-flex min-h-11 min-w-0 items-center justify-center gap-2 rounded-xl bg-black px-5 py-2.5 text-center text-sm font-bold leading-tight text-white shadow-[0_12px_28px_rgba(15,23,42,0.12)] transition hover:bg-[#111827] dark:bg-emerald-400 dark:text-emerald-950 dark:hover:bg-emerald-300 sm:px-6"
           >
             <Plus className="h-5 w-5" /> Nova Atividade
           </button>
@@ -802,7 +814,7 @@ export function ItineraryPage({
             <button
               type="button"
               onClick={() => void restoreDefaults()}
-              className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-[#c6c6cd] bg-white px-4 text-sm font-bold text-[#45464d] transition hover:border-[#007c68] hover:text-[#007c68] dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-emerald-400 dark:hover:text-emerald-300"
+              className="inline-flex min-h-11 min-w-0 items-center justify-center gap-2 rounded-xl border border-[#c6c6cd] bg-white px-4 py-2.5 text-center text-sm font-bold leading-tight text-[#45464d] transition hover:border-[#007c68] hover:text-[#007c68] dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-emerald-400 dark:hover:text-emerald-300"
             >
               <RotateCcw className="h-4 w-4" /> Restaurar
             </button>
@@ -818,11 +830,15 @@ export function ItineraryPage({
 
       <section className="relative">
         {calendarDays.length ? (
-          <div className="flex gap-4 overflow-x-auto pb-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          <div className="max-w-full overflow-x-auto overscroll-x-contain pb-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            <div className="flex min-w-max gap-3 sm:gap-4">
             {calendarDays.map((day, index) => {
               const selected = day.id === selectedDay?.id;
               const hasItems = day.itemCount > 0;
               const statusLabel = getDayStatusLabel(day, selected);
+              const ariaLabel = day.fullDateLabel
+                ? `Selecionar ${day.fullDateLabel}, dia ${day.dayNumber} da viagem`
+                : `Selecionar ${day.title}`;
 
               return (
                 <button
@@ -830,32 +846,53 @@ export function ItineraryPage({
                   type="button"
                   onClick={() => setSelectedDayId(day.id)}
                   aria-current={selected ? 'date' : undefined}
-                  aria-label={`Selecionar ${day.title}`}
-                  className="group flex shrink-0 flex-col items-center gap-1 text-center"
+                  aria-pressed={selected}
+                  aria-label={ariaLabel}
+                  className="group flex shrink-0 flex-col items-center gap-1 text-center focus-visible:outline-none"
                 >
                   <span
-                    className={`flex h-20 w-16 flex-col items-center justify-center rounded-2xl border transition ${
+                    className={`flex h-24 w-20 flex-col items-center justify-center rounded-2xl border px-2 transition group-focus-visible:ring-4 group-focus-visible:ring-[#48fdd3]/30 dark:group-focus-visible:ring-emerald-400/25 ${
                       selected
                         ? 'border-2 border-[#007c68] bg-[#48fdd3]/15 text-[#007c68] dark:border-emerald-400 dark:bg-emerald-400/15 dark:text-emerald-200'
                         : day.isComplete
-                          ? 'border-[#bfd2f0] bg-[#dce9ff] text-[#0b1c30] hover:border-[#007c68] dark:border-emerald-500/40 dark:bg-emerald-500/15 dark:text-emerald-100 dark:hover:border-emerald-400'
+                          ? 'border-[#9ed7ca] bg-[#eefbf8] text-[#0b1c30] hover:border-[#007c68] dark:border-emerald-500/40 dark:bg-emerald-500/15 dark:text-emerald-100 dark:hover:border-emerald-400'
                           : 'border-[#d7dbe4] bg-white text-[#667085] hover:border-[#007c68] dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-emerald-400'
                     }`}
                   >
-                    <span className={`text-xs font-semibold uppercase ${selected ? 'text-[#007c68] dark:text-emerald-200' : 'text-[#8c8f9a] dark:text-slate-400'}`}>
-                      Dia
-                    </span>
-                    <span className={`mt-1 text-lg ${selected ? 'font-black' : 'font-medium'}`}>
-                      {getDayNumberLabel(day.title, index)}
-                    </span>
+                    {day.dateLabel ? (
+                      <>
+                        <span className={`text-xs font-semibold uppercase ${selected ? 'text-[#007c68] dark:text-emerald-200' : 'text-[#667085] dark:text-slate-400'}`}>
+                          {day.weekdayLabel}
+                        </span>
+                        <span className={`mt-1 text-2xl leading-none ${selected ? 'font-black' : 'font-bold'}`}>
+                          {day.dateDayLabel}
+                        </span>
+                        <span className="mt-0.5 text-xs font-bold uppercase leading-none">
+                          {day.monthLabel}
+                        </span>
+                        <span className={`mt-2 text-xs font-semibold ${selected ? 'text-[#005f51] dark:text-emerald-100' : 'text-[#8c8f9a] dark:text-slate-400'}`}>
+                          Dia {day.dayNumber}
+                        </span>
+                      </>
+                    ) : (
+                      <>
+                        <span className={`text-xs font-semibold uppercase ${selected ? 'text-[#007c68] dark:text-emerald-200' : 'text-[#8c8f9a] dark:text-slate-400'}`}>
+                          Dia
+                        </span>
+                        <span className={`mt-1 text-lg ${selected ? 'font-black' : 'font-medium'}`}>
+                          {getDayNumberLabel(day.title, index)}
+                        </span>
+                      </>
+                    )}
                   </span>
-                  <span className={`h-1 w-16 rounded-full ${selected || day.isComplete ? 'bg-[#007c68] dark:bg-emerald-400' : 'bg-transparent group-hover:bg-[#d7dbe4] dark:group-hover:bg-slate-600'}`} />
+                  <span className={`h-1 w-20 rounded-full ${selected || day.isComplete ? 'bg-[#007c68] dark:bg-emerald-400' : 'bg-transparent group-hover:bg-[#d7dbe4] dark:group-hover:bg-slate-600'}`} />
                   <span className={`text-sm font-medium ${selected || hasItems ? 'text-[#007c68] dark:text-emerald-300' : 'text-[#8c8f9a] dark:text-slate-400'}`}>
                     {statusLabel}
                   </span>
                 </button>
               );
             })}
+            </div>
           </div>
         ) : (
           <div className="rounded-2xl border border-[#dfe5ee] bg-white px-5 py-6 text-sm font-semibold text-[#667085] dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300">
@@ -878,6 +915,11 @@ export function ItineraryPage({
           {selectedDay ? (
             <>
               <div className="mb-7 ml-0 rounded-2xl border border-[#007c68] bg-white/75 p-5 shadow-sm md:ml-16 dark:border-emerald-500/60 dark:bg-emerald-500/10">
+                {selectedDayDateHeading ? (
+                  <p className="mb-4 text-sm font-semibold text-[#45464d] dark:text-slate-300">
+                    {selectedDayDateHeading}
+                  </p>
+                ) : null}
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                   <div className="flex min-w-0 items-center gap-4">
                     <span className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-[#d8fbf4] text-[#007c68] dark:bg-emerald-400/15 dark:text-emerald-200">
@@ -891,7 +933,9 @@ export function ItineraryPage({
                     </div>
                   </div>
                   <div className="text-left sm:text-right">
-                    <p className="text-lg font-medium text-[#0b1c30] dark:text-slate-100">{nextActivity?.time || '--:--'}</p>
+                    <p className="text-lg font-medium text-[#0b1c30] dark:text-slate-100">
+                      {nextActivityDateLabel ? `${nextActivityDateLabel} • ${nextActivity?.time || '--:--'}` : nextActivity?.time || '--:--'}
+                    </p>
                     <p className="text-sm font-medium text-[#45464d] dark:text-slate-300">{getRelativeTimeLabel(nextActivity, selectedDay)}</p>
                   </div>
                 </div>
@@ -1004,7 +1048,7 @@ export function ItineraryPage({
                 </div>
               ) : (
                 <div className="rounded-2xl border border-[#dfe5ee] bg-white px-5 py-7 text-sm font-semibold text-[#667085] md:ml-16 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300">
-                  Nenhuma atividade cadastrada para este dia.
+                  {selectedDay.date ? 'Nenhuma atividade planejada para esta data.' : 'Nenhuma atividade cadastrada para este dia.'}
                   <button type="button" onClick={openNewItemModal} className="ml-2 font-black text-[#007c68] dark:text-emerald-300">
                     Adicionar atividade
                   </button>
