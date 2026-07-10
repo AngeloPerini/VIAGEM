@@ -101,6 +101,29 @@ export type ItineraryItem = {
   type: ItineraryType;
   completed?: boolean;
   links?: LinkItem[];
+  tasks?: ItineraryActivityTaskInput[];
+};
+
+export type ItineraryActivityTaskSource = 'manual' | 'ai';
+
+export type ItineraryActivityTaskInput = {
+  title: string;
+  description?: string;
+  isCompleted?: boolean;
+  source?: ItineraryActivityTaskSource;
+};
+
+export type ItineraryActivityTask = {
+  id: string;
+  groupId: string;
+  itineraryItemId: string;
+  title: string;
+  description?: string;
+  isCompleted: boolean;
+  source: ItineraryActivityTaskSource;
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
 };
 
 export type Attraction = {

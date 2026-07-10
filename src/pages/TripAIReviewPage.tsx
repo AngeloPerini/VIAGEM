@@ -64,6 +64,10 @@ const navigateTo = (path: string) => {
 export const TRIP_AI_APPLY_NOTICE_KEY = 'tripflow-ai-apply-notice-v1';
 
 const getApplySuccessMessage = (result: Awaited<ReturnType<typeof applyTripPlan>>) => {
+  if (result.activityTasks?.failed) {
+    return 'Roteiro aplicado, mas algumas tarefas internas não foram adicionadas.';
+  }
+
   if (result.documents.failed) {
     return 'Roteiro aplicado, mas alguns documentos não foram adicionados.';
   }
@@ -101,6 +105,7 @@ const createItineraryItem = (): ItineraryItem => ({
   type: 'tour',
   completed: false,
   links: [],
+  tasks: [],
 });
 
 const createExpense = (): Expense => ({
@@ -270,6 +275,9 @@ const textareaClass =
 
 function PlanEditor({ plan, onChange }: { plan: TripAIPlan; onChange: (plan: TripAIPlan) => void }) {
   const updatePlan = (patch: Partial<TripAIPlan>) => onChange({ ...plan, ...patch });
+  const updateItineraryTasks = (itemIndex: number, tasks: NonNullable<ItineraryItem['tasks']>) => {
+    updatePlan({ itinerary_items: updateListItem(plan.itinerary_items, itemIndex, { tasks }) });
+  };
 
   return (
     <section className="space-y-6 rounded-[2rem] border border-teal-200 bg-teal-50/70 p-5 shadow-xl shadow-teal-900/10 dark:border-emerald-400/30 dark:bg-slate-900 dark:shadow-black/30 md:p-7">
@@ -425,6 +433,55 @@ function PlanEditor({ plan, onChange }: { plan: TripAIPlan; onChange: (plan: Tri
                   className={textareaClass}
                 />
               </EditorField>
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-900 md:col-span-3">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <p className="text-xs font-black uppercase tracking-[0.12em] text-slate-400 dark:text-slate-500">Tarefas internas</p>
+                    <p className="mt-1 text-xs font-bold text-slate-500 dark:text-slate-400">
+                      {(item.tasks ?? []).length ? `${item.tasks?.length} tarefa(s) sugerida(s)` : 'Sem tarefas sugeridas'}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      updateItineraryTasks(index, [
+                        ...(item.tasks ?? []),
+                        { title: 'Nova tarefa', source: 'manual' },
+                      ])
+                    }
+                    className="inline-flex h-9 items-center justify-center gap-2 rounded-xl bg-white px-3 text-xs font-black text-slate-700 transition hover:bg-slate-100 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700"
+                  >
+                    <Plus className="h-4 w-4" />
+                    Adicionar tarefa
+                  </button>
+                </div>
+                {(item.tasks ?? []).length ? (
+                  <div className="mt-3 space-y-2">
+                    {(item.tasks ?? []).map((task, taskIndex) => (
+                      <div key={`${item.id}-task-${taskIndex}`} className="flex flex-col gap-2 sm:flex-row">
+                        <input
+                          value={task.title}
+                          maxLength={120}
+                          onChange={(event) => {
+                            const tasks = [...(item.tasks ?? [])];
+                            tasks[taskIndex] = { ...task, title: event.target.value };
+                            updateItineraryTasks(index, tasks);
+                          }}
+                          className={inputClass}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => updateItineraryTasks(index, removeListItem(item.tasks ?? [], taskIndex))}
+                          className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl bg-rose-50 px-3 text-xs font-black text-rose-700 transition hover:bg-rose-100 dark:bg-rose-400/10 dark:text-rose-200 dark:hover:bg-rose-400/20"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                          Remover
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
+              </div>
               <button
                 type="button"
                 onClick={() => updatePlan({ itinerary_items: removeListItem(plan.itinerary_items, index) })}
@@ -990,6 +1047,18 @@ export function TripAIReviewPage() {
                           <h4 className="mt-2 font-black text-slate-950 dark:text-slate-50">{item.title}</h4>
                           <p className="mt-1 text-sm font-bold text-slate-500 dark:text-slate-400">{item.city}</p>
                           <p className="mt-3 leading-7 text-slate-600 dark:text-slate-300">{item.description}</p>
+                          {item.tasks?.length ? (
+                            <div className="mt-3 rounded-2xl border border-slate-100 bg-slate-50 px-3 py-2 dark:border-slate-700 dark:bg-slate-800">
+                              <p className="text-xs font-black uppercase tracking-[0.12em] text-slate-400 dark:text-slate-500">Tarefas da atividade</p>
+                              <ul className="mt-2 space-y-1">
+                                {item.tasks.slice(0, 3).map((task, taskIndex) => (
+                                  <li key={`${item.id}-preview-task-${taskIndex}`} className="text-sm font-bold text-slate-600 dark:text-slate-300">
+                                    {task.title}
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          ) : null}
                         </div>
                       ))}
                     </div>

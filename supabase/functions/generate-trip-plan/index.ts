@@ -1497,6 +1497,41 @@ const hasGenericPlaceholder = (...values: unknown[]) => {
   return Boolean(text) && genericPlaceholderPatterns.some((pattern) => pattern.test(text));
 };
 
+const genericTaskPatterns = [
+  /se\s+preparar/,
+  /organizar\s+coisas/,
+  /confirmar\s+tudo/,
+  /pesquisar\s+local/,
+  /fazer\s+atividade/,
+  /preparar\s+atividade/,
+];
+
+const normalizeActivityTasks = (value: unknown) => {
+  const seen = new Set<string>();
+
+  return asRecords(value)
+    .map((task) => {
+      const title = asText(task.title ?? task.name ?? task.task ?? task.description).slice(0, 120);
+      const description = asText(task.description ?? task.detail ?? task.notes);
+      const key = normalizeKey(title);
+
+      if (!title || !key) return null;
+      if (hasGenericPlaceholder(title) || genericTaskPatterns.some((pattern) => pattern.test(stripDiacritics(title)))) {
+        return null;
+      }
+      if (seen.has(key)) return null;
+      seen.add(key);
+
+      return {
+        title,
+        description: description && description !== title ? description : '',
+        required: task.required === false ? false : true,
+      };
+    })
+    .filter((task): task is { title: string; description: string; required: boolean } => Boolean(task))
+    .slice(0, 5);
+};
+
 const usesInternationalAsCity = (value: unknown) => {
   const key = normalizeKey(value);
   return key === 'international' || key === 'internacional';
@@ -1649,6 +1684,7 @@ const flattenStructuredDays = (plan: Record<string, unknown>) =>
       type: asText(activity.type || activity.category, 'passeio'),
       order_index: Number(activity.order_index ?? activity.orderIndex ?? index),
       links: safeArray(activity.links ?? activity.useful_links),
+      tasks: normalizeActivityTasks(activity.tasks ?? activity.checklist ?? activity.subtasks ?? activity.activity_tasks),
     }));
   });
 
@@ -1725,6 +1761,7 @@ const ensurePlanShape = (value: unknown, input: TripPlanInput) => {
           type: asText(item.type, 'outro'),
           title: asText(item.title, 'Atividade sugerida'),
           description: asText(item.description),
+          tasks: normalizeActivityTasks(item.tasks ?? item.checklist ?? item.subtasks ?? item.activity_tasks),
         };
         const country = resolvePlanCountry(item.country, countryMap, fallbackCountry, normalizedItem, {
           allowInternational: true,
@@ -2343,6 +2380,7 @@ Qualidade obrigatoria:
 - Nao ultrapasse ${targetItems} itinerary_items; para viagem longa, mantenha descricoes objetivas para evitar resposta gigante.
 - Use nomes reais de pontos turisticos, bairros, museus, parques, pracinhas, estacoes ou aeroportos quando forem relevantes.
 - O titulo de cada itinerary_item deve ser especifico: "Visita ao Senso-ji", "Coliseu e Forum Romano", "Shibuya Crossing", "Pantheon", "Chegada ao aeroporto de Haneda".
+- Quando fizer sentido, inclua tasks dentro da atividade com 1 a 4 tarefas internas praticas e especificas. Exemplos: "Comprar ingresso do Coliseu", "Salvar QR Code da entrada", "Conferir plataforma do trem", "Chegar 20 minutos antes". Nao use tasks genericas como "Se preparar", "Confirmar tudo" ou "Fazer atividade".
 - Se nao souber atracoes reais suficientes para o destino, gere menos itens, mas nunca use placeholders genericos.
 - Nunca use como titulo, cidade, atracao, rota ou descricao: "Ponto turistico principal", "atracao principal", "cidade escolhida", "regiao escolhida", "ponto importante", "passeio importante", "destino principal", "local importante", "atividade cultural", "atividade sugerida", "local famoso da cidade", "Visite a regiao escolhida".
 - Nunca use "international" ou "Internacional" como city. Para voo internacional, use city real de chegada ou deixe city como aeroporto/cidade real.
@@ -2386,7 +2424,10 @@ Retorne exatamente este objeto:
           "details": "string",
           "estimated_cost": 0,
           "currency": "BRL, EUR, USD, JPY, CHF ou GBP",
-          "useful_links": []
+          "useful_links": [],
+          "tasks": [
+            { "title": "tarefa concreta vinculada a esta atividade", "description": "detalhe opcional", "required": true }
+          ]
         }
       ]
     }

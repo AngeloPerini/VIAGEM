@@ -3,6 +3,7 @@ import type {
   CountryId,
   CurrencyRange,
   Expense,
+  ItineraryActivityTaskInput,
   ItineraryItem,
   ItineraryType,
   LinkItem,
@@ -90,6 +91,12 @@ export class TripAIFunctionError extends Error {
 }
 
 export type ApplyTripPlanResult = {
+  activityTasks?: {
+    attempted: number;
+    created: number;
+    failed: boolean;
+    errorMessage?: string;
+  };
   documents: {
     attempted: number;
     created: number;
@@ -213,6 +220,41 @@ const isGenericPlaceholderText = (value: unknown) => {
   return Boolean(text) && genericPlaceholderPatterns.some((pattern) => pattern.test(text));
 };
 
+const genericTaskPatterns = [
+  /se preparar/i,
+  /organizar coisas/i,
+  /confirmar tudo/i,
+  /pesquisar local/i,
+  /fazer atividade/i,
+  /preparar atividade/i,
+];
+
+const normalizeActivityTaskInputs = (value: unknown): ItineraryActivityTaskInput[] => {
+  const seen = new Set<string>();
+
+  return asArray<unknown>(value)
+    .map((task): ItineraryActivityTaskInput | null => {
+      const record = asRecord(task);
+      const title = asString(record.title || record.name || record.task || record.description).trim().slice(0, 120);
+      const description = asString(record.description || record.detail || record.notes).trim();
+      const normalizedTitle = normalizeKeyPart(title);
+
+      if (!title || !normalizedTitle) return null;
+      if (isGenericPlaceholderText(title) || genericTaskPatterns.some((pattern) => pattern.test(title))) return null;
+      if (seen.has(normalizedTitle)) return null;
+      seen.add(normalizedTitle);
+
+      return {
+        title,
+        description: description && description !== title ? description : undefined,
+        isCompleted: false,
+        source: 'ai' as const,
+      };
+    })
+    .filter((task): task is ItineraryActivityTaskInput => task !== null)
+    .slice(0, 5);
+};
+
 const normalizeItineraryItem = (value: unknown): ItineraryItem => {
   const record = asRecord(value);
   return {
@@ -226,6 +268,7 @@ const normalizeItineraryItem = (value: unknown): ItineraryItem => {
     type: normalizeType(record.type),
     completed: false,
     links: normalizeLinkArray(record.links),
+    tasks: normalizeActivityTaskInputs(record.tasks || record.checklist || record.subtasks || record.activity_tasks),
   };
 };
 
@@ -588,6 +631,21 @@ const itineraryPayload = (item: ItineraryItem, groupId: string, userId: string, 
   order_index: orderIndex,
 });
 
+const activityTaskPayload = (
+  task: ItineraryActivityTaskInput,
+  groupId: string,
+  userId: string,
+  itineraryItemId: string,
+) => ({
+  group_id: groupId,
+  itinerary_item_id: itineraryItemId,
+  created_by: userId,
+  title: task.title.trim(),
+  description: task.description?.trim() || null,
+  is_completed: task.isCompleted ?? false,
+  source: task.source ?? 'ai',
+});
+
 const attractionPayload = (attraction: Attraction, groupId: string, userId: string, orderIndex: number) => ({
   group_id: groupId,
   created_by: userId,
@@ -797,17 +855,50 @@ export async function applyTripPlan(review: TripAIReviewState, plan: TripAIPlan,
     (attraction) => !existingAttractionKeys.has(attractionKey(attraction)),
   );
 
-  const insertions: Array<PromiseLike<{ error: unknown }>> = [];
+  let activityTasksAttempted = 0;
+  let activityTasksCreated = 0;
+  let activityTasksErrorMessage: string | undefined;
 
   if (itineraryItemsToInsert.length) {
-    insertions.push(
-      supabase.from('itinerary_items').insert(
+    const { data: insertedItineraryItems, error: insertItineraryError } = await supabase
+      .from('itinerary_items')
+      .insert(
         itineraryItemsToInsert.map((item, index) =>
           itineraryPayload(item, groupId, userId, (itineraryResult.count ?? 0) + index),
         ),
-      ),
-    );
+      )
+      .select('id');
+
+    if (insertItineraryError) throw insertItineraryError;
+
+    const tasksToInsert = (insertedItineraryItems ?? []).flatMap((insertedItem, index) => {
+      const sourceItem = itineraryItemsToInsert[index];
+      return (sourceItem?.tasks ?? [])
+        .filter((task) => task.title.trim())
+        .map((task) => activityTaskPayload(task, groupId, userId, insertedItem.id));
+    });
+
+    activityTasksAttempted = tasksToInsert.length;
+
+    if (tasksToInsert.length) {
+      const { error: insertTasksError } = await supabase
+        .from('itinerary_activity_tasks')
+        .insert(tasksToInsert);
+
+      if (insertTasksError) {
+        console.error('Falha ao salvar tarefas sugeridas pela IA no roteiro', {
+          groupId,
+          generationId: plan.generationId,
+          message: insertTasksError.message,
+        });
+        activityTasksErrorMessage = insertTasksError.message;
+      } else {
+        activityTasksCreated = tasksToInsert.length;
+      }
+    }
   }
+
+  const insertions: Array<PromiseLike<{ error: unknown }>> = [];
 
   if (expensesToInsert.length) {
     insertions.push(
@@ -833,6 +924,12 @@ export async function applyTripPlan(review: TripAIReviewState, plan: TripAIPlan,
   if (failedResult?.error) throw failedResult.error;
 
   const applyResult: ApplyTripPlanResult = {
+    activityTasks: {
+      attempted: activityTasksAttempted,
+      created: activityTasksCreated,
+      failed: Boolean(activityTasksErrorMessage),
+      errorMessage: activityTasksErrorMessage,
+    },
     documents: {
       attempted: scopedPlan.documents.length,
       created: 0,

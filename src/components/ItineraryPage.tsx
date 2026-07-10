@@ -29,6 +29,14 @@ import {
 } from '../data/countries';
 import { itineraryItems } from '../data/itinerary';
 import {
+  createItineraryActivityTask,
+  deleteItineraryActivityTask,
+  getItineraryActivityTasks,
+  setItineraryActivityTaskCompleted,
+  subscribeItineraryActivityTasks,
+  updateItineraryActivityTask,
+} from '../services/itineraryActivityTasksService';
+import {
   cacheItineraryFallback,
   createItineraryItem,
   deleteItineraryItem,
@@ -40,7 +48,7 @@ import {
   updateItineraryItemCompleted,
 } from '../services/itineraryService';
 import { supabase } from '../services/supabaseClient';
-import type { CountryFilterId, CountryId, CountryMeta, ItineraryItem, ItineraryType, LinkItem } from '../types';
+import type { CountryFilterId, CountryId, CountryMeta, ItineraryActivityTask, ItineraryItem, ItineraryType, LinkItem } from '../types';
 import {
   addDateOnlyDays,
   daysBetweenDateOnlyInclusive,
@@ -53,6 +61,7 @@ import {
   parseDateOnlyLocal,
 } from '../utils/dateRange';
 import { hasInvalidLinks, normalizeLinks } from '../utils/links';
+import { ActivityTasks } from './ActivityTasks';
 import { LinksEditor } from './LinksEditor';
 import { LinksMenu } from './LinksMenu';
 import { TimeField } from './TimeField';
@@ -506,25 +515,34 @@ export function ItineraryPage({
   canUseDefaultData = false,
 }: ItineraryPageProps) {
   const [items, setItems] = useState<ItineraryItem[]>(() => getCachedItineraryItems(groupId));
+  const [activityTasks, setActivityTasks] = useState<ItineraryActivityTask[]>([]);
   const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
   const [selectedDayId, setSelectedDayId] = useState<string | null>(null);
   const [editingItem, setEditingItem] = useState<ItineraryItem | null>(null);
   const [itemPendingDelete, setItemPendingDelete] = useState<ItineraryItem | null>(null);
   const [syncWarning, setSyncWarning] = useState<string | null>(null);
+  const [taskWarning, setTaskWarning] = useState<string | null>(null);
+  const [taskActionId, setTaskActionId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
     let active = true;
     setItems(getCachedItineraryItems(groupId));
+    setActivityTasks([]);
 
     const syncItems = async () => {
       try {
         setIsLoading(true);
-        const nextItems = await getItineraryItems(groupId);
+        const [nextItems, nextTasks] = await Promise.all([
+          getItineraryItems(groupId),
+          getItineraryActivityTasks(groupId),
+        ]);
         if (active) {
           setItems(nextItems);
+          setActivityTasks(nextTasks);
           setSyncWarning(null);
+          setTaskWarning(null);
         }
       } catch {
         if (active) setSyncWarning('Supabase indisponivel. Mostrando cache local do roteiro.');
@@ -546,10 +564,23 @@ export function ItineraryPage({
           if (active) setSyncWarning('Nao foi possivel sincronizar o roteiro em tempo real.');
         });
     });
+    const taskChannel = subscribeItineraryActivityTasks(groupId, () => {
+      void getItineraryActivityTasks(groupId)
+        .then((nextTasks) => {
+          if (active) {
+            setActivityTasks(nextTasks);
+            setTaskWarning(null);
+          }
+        })
+        .catch(() => {
+          if (active) setTaskWarning('Nao foi possivel sincronizar as tarefas em tempo real.');
+        });
+    });
 
     return () => {
       active = false;
       void supabase.removeChannel(channel);
+      void supabase.removeChannel(taskChannel);
     };
   }, [groupId]);
 
@@ -628,6 +659,15 @@ export function ItineraryPage({
         label: day.dateKey ? `${day.title} - ${day.subtitle}` : day.title,
       })),
     [calendarDays],
+  );
+
+  const tasksByItemId = useMemo(
+    () =>
+      activityTasks.reduce<Record<string, ItineraryActivityTask[]>>((groups, task) => {
+        groups[task.itineraryItemId] = [...(groups[task.itineraryItemId] ?? []), task];
+        return groups;
+      }, {}),
+    [activityTasks],
   );
 
   const selectedDayItems = selectedDay?.items ?? [];
@@ -721,8 +761,10 @@ export function ItineraryPage({
 
   const removeItem = async (id: string) => {
     const previousItems = items;
+    const previousTasks = activityTasks;
     setIsSaving(true);
     setItems((current) => current.filter((currentItem) => currentItem.id !== id));
+    setActivityTasks((current) => current.filter((task) => task.itineraryItemId !== id));
     setItemPendingDelete(null);
 
     try {
@@ -730,6 +772,7 @@ export function ItineraryPage({
       setSyncWarning(null);
     } catch {
       setItems(previousItems);
+      setActivityTasks(previousTasks);
       setSyncWarning('Nao foi possivel excluir no Supabase. Tente novamente.');
     } finally {
       setIsSaving(false);
@@ -754,12 +797,107 @@ export function ItineraryPage({
     }
   };
 
+  const addActivityTask = async (item: ItineraryItem, title: string) => {
+    setTaskActionId(`create-${item.id}`);
+
+    try {
+      const createdTask = await createItineraryActivityTask(groupId, item.id, {
+        title,
+        source: 'manual',
+      });
+      setActivityTasks((current) => [...current, createdTask]);
+      setTaskWarning(null);
+    } catch (error) {
+      setTaskWarning(
+        error instanceof Error
+          ? error.message
+          : 'Nao foi possivel adicionar a tarefa.',
+      );
+    } finally {
+      setTaskActionId(null);
+    }
+  };
+
+  const toggleActivityTask = async (task: ItineraryActivityTask) => {
+    const previousTasks = activityTasks;
+    const nextCompleted = !task.isCompleted;
+    setTaskActionId(`toggle-${task.id}`);
+    setActivityTasks((current) =>
+      current.map((currentTask) =>
+        currentTask.id === task.id ? { ...currentTask, isCompleted: nextCompleted } : currentTask,
+      ),
+    );
+
+    try {
+      const updatedTask = await setItineraryActivityTaskCompleted(groupId, task.id, nextCompleted);
+      setActivityTasks((current) =>
+        current.map((currentTask) => (currentTask.id === updatedTask.id ? updatedTask : currentTask)),
+      );
+      setTaskWarning(null);
+    } catch {
+      setActivityTasks(previousTasks);
+      setTaskWarning('Nao foi possivel atualizar a tarefa. Tente novamente.');
+    } finally {
+      setTaskActionId(null);
+    }
+  };
+
+  const updateActivityTaskTitle = async (task: ItineraryActivityTask, title: string) => {
+    const previousTasks = activityTasks;
+    setTaskActionId(`edit-${task.id}`);
+    setActivityTasks((current) =>
+      current.map((currentTask) =>
+        currentTask.id === task.id ? { ...currentTask, title } : currentTask,
+      ),
+    );
+
+    try {
+      const updatedTask = await updateItineraryActivityTask(groupId, task.id, {
+        title,
+        description: task.description,
+        isCompleted: task.isCompleted,
+        source: task.source,
+      });
+      setActivityTasks((current) =>
+        current.map((currentTask) => (currentTask.id === updatedTask.id ? updatedTask : currentTask)),
+      );
+      setTaskWarning(null);
+    } catch (error) {
+      setActivityTasks(previousTasks);
+      setTaskWarning(
+        error instanceof Error
+          ? error.message
+          : 'Nao foi possivel editar a tarefa.',
+      );
+    } finally {
+      setTaskActionId(null);
+    }
+  };
+
+  const removeActivityTask = async (task: ItineraryActivityTask) => {
+    const previousTasks = activityTasks;
+    setTaskActionId(`delete-${task.id}`);
+    setActivityTasks((current) => current.filter((currentTask) => currentTask.id !== task.id));
+
+    try {
+      await deleteItineraryActivityTask(groupId, task.id);
+      setTaskWarning(null);
+    } catch {
+      setActivityTasks(previousTasks);
+      setTaskWarning('Nao foi possivel excluir a tarefa. Tente novamente.');
+    } finally {
+      setTaskActionId(null);
+    }
+  };
+
   const restoreDefaults = async () => {
     setIsSaving(true);
 
     try {
       setItems(await resetItineraryToDefault(groupId));
+      setActivityTasks([]);
       setSyncWarning(null);
+      setTaskWarning(null);
     } catch {
       setItems(itineraryItems);
       setSyncWarning('Nao foi possivel restaurar no Supabase. Restauracao aplicada apenas localmente.');
@@ -822,9 +960,9 @@ export function ItineraryPage({
         </div>
       </section>
 
-      {syncWarning || isLoading || isSaving ? (
+      {syncWarning || taskWarning || isLoading || isSaving ? (
         <p className="rounded-xl border border-[#d3e4fe] bg-white px-4 py-3 text-sm font-semibold text-[#45464d] shadow-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300">
-          {isSaving ? 'Salvando roteiro no Supabase...' : isLoading ? 'Sincronizando roteiro...' : syncWarning}
+          {isSaving ? 'Salvando roteiro no Supabase...' : isLoading ? 'Sincronizando roteiro...' : syncWarning ?? taskWarning}
         </p>
       ) : null}
 
@@ -1041,6 +1179,17 @@ export function ItineraryPage({
                               <ChevronDown className={`h-5 w-5 text-[#8c8f9a] transition dark:text-slate-400 ${expanded ? 'rotate-180' : ''}`} />
                             </div>
                           </div>
+
+                          <ActivityTasks
+                            itemId={item.id}
+                            itemTitle={item.title}
+                            tasks={tasksByItemId[item.id] ?? []}
+                            actionId={taskActionId}
+                            onCreate={(title) => addActivityTask(item, title)}
+                            onToggle={toggleActivityTask}
+                            onUpdate={updateActivityTaskTitle}
+                            onDelete={removeActivityTask}
+                          />
                         </motion.article>
                       );
                     })}
