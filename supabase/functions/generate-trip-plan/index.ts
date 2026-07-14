@@ -1,6 +1,7 @@
 import { createClient } from 'npm:@supabase/supabase-js@2';
 
 type TripStyle = 'economica' | 'intermediaria' | 'confortavel';
+type TripGenerationStrategy = 'auto' | 'single' | 'staged' | 'summary';
 
 type TripPlanInput = {
   tripName: string;
@@ -11,6 +12,7 @@ type TripPlanInput = {
   endDate: string;
   style: TripStyle;
   groupId: string;
+  generationStrategy: TripGenerationStrategy;
 };
 
 type QuotaProfile = {
@@ -173,6 +175,9 @@ const getServiceKey = () => {
 const isTripStyle = (value: unknown): value is TripStyle =>
   value === 'economica' || value === 'intermediaria' || value === 'confortavel';
 
+const isTripGenerationStrategy = (value: unknown): value is TripGenerationStrategy =>
+  value === 'auto' || value === 'single' || value === 'staged' || value === 'summary';
+
 const normalizeCountryList = (value: unknown) => {
   const rawCountries = Array.isArray(value) ? value : [];
   const seen = new Set<string>();
@@ -219,6 +224,11 @@ const normalizeInput = (payload: Record<string, unknown>): TripPlanInput => {
     endDate: String(payload.endDate ?? '').trim(),
     style,
     groupId: String(payload.groupId ?? '').trim(),
+    generationStrategy: isTripGenerationStrategy(payload.generationStrategy)
+      ? payload.generationStrategy
+      : isTripGenerationStrategy(payload.strategy)
+        ? payload.strategy
+        : 'auto',
   };
 
   if (!input.tripName) throw new Error('Informe o nome da viagem.');
@@ -314,6 +324,11 @@ const countryAliases: Record<string, string> = {
   great_britain: 'great_britain',
   suica: 'switzerland',
   switzerland: 'switzerland',
+  espanha: 'spain',
+  spain: 'spain',
+  portugal: 'portugal',
+  alemanha: 'germany',
+  germany: 'germany',
   estados_unidos: 'united_states',
   eua: 'united_states',
   usa: 'united_states',
@@ -331,6 +346,9 @@ const defaultCitiesByCountry: Record<string, string[]> = {
   france: ['Paris', 'Nice'],
   italy: ['Roma', 'Florença', 'Veneza', 'Milão'],
   switzerland: ['Zurique', 'Lucerna', 'Interlaken', 'Zermatt'],
+  spain: ['Barcelona', 'Madri', 'Sevilha'],
+  portugal: ['Lisboa', 'Porto', 'Sintra'],
+  germany: ['Berlim', 'Munique', 'Hamburgo'],
   japan: ['Tokyo', 'Kyoto', 'Osaka'],
   united_states: ['Nova York', 'Washington', 'Boston'],
   brazil: ['Salvador', 'Recife', 'Fortaleza', 'Maceió', 'Natal'],
@@ -368,6 +386,30 @@ const defaultAttractionsByCountry: Record<string, Array<{ name: string; city: st
     { name: 'Lago de Lucerna', city: 'Lucerna', description: 'Passeio cênico junto ao lago.' },
     { name: 'Centro histórico de Zurique', city: 'Zurique', description: 'Ruas históricas e margem do rio.' },
     { name: 'Harder Kulm', city: 'Interlaken', description: 'Mirante alpino acessível por funicular.' },
+  ],
+  spain: [
+    { name: 'Sagrada Família', city: 'Barcelona', description: 'Basílica de Gaudí e principal marco modernista de Barcelona.' },
+    { name: 'Parc Güell', city: 'Barcelona', description: 'Parque modernista com mosaicos, jardins e vista da cidade.' },
+    { name: 'Bairro Gótico', city: 'Barcelona', description: 'Ruas históricas, praças antigas e igrejas no centro de Barcelona.' },
+    { name: 'Museu do Prado', city: 'Madri', description: 'Museu essencial para arte espanhola e europeia.' },
+    { name: 'Palácio Real de Madri', city: 'Madri', description: 'Residência real histórica com salas cerimoniais e jardins próximos.' },
+    { name: 'Plaza de España de Sevilha', city: 'Sevilha', description: 'Praça monumental com arquitetura regionalista e canais.' },
+  ],
+  portugal: [
+    { name: 'Torre de Belém', city: 'Lisboa', description: 'Fortificação manuelina à beira do Tejo.' },
+    { name: 'Mosteiro dos Jerónimos', city: 'Lisboa', description: 'Mosteiro histórico ligado à Era dos Descobrimentos.' },
+    { name: 'Alfama', city: 'Lisboa', description: 'Bairro antigo para miradouros, ruelas e fado.' },
+    { name: 'Livraria Lello', city: 'Porto', description: 'Livraria histórica com arquitetura marcante no centro do Porto.' },
+    { name: 'Ribeira do Porto', city: 'Porto', description: 'Área à beira do Douro para caminhada e restaurantes.' },
+    { name: 'Palácio da Pena', city: 'Sintra', description: 'Palácio colorido no alto da serra, acessível a partir de Lisboa.' },
+  ],
+  germany: [
+    { name: 'Portão de Brandemburgo', city: 'Berlim', description: 'Marco histórico central de Berlim.' },
+    { name: 'Ilha dos Museus', city: 'Berlim', description: 'Conjunto de museus no centro histórico e patrimônio da UNESCO.' },
+    { name: 'Reichstag', city: 'Berlim', description: 'Parlamento alemão com cúpula panorâmica mediante reserva.' },
+    { name: 'Marienplatz', city: 'Munique', description: 'Praça central de Munique com o Neues Rathaus.' },
+    { name: 'Palácio Nymphenburg', city: 'Munique', description: 'Palácio barroco com jardins extensos.' },
+    { name: 'Miniatur Wunderland', city: 'Hamburgo', description: 'Museu de miniaturas e maquetes ferroviárias no Speicherstadt.' },
   ],
   japan: [
     { name: 'Senso-ji', city: 'Tokyo', description: 'Templo histórico em Asakusa.' },
@@ -445,6 +487,21 @@ const cityAliases: Record<string, string> = {
   lucerne: 'lucerna',
   interlaken: 'interlaken',
   zermatt: 'zermatt',
+  barcelona: 'barcelona',
+  madri: 'madri',
+  madrid: 'madri',
+  sevilha: 'sevilha',
+  sevilla: 'sevilha',
+  lisbon: 'lisboa',
+  lisboa: 'lisboa',
+  porto: 'porto',
+  sintra: 'sintra',
+  berlim: 'berlim',
+  berlin: 'berlim',
+  munique: 'munique',
+  munich: 'munique',
+  hamburgo: 'hamburgo',
+  hamburg: 'hamburgo',
   rio_de_janeiro: 'rio_de_janeiro',
   sao_paulo: 'sao_paulo',
   brasilia: 'brasilia',
@@ -1156,7 +1213,7 @@ const getDateForDay = (input: TripPlanInput, dayNumber: number) => {
 
 const getMinimumItineraryItems = (input: TripPlanInput) => {
   const days = getTripDayCount(input);
-  if (days > 15) return days;
+  if (days > 15) return days * 3;
   return days >= 10 ? Math.max(days * 3, 35) : days * 3;
 };
 
@@ -1243,7 +1300,7 @@ const supplementalSlots = [
   {
     time: '08h30',
     type: 'alimentacao',
-    title: (_country, city) => `Café e planejamento em ${city}`,
+    title: (_country, city, dayNumber) => `Café e planejamento em ${city} - Dia ${dayNumber}`,
     description: (_country, city) => `Comece perto de ${city} e revise reservas e deslocamentos do dia.`,
   },
   {
@@ -1259,7 +1316,7 @@ const supplementalSlots = [
   {
     time: '12h30',
     type: 'alimentacao',
-    title: (_country, city) => `Almoço em ${city}`,
+    title: (_country, city, dayNumber) => `Almoço em ${city} - Dia ${dayNumber}`,
     description: (_country, city) => `Pausa para refeição perto do roteiro da manhã em ${city}.`,
   },
   {
@@ -1275,13 +1332,13 @@ const supplementalSlots = [
   {
     time: '18h00',
     type: 'descanso',
-    title: (_country, city) => `Descanso antes da noite em ${city}`,
+    title: (_country, city, dayNumber) => `Descanso antes da noite em ${city} - Dia ${dayNumber}`,
     description: (_country, city) => `Tempo para banho, pausa e organização antes do jantar em ${city}.`,
   },
   {
     time: '20h00',
     type: 'alimentacao',
-    title: (_country, city) => `Jantar em ${city}`,
+    title: (_country, city, dayNumber) => `Jantar em ${city} - Dia ${dayNumber}`,
     description: (_country, city) => `Escolha uma região movimentada e segura de ${city} para fechar o dia.`,
   },
 ] satisfies SupplementalSlot[];
@@ -1307,12 +1364,18 @@ const compactLongTripSlots = [
     description: (country: string, city: string, dayNumber: number) => getDefaultAttractionSeed(country, dayNumber, 1)?.description ??
       `Complete o dia com pontos próximos em ${city}.`,
   },
+  {
+    time: '19h30',
+    type: 'alimentacao',
+    title: (_country: string, city: string, dayNumber: number) => `Jantar e revisão em ${city} - Dia ${dayNumber}`,
+    description: (_country: string, city: string) => `Feche o dia em uma região central de ${city} e revise o deslocamento seguinte.`,
+  },
 ] satisfies SupplementalSlot[];
 
 const completeItineraryItems = (items: Record<string, unknown>[], input: TripPlanInput) => {
   const tripDays = getTripDayCount(input);
   const isLongTrip = tripDays > 15;
-  const minimumBlocksPerDay = isLongTrip ? 2 : 4;
+  const minimumBlocksPerDay = isLongTrip ? 3 : 4;
   const slots = isLongTrip ? compactLongTripSlots : supplementalSlots;
   const byDay = new Map<number, Record<string, unknown>[]>();
 
@@ -1383,17 +1446,75 @@ const createFallbackExpenses = (input: TripPlanInput) => {
   ];
 };
 
+const createFallbackDocuments = (input: TripPlanInput) => {
+  const countryKeys = input.countries.map(countryKey).filter(Boolean);
+  const isBrazilOnly = countryKeys.length > 0 && countryKeys.every((country) => country === 'brazil');
+  const hasSchengenLikeDestination = countryKeys.some((country) =>
+    ['france', 'italy', 'spain', 'portugal', 'germany', 'switzerland'].includes(country)
+  );
+  const documents = isBrazilOnly
+    ? [
+        {
+          name: 'Documento de identidade com foto',
+          description: 'Leve RG ou CNH válida e confira regras da companhia aérea, hotel e passeios.',
+          required: true,
+          category: 'Documentos',
+        },
+        {
+          name: 'Comprovante de hospedagem',
+          description: 'Tenha reservas acessíveis no celular e offline para check-in e deslocamentos.',
+          required: true,
+          category: 'Documentos',
+        },
+      ]
+    : [
+        {
+          name: 'Passaporte',
+          description: 'Confira validade, páginas disponíveis e exigências atuais de cada país antes da viagem.',
+          required: true,
+          category: 'Documentos',
+        },
+        {
+          name: 'Seguro viagem',
+          description: 'Mantenha apólice e contatos de emergência. Verifique cobertura exigida para os destinos.',
+          required: true,
+          category: 'Documentos',
+        },
+        {
+          name: 'Comprovante de hospedagem',
+          description: 'Guarde reservas de hotéis ou acomodações para imigração, check-in e organização do roteiro.',
+          required: true,
+          category: 'Documentos',
+        },
+        {
+          name: 'Passagem de retorno ou saída',
+          description: 'Tenha comprovante de saída do país ou do bloco de viagem quando exigido pela imigração.',
+          required: true,
+          category: 'Documentos',
+        },
+        {
+          name: 'Comprovante financeiro',
+          description: 'Leve cartões, extratos ou comprovantes aceitos e verifique a regra atual antes do embarque.',
+          required: false,
+          category: 'Documentos',
+        },
+        ...(hasSchengenLikeDestination
+          ? [{
+              name: 'ETIAS ou autorização de entrada',
+              description: 'Verifique a exigência atual para entrada no Espaço Schengen antes da viagem.',
+              required: false,
+              category: 'Documentos',
+            }]
+          : []),
+      ];
+
+  return uniqueByKey(documents, (document) => normalizeKey(document.name));
+};
+
 const createFallbackPlan = (input: TripPlanInput, warning: string) =>
   ensurePlanShape({
     summary: `Prévia estruturada para ${input.tripName}.`,
-    documents: [
-      {
-        name: 'Documento de viagem',
-        description: 'Confira passaporte, vistos, reservas e seguro antes do embarque. Verifique a exigência atual antes da viagem.',
-        required: true,
-        category: 'Documentos',
-      },
-    ],
+    documents: createFallbackDocuments(input),
     routes: input.countries.length > 1
       ? input.countries.slice(0, -1).map((country, index) => ({
           from: getDefaultCityForCountry(country, index + 1),
@@ -1871,7 +1992,9 @@ const ensurePlanShape = (value: unknown, input: TripPlanInput) => {
     normalizedExpenses.length ? '' : 'Despesas aproximadas foram complementadas por categoria.',
   ].filter(Boolean);
   const documents = uniqueByKey(
-    asRecords(plan.documents)
+    [
+      ...createFallbackDocuments(input),
+      ...asRecords(plan.documents)
       .map((document) => {
         const name = asText(document.name ?? document.title, 'Documento');
         const description = asText(document.description ?? document.detail ?? document.notes);
@@ -1886,6 +2009,7 @@ const ensurePlanShape = (value: unknown, input: TripPlanInput) => {
         };
       })
       .filter((document) => asText(document.name)),
+    ],
     (document) => normalizeKey(document.name ?? document.title),
   );
 
@@ -2085,6 +2209,14 @@ class ProfileSyncError extends Error {
   }
 }
 
+type GeneratePlanWithAIOptions = {
+  timeoutMs?: number;
+  maxCompletionTokens?: number;
+  prompt?: string;
+  temperature?: number;
+  stage?: string;
+};
+
 const validateRawPlanSchema = (value: unknown) => {
   const plan = normalizeExternalPlanShape(value);
   const reasons: string[] = [];
@@ -2282,7 +2414,7 @@ const validatePlanQuality = (plan: ReturnType<typeof ensurePlanShape>, input: Tr
       singleItemDays.push(day);
     }
 
-    if (items.length > 0 && items.length < 3 && !items.every(isUnavoidableSingleItemDay)) {
+    if (items.length > 0 && items.length < 3) {
       veryThinDays.push(day);
     }
   }
@@ -2291,11 +2423,11 @@ const validatePlanQuality = (plan: ReturnType<typeof ensurePlanShape>, input: Tr
     reasons.push(`dias sem roteiro: ${missingDays.map((day) => `Dia ${day}`).join(', ')}`);
   }
 
-  if (tripDays <= 15 && singleItemDays.length) {
+  if (singleItemDays.length) {
     reasons.push(`dias com apenas 1 item sem justificativa: ${singleItemDays.map((day) => `Dia ${day}`).join(', ')}`);
   }
 
-  if (tripDays <= 15 && tripDays >= 4 && veryThinDays.length > Math.max(1, Math.floor(tripDays * 0.2))) {
+  if (veryThinDays.length) {
     reasons.push(`muitos dias com menos de 3 itens: ${veryThinDays.map((day) => `Dia ${day}`).join(', ')}`);
   }
 
@@ -2473,12 +2605,29 @@ const generatePlanWithAI = async (
     userId: 'unknown',
     attempt: 1,
   },
+  options: GeneratePlanWithAIOptions = {},
 ) => {
-  const timeoutMs = qualityFeedback ? Math.min(getOpenAITimeoutMs(), 45_000) : getOpenAITimeoutMs();
+  const timeoutMs = options.timeoutMs ?? (qualityFeedback ? Math.min(getOpenAITimeoutMs(), 45_000) : getOpenAITimeoutMs());
+  const prompt = options.prompt ?? buildPrompt(input, destinationContext, qualityFeedback);
+  const maxCompletionTokens = options.maxCompletionTokens ?? getMaxCompletionTokens(input);
   const controller = new AbortController();
   const startedAt = Date.now();
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
   let aiResponse: Response;
+
+  logAiEvent('info', 'openai_request_prepared', {
+    group_id: context.groupId,
+    user_id: context.userId,
+    attempt: context.attempt,
+    stage: options.stage ?? 'single',
+    generation_strategy: input.generationStrategy,
+    model,
+    timeout_ms: timeoutMs,
+    max_completion_tokens: maxCompletionTokens,
+    prompt_length: prompt.length,
+    countries_count: input.countries.length,
+    trip_days: getTripDayCount(input),
+  });
 
   try {
     aiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -2490,15 +2639,15 @@ const generatePlanWithAI = async (
       },
       body: JSON.stringify({
         model,
-        temperature: qualityFeedback ? 0.42 : 0.38,
-        max_completion_tokens: getMaxCompletionTokens(input),
+        temperature: options.temperature ?? (qualityFeedback ? 0.42 : 0.38),
+        max_completion_tokens: maxCompletionTokens,
         response_format: { type: 'json_object' },
         messages: [
           {
             role: 'system',
             content: 'Voce gera apenas JSON valido para planejamento de viagem. Nao retorne texto fora do JSON.',
           },
-          { role: 'user', content: buildPrompt(input, destinationContext, qualityFeedback) },
+          { role: 'user', content: prompt },
         ],
       }),
     });
@@ -2508,6 +2657,7 @@ const generatePlanWithAI = async (
       group_id: context.groupId,
       user_id: context.userId,
       attempt: context.attempt,
+      stage: options.stage ?? 'single',
       error_code: isAbort ? 'TIMEOUT' : 'OPENAI_ERROR',
       timeout_ms: timeoutMs,
       duration_ms: Date.now() - startedAt,
@@ -2527,6 +2677,7 @@ const generatePlanWithAI = async (
     group_id: context.groupId,
     user_id: context.userId,
     attempt: context.attempt,
+    stage: options.stage ?? 'single',
     provider_status: aiResponse.status,
     duration_ms: durationMs,
     raw_response_size: rawResponseText.length,
@@ -2585,6 +2736,7 @@ const generatePlanWithAI = async (
     group_id: context.groupId,
     user_id: context.userId,
     attempt: context.attempt,
+    stage: options.stage ?? 'single',
     finish_reason: finishReason,
     response_kind: responseKind,
     content_length: content.length,
@@ -2609,6 +2761,526 @@ const generatePlanWithAI = async (
       parseError: getErrorMessage(error),
     });
   }
+};
+
+type EnsuredTripPlan = ReturnType<typeof ensurePlanShape>;
+
+type TripGenerationMode = 'single' | 'staged' | 'summary';
+
+type TripGenerationSizing = {
+  countriesCount: number;
+  tripDays: number;
+  expectedActivities: number;
+  promptLength: number;
+  isLargeTrip: boolean;
+};
+
+type StagedTripBlock = {
+  index: number;
+  country: string;
+  startDay: number;
+  endDay: number;
+  startDate: string;
+  endDate: string;
+  days: number;
+};
+
+const LARGE_TRIP_COUNTRY_THRESHOLD = 3;
+const LARGE_TRIP_DAY_THRESHOLD = 12;
+const LARGE_TRIP_ACTIVITY_THRESHOLD = 20;
+const LARGE_TRIP_PROMPT_THRESHOLD = 18_000;
+const STAGED_TOTAL_BUDGET_MS = 86_000;
+const STAGED_BLOCK_TIMEOUT_MS = 12_000;
+const STAGED_SUMMARY_BLOCK_TIMEOUT_MS = 8_000;
+
+const getTripGenerationSizing = (
+  input: TripPlanInput,
+  destinationContext: DestinationContext,
+): TripGenerationSizing => {
+  const tripDays = getTripDayCount(input);
+  const expectedActivities = tripDays > 15 ? tripDays * 3 : tripDays * 4;
+  const promptLength = buildPrompt(input, destinationContext).length;
+  const isLargeTrip =
+    input.countries.length > LARGE_TRIP_COUNTRY_THRESHOLD ||
+    tripDays > LARGE_TRIP_DAY_THRESHOLD ||
+    expectedActivities > LARGE_TRIP_ACTIVITY_THRESHOLD ||
+    promptLength > LARGE_TRIP_PROMPT_THRESHOLD;
+
+  return {
+    countriesCount: input.countries.length,
+    tripDays,
+    expectedActivities,
+    promptLength,
+    isLargeTrip,
+  };
+};
+
+const resolveGenerationMode = (input: TripPlanInput, sizing: TripGenerationSizing): TripGenerationMode => {
+  if (input.generationStrategy === 'single') return 'single';
+  if (input.generationStrategy === 'summary') return 'summary';
+  if (input.generationStrategy === 'staged') return 'staged';
+  return sizing.isLargeTrip ? 'staged' : 'single';
+};
+
+const buildCountryStageBlocks = (input: TripPlanInput): StagedTripBlock[] => {
+  const tripDays = getTripDayCount(input);
+  const countries = input.countries.length ? input.countries : ['international'];
+  const countryCount = Math.max(1, countries.length);
+  const baseDays = tripDays >= countryCount ? Math.floor(tripDays / countryCount) : 1;
+  const extraDays = tripDays >= countryCount ? tripDays % countryCount : 0;
+  let dayCursor = 1;
+
+  return countries.flatMap((country, index) => {
+    const days = tripDays >= countryCount
+      ? baseDays + (index < extraDays ? 1 : 0)
+      : index < tripDays ? 1 : 0;
+
+    if (days <= 0) return [];
+
+    const startDay = dayCursor;
+    const endDay = Math.min(tripDays, startDay + days - 1);
+    dayCursor = endDay + 1;
+
+    return [{
+      index,
+      country,
+      startDay,
+      endDay,
+      startDate: getDateForDay(input, startDay),
+      endDate: getDateForDay(input, endDay),
+      days: endDay - startDay + 1,
+    }];
+  });
+};
+
+const createBlockInput = (input: TripPlanInput, block: StagedTripBlock): TripPlanInput => ({
+  ...input,
+  countries: [block.country],
+  cities: input.cities,
+  description: `Bloco de roteiro para ${block.country}.`,
+  startDate: block.startDate,
+  endDate: block.endDate,
+  generationStrategy: 'single',
+});
+
+const filterDestinationContextForBlock = (
+  context: DestinationContext,
+  blockInput: TripPlanInput,
+): DestinationContext => {
+  const countryCodes = new Set(blockInput.countries.map(countryKey).filter(Boolean));
+  const destinations = context.destinations.filter((destination) => countryCodes.has(destination.country_code));
+  const destinationCityKeys = new Set(destinations.map((destination) => cityKey(destination.city_name ?? '')).filter(Boolean));
+  const selectedCities = uniqueTexts(context.selectedCities.filter((city) => destinationCityKeys.has(cityKey(city))));
+  const fallbackCities = uniqueTexts(
+    blockInput.countries.flatMap((country) => defaultCitiesByCountry[countryKey(country)] ?? []),
+  ).slice(0, getCityBudgetPerCountry(blockInput));
+
+  return {
+    ...context,
+    destinations,
+    attractions: context.attractions
+      .filter((attraction) => countryCodes.has(attraction.country_code))
+      .slice(0, 18),
+    transportTips: context.transportTips
+      .filter((tip) => countryCodes.has(tip.country_code))
+      .slice(0, 10),
+    documents: context.documents.filter((document) => countryCodes.has(document.country_code)),
+    countryCodes: [...countryCodes],
+    selectedCities: selectedCities.length ? selectedCities : fallbackCities,
+    onlyCountryProvided: context.onlyCountryProvided,
+  };
+};
+
+const summarizeUsedStageContext = (plans: EnsuredTripPlan[]) => {
+  const cities = uniqueTexts(
+    plans.flatMap((plan) => plan.itinerary_items.map((item) => asText(item.city)).filter(Boolean)),
+  ).slice(0, 24);
+  const activities = uniqueTexts(
+    plans.flatMap((plan) => plan.itinerary_items.map((item) => asText(item.title)).filter(Boolean)),
+  ).slice(0, 32);
+  const documents = uniqueTexts(
+    plans.flatMap((plan) => plan.documents.map((document) => asText(document.name ?? document.title)).filter(Boolean)),
+  ).slice(0, 18);
+
+  return [
+    cities.length ? `Cidades ja usadas: ${cities.join(', ')}.` : 'Cidades ja usadas: nenhuma.',
+    activities.length ? `Atividades ja usadas: ${activities.join(', ')}.` : 'Atividades ja usadas: nenhuma.',
+    documents.length ? `Documentos ja adicionados: ${documents.join(', ')}.` : 'Documentos ja adicionados: nenhum.',
+  ].join('\n');
+};
+
+const buildStagedBlockPrompt = ({
+  input,
+  blockInput,
+  blockContext,
+  block,
+  previousPlans,
+  compact,
+}: {
+  input: TripPlanInput;
+  blockInput: TripPlanInput;
+  blockContext: DestinationContext;
+  block: StagedTripBlock;
+  previousPlans: EnsuredTripPlan[];
+  compact: boolean;
+}) => {
+  const contextPrompt = buildDestinationContextPrompt(blockInput, blockContext);
+  const usedContext = summarizeUsedStageContext(previousPlans);
+  const minItems = block.days * 3;
+  const maxItems = block.days * (compact ? 4 : 5);
+
+  return `
+Voce e um planejador de viagens especialista. Responda SOMENTE JSON valido, sem markdown e sem texto fora do objeto.
+Este e um bloco de uma viagem maior. Gere apenas o pais e as datas deste bloco para evitar timeout.
+
+Viagem completa:
+- Nome: ${input.tripName}
+- Paises completos: ${input.countries.join(', ')}
+- Datas completas: ${input.startDate} ate ${input.endDate}
+- Estilo: ${input.style}
+- Descricao do usuario: ${compactPromptText(input.description || 'Nao informada', 900)}
+
+Bloco atual:
+- Pais permitido: ${block.country}
+- Dias globais: Dia ${block.startDay} ate Dia ${block.endDay}
+- Datas do bloco: ${block.startDate} ate ${block.endDate}
+- Retorne day_number local de 1 ate ${block.days}; o servidor consolidara para os dias globais.
+
+Itens ja usados em blocos anteriores. Nao repita:
+${usedContext}
+
+Contexto real deste bloco:
+${contextPrompt}
+
+Qualidade obrigatoria:
+- Gere entre ${minItems} e ${maxItems} itinerary_items.
+- Cada dia deve ter 3 a 5 atividades reais, com manha, almoco/pausa e tarde/noite quando couber.
+- Use cidades e atracoes reais. Nunca use "Ponto turistico principal", "Atracao principal", "Local famoso", "Passeio pela cidade", "Cidade escolhida", "Destino principal", "TBD" ou "A definir".
+- Nao repita atividades, cidades ou documentos ja listados.
+- Atracoes devem ser pontos reais do roteiro; nao inclua hotel, aeroporto, metro ou refeicao em attractions.
+- Despesas devem usar a moeda local correta do pais e serem estimativas revisaveis.
+- Documentos devem ser especificos e consolidados; use linguagem cautelosa sobre regras oficiais.
+
+Retorne exatamente este objeto:
+{
+  "intent_summary": "frase curta em portugues",
+  "trip_summary": "string",
+  "days": [
+    {
+      "day_number": 1,
+      "date": "YYYY-MM-DD",
+      "city": "cidade real",
+      "country": "${block.country}",
+      "activities": [
+        {
+          "time": "09:00",
+          "title": "nome real e especifico",
+          "category": "passeio",
+          "city": "cidade real",
+          "country": "${block.country}",
+          "location": "local real",
+          "description": "string curta",
+          "details": "string curta",
+          "estimated_cost": 0,
+          "currency": "BRL, EUR, USD, JPY, CHF ou GBP",
+          "useful_links": [],
+          "tasks": []
+        }
+      ]
+    }
+  ],
+  "documents": [
+    { "name": "string", "description": "string", "required": true, "category": "Documentos" }
+  ],
+  "routes": [
+    { "from": "string", "to": "string", "transport_type": "string", "duration": "string", "description": "string", "estimated_cost": 0, "currency": "BRL, EUR, USD, JPY, CHF ou GBP" }
+  ],
+  "expenses": [
+    { "category": "Hospedagem", "description": "string", "estimated_cost": 0, "currency": "BRL, EUR, USD, JPY, CHF ou GBP", "country": "${block.country}" }
+  ],
+  "attractions": [
+    { "name": "string", "city": "string", "country": "${block.country}", "description": "string", "suggested_day": 1, "suggested_time": "10:00" }
+  ],
+  "warnings": ["string"]
+}
+`;
+};
+
+const getStagedBlockMaxCompletionTokens = (blockInput: TripPlanInput, compact: boolean) => {
+  const days = getTripDayCount(blockInput);
+  const base = compact ? 1400 : 1900;
+  const perDay = compact ? 650 : 900;
+  return Math.min(compact ? 3200 : 4600, Math.max(base, days * perDay));
+};
+
+const getStagedBlockTimeoutMs = (remainingMs: number, compact: boolean) =>
+  Math.max(4_000, Math.min(compact ? STAGED_SUMMARY_BLOCK_TIMEOUT_MS : STAGED_BLOCK_TIMEOUT_MS, remainingMs - 4_000));
+
+const getShiftedDayNumber = (block: StagedTripBlock, localDayNumber: number) =>
+  Math.min(block.endDay, Math.max(block.startDay, block.startDay + Math.max(1, localDayNumber) - 1));
+
+const shiftBlockPlanToTripDays = (
+  plan: EnsuredTripPlan,
+  input: TripPlanInput,
+  block: StagedTripBlock,
+): EnsuredTripPlan => ({
+  ...plan,
+  itinerary_items: plan.itinerary_items.map((item, index) => {
+    const localDayNumber = getDayNumberFromItem(item) ?? Math.floor(index / 4) + 1;
+    const dayNumber = getShiftedDayNumber(block, localDayNumber);
+    const date = getDateForDay(input, dayNumber);
+
+    return {
+      ...item,
+      day: `Dia ${dayNumber}${date ? ` - ${date}` : ''}`,
+      date,
+      country: asText(item.country) === 'international' ? 'international' : block.country,
+      order_index: index,
+    };
+  }),
+  attractions: plan.attractions.map((attraction) => {
+    const localDayNumber = getDayNumber(attraction.day) ?? Number(attraction.suggested_day ?? 1);
+    const dayNumber = getShiftedDayNumber(block, Number.isFinite(localDayNumber) ? localDayNumber : 1);
+
+    return {
+      ...attraction,
+      country: block.country,
+      day: `Dia ${dayNumber}`,
+    };
+  }),
+  expenses: plan.expenses.map((expense) => ({
+    ...expense,
+    country: asText(expense.country) === 'international' ? 'international' : block.country,
+  })),
+});
+
+const uniquifyRepeatedItineraryTitles = (items: Record<string, unknown>[]) => {
+  const seen = new Map<string, number>();
+
+  return items.map((item) => {
+    const title = asText(item.title);
+    const key = [
+      countryKey(item.country),
+      cityKey(item.city),
+      normalizeKey(title),
+    ].join('|');
+    const count = seen.get(key) ?? 0;
+    seen.set(key, count + 1);
+
+    if (!title || count === 0) return item;
+
+    const dayLabel = asText(item.day).split(' - ')[0] || `Dia ${count + 1}`;
+    return {
+      ...item,
+      title: `${title} (${dayLabel})`,
+    };
+  });
+};
+
+const buildStageTransitionRoutes = (input: TripPlanInput, blocks: StagedTripBlock[]) =>
+  blocks.slice(0, -1).map((block, index) => {
+    const nextBlock = blocks[index + 1];
+    const from = getDefaultCityForCountry(block.country, block.endDay);
+    const to = getDefaultCityForCountry(nextBlock.country, nextBlock.startDay);
+    const transport = input.description.toLowerCase().includes('motorhome') ? 'motorhome' : 'trem/aviao';
+
+    return {
+      from,
+      to,
+      transport,
+      transport_type: transport,
+      duration: '2h a 6h',
+      description: `Deslocamento sugerido entre ${countryKey(block.country)} e ${countryKey(nextBlock.country)}. Confirme horarios e reservas.`,
+      estimatedCost: 'A confirmar',
+      notes: 'Ajuste conforme aeroporto, estação ou cidade-base escolhida.',
+    };
+  });
+
+const mergeStagePlans = (
+  input: TripPlanInput,
+  blocks: StagedTripBlock[],
+  plans: EnsuredTripPlan[],
+  warnings: string[],
+  generationMode: TripGenerationMode,
+) => {
+  const merged = ensurePlanShape({
+    intent_summary: `Roteiro consolidado por etapas para ${input.countries.join(', ')}.`,
+    summary: generationMode === 'summary'
+      ? `Prévia resumida por etapas para ${input.tripName}.`
+      : `Prévia por etapas para ${input.tripName}, consolidando ${blocks.length} bloco${blocks.length === 1 ? '' : 's'} de roteiro.`,
+    documents: plans.flatMap((plan) => plan.documents),
+    routes: [
+      ...buildStageTransitionRoutes(input, blocks),
+      ...plans.flatMap((plan) => plan.routes),
+    ],
+    itinerary_items: plans.flatMap((plan) => plan.itinerary_items),
+    expenses: plans.flatMap((plan) => plan.expenses),
+    attractions: plans.flatMap((plan) => plan.attractions),
+    warnings: [
+      'Sua viagem possui varios paises/dias. O roteiro foi gerado por etapas para evitar timeout.',
+      ...warnings,
+    ],
+  }, input);
+
+  return {
+    ...merged,
+    itinerary_items: uniquifyRepeatedItineraryTitles(merged.itinerary_items),
+  };
+};
+
+const generatePlanInStages = async ({
+  apiKey,
+  configuredModel,
+  input,
+  destinationContext,
+  contextWarnings,
+  groupId,
+  userId,
+  generationMode,
+  functionStartedAt,
+}: {
+  apiKey: string;
+  configuredModel: string;
+  input: TripPlanInput;
+  destinationContext: DestinationContext;
+  contextWarnings: string[];
+  groupId: string;
+  userId: string;
+  generationMode: TripGenerationMode;
+  functionStartedAt: number;
+}) => {
+  const compact = generationMode === 'summary';
+  const blocks = buildCountryStageBlocks(input);
+  const generatedPlans: EnsuredTripPlan[] = [];
+  const warnings: string[] = [...contextWarnings];
+  const skippedCountries = input.countries.length - blocks.length;
+
+  if (skippedCountries > 0) {
+    warnings.push('A viagem tem mais paises que dias. Alguns paises aparecem apenas em documentos, rotas ou revisão manual.');
+  }
+
+  for (const block of blocks) {
+    const elapsedMs = Date.now() - functionStartedAt;
+    const remainingMs = STAGED_TOTAL_BUDGET_MS - elapsedMs;
+    const blockInput = createBlockInput(input, block);
+    const blockContext = filterDestinationContextForBlock(destinationContext, blockInput);
+    let blockPlan: EnsuredTripPlan | null = null;
+
+    if (remainingMs > 5_500) {
+      const timeoutMs = getStagedBlockTimeoutMs(remainingMs, compact);
+
+      try {
+        logAiEvent('info', 'staged_block_started', {
+          group_id: groupId,
+          user_id: userId,
+          block_index: block.index + 1,
+          block_country: block.country,
+          block_days: block.days,
+          remaining_ms: remainingMs,
+          timeout_ms: timeoutMs,
+          generation_mode: generationMode,
+        });
+
+        const rawBlockOutput = await generatePlanWithAI(
+          apiKey,
+          configuredModel,
+          blockInput,
+          blockContext,
+          undefined,
+          {
+            groupId,
+            userId,
+            attempt: block.index + 1,
+          },
+          {
+            stage: `block-${block.index + 1}-${countryKey(block.country)}`,
+            timeoutMs,
+            maxCompletionTokens: getStagedBlockMaxCompletionTokens(blockInput, compact),
+            temperature: compact ? 0.32 : 0.36,
+            prompt: buildStagedBlockPrompt({
+              input,
+              blockInput,
+              blockContext,
+              block,
+              previousPlans: generatedPlans,
+              compact,
+            }),
+          },
+        );
+        const schema = validateRawPlanSchema(rawBlockOutput);
+
+        if (!schema.ok) throw new AiSchemaError(schema.reasons);
+
+        const candidate = ensurePlanShape(rawBlockOutput, blockInput);
+        const quality = validatePlanQuality(candidate, blockInput);
+
+        if (!quality.ok) throw new AiQualityError(quality.reasons);
+
+        blockPlan = candidate;
+        logAiEvent('info', 'staged_block_generated', {
+          group_id: groupId,
+          user_id: userId,
+          block_index: block.index + 1,
+          block_country: block.country,
+          itinerary_items: candidate.itinerary_items.length,
+          documents: candidate.documents.length,
+          expenses: candidate.expenses.length,
+        });
+      } catch (error) {
+        warnings.push(`Bloco de ${block.country} foi complementado localmente porque a IA demorou ou retornou incompleto.`);
+        logAiEvent('warn', 'staged_block_fallback_used', {
+          group_id: groupId,
+          user_id: userId,
+          block_index: block.index + 1,
+          block_country: block.country,
+          error_code: error instanceof AiTimeoutError ? 'AI_TIMEOUT' : error instanceof AiQualityError ? 'AI_QUALITY_FAILED' : 'AI_BLOCK_FAILED',
+          message: getErrorMessage(error),
+        });
+      }
+    } else {
+      warnings.push(`Bloco de ${block.country} foi montado localmente para respeitar o limite de tempo.`);
+      logAiEvent('warn', 'staged_block_skipped_due_budget', {
+        group_id: groupId,
+        user_id: userId,
+        block_index: block.index + 1,
+        block_country: block.country,
+        remaining_ms: remainingMs,
+      });
+    }
+
+    if (!blockPlan) {
+      blockPlan = createFallbackPlan(blockInput, `Bloco de ${block.country} gerado com fallback local para evitar timeout.`);
+    }
+
+    generatedPlans.push(shiftBlockPlanToTripDays(blockPlan, input, block));
+  }
+
+  let merged = mergeStagePlans(input, blocks, generatedPlans, warnings, generationMode);
+  const quality = validatePlanQuality(merged, input);
+
+  if (!quality.ok) {
+    logAiEvent('warn', 'staged_merged_quality_repair', {
+      group_id: groupId,
+      user_id: userId,
+      reasons: quality.reasons,
+      itinerary_items: merged.itinerary_items.length,
+    });
+
+    const fallbackPlan = createFallbackPlan(input, 'Roteiro base complementado localmente para manter 3+ atividades por dia.');
+    merged = mergeStagePlans(input, blocks, [merged, fallbackPlan], [...warnings, ...quality.reasons], generationMode);
+  }
+
+  return {
+    ...merged,
+    warnings: [
+      ...new Set([
+        ...merged.warnings,
+        generationMode === 'summary'
+          ? 'Versão resumida gerada por etapas. Revise antes de aplicar.'
+          : 'Geração por etapas concluída. Revise antes de aplicar.',
+      ]),
+    ],
+  };
 };
 
 Deno.serve(async (req) => {
@@ -2899,143 +3571,172 @@ Deno.serve(async (req) => {
 
     const functionStartedAt = Date.now();
     const functionBudgetMs = getFunctionBudgetMs();
+    const generationSizing = getTripGenerationSizing(input, destinationContext);
+    const generationMode = resolveGenerationMode(input, generationSizing);
     let output: ReturnType<typeof ensurePlanShape> | null = null;
     let qualityReasons: string[] = [];
     let validationFailureKind: 'schema' | 'quality' = 'quality';
 
-    for (let attempt = 1; attempt <= 2; attempt += 1) {
-      const elapsedMs = Date.now() - functionStartedAt;
-      const remainingMs = functionBudgetMs - elapsedMs;
-      const retryTimeoutMs = Math.min(getOpenAITimeoutMs(), 45_000);
-      const minimumRetryBudgetMs = retryTimeoutMs + 8_000;
+    logAiEvent('info', 'generation_strategy_resolved', {
+      group_id: input.groupId,
+      user_id: user.id,
+      requested_strategy: input.generationStrategy,
+      generation_mode: generationMode,
+      countries_count: generationSizing.countriesCount,
+      trip_days: generationSizing.tripDays,
+      expected_activities: generationSizing.expectedActivities,
+      prompt_length: generationSizing.promptLength,
+      is_large_trip: generationSizing.isLargeTrip,
+    });
 
-      if (attempt > 1 && remainingMs < minimumRetryBudgetMs) {
-        logAiEvent('warn', 'quality_retry_skipped_due_budget', {
-          group_id: input.groupId,
-          user_id: user.id,
-          attempt,
-          error_code: 'VALIDATION_FAILED',
-          elapsed_ms: elapsedMs,
-          remaining_ms: remainingMs,
-          reasons: qualityReasons,
-        });
-        break;
-      }
-
-      const qualityFeedback = qualityReasons.length ? qualityReasons.join('; ') : undefined;
-      const model = attempt === 1 ? configuredModel : fallbackModel;
-      activeModel = model;
-      logAiEvent('info', 'openai_attempt_started', {
-        group_id: input.groupId,
-        user_id: user.id,
-        attempt,
-        model,
-        elapsed_ms: elapsedMs,
-        remaining_ms: remainingMs,
-        has_quality_feedback: Boolean(qualityFeedback),
+    if (generationMode === 'staged' || generationMode === 'summary') {
+      output = await generatePlanInStages({
+        apiKey,
+        configuredModel,
+        input,
+        destinationContext,
+        contextWarnings,
+        groupId: input.groupId,
+        userId: user.id,
+        generationMode,
+        functionStartedAt,
       });
+      activeModel = configuredModel;
+    } else {
+      for (let attempt = 1; attempt <= 2; attempt += 1) {
+        const elapsedMs = Date.now() - functionStartedAt;
+        const remainingMs = functionBudgetMs - elapsedMs;
+        const retryTimeoutMs = Math.min(getOpenAITimeoutMs(), 45_000);
+        const minimumRetryBudgetMs = retryTimeoutMs + 8_000;
 
-      let rawOutput: unknown;
-      try {
-        rawOutput = await generatePlanWithAI(apiKey, model, input, destinationContext, qualityFeedback, {
-          groupId: input.groupId,
-          userId: user.id,
-          attempt,
-        });
-      } catch (error) {
-        if (error instanceof AiJsonError && model !== fallbackModel) {
-          qualityReasons = ['modelo configurado retornou JSON invalido; repetindo com modelo de fallback'];
-          validationFailureKind = 'schema';
-          logAiEvent('warn', 'openai_json_failed_retrying_with_fallback_model', {
+        if (attempt > 1 && remainingMs < minimumRetryBudgetMs) {
+          logAiEvent('warn', 'quality_retry_skipped_due_budget', {
             group_id: input.groupId,
             user_id: user.id,
             attempt,
-            model,
-            fallback_model: fallbackModel,
-            error_code: 'INVALID_JSON',
-            message: error.message,
+            error_code: 'VALIDATION_FAILED',
+            elapsed_ms: elapsedMs,
+            remaining_ms: remainingMs,
+            reasons: qualityReasons,
+          });
+          break;
+        }
+
+        const qualityFeedback = qualityReasons.length ? qualityReasons.join('; ') : undefined;
+        const model = attempt === 1 ? configuredModel : fallbackModel;
+        activeModel = model;
+        logAiEvent('info', 'openai_attempt_started', {
+          group_id: input.groupId,
+          user_id: user.id,
+          attempt,
+          model,
+          elapsed_ms: elapsedMs,
+          remaining_ms: remainingMs,
+          has_quality_feedback: Boolean(qualityFeedback),
+        });
+
+        let rawOutput: unknown;
+        try {
+          rawOutput = await generatePlanWithAI(apiKey, model, input, destinationContext, qualityFeedback, {
+            groupId: input.groupId,
+            userId: user.id,
+            attempt,
+          });
+        } catch (error) {
+          if (error instanceof AiJsonError && model !== fallbackModel) {
+            qualityReasons = ['modelo configurado retornou JSON invalido; repetindo com modelo de fallback'];
+            validationFailureKind = 'schema';
+            logAiEvent('warn', 'openai_json_failed_retrying_with_fallback_model', {
+              group_id: input.groupId,
+              user_id: user.id,
+              attempt,
+              model,
+              fallback_model: fallbackModel,
+              error_code: 'INVALID_JSON',
+              message: error.message,
+            });
+            continue;
+          }
+
+          if (error instanceof AiTimeoutError) {
+            logAiEvent('warn', 'openai_timeout_without_preview', {
+              group_id: input.groupId,
+              user_id: user.id,
+              attempt,
+              timeout_ms: error.timeoutMs,
+            });
+          }
+
+          throw error;
+        }
+
+        const schema = validateRawPlanSchema(rawOutput);
+        if (!schema.ok) {
+          qualityReasons = schema.reasons;
+          validationFailureKind = 'schema';
+          logAiEvent('warn', 'schema_validation_failed', {
+            group_id: input.groupId,
+            user_id: user.id,
+            attempt,
+            error_code: 'VALIDATION_FAILED',
+            reasons: qualityReasons,
+            raw_top_level_keys: Object.keys(asRecord(rawOutput)),
           });
           continue;
         }
 
-        if (error instanceof AiTimeoutError) {
-          logAiEvent('warn', 'openai_timeout_without_preview', {
+        const candidate = ensurePlanShape(rawOutput, input);
+        if (contextWarnings.length) {
+          candidate.warnings = [...new Set([...candidate.warnings, ...contextWarnings])];
+        }
+        const quality = validatePlanQuality(candidate, input);
+
+        if (quality.ok) {
+          logAiEvent('info', 'quality_passed', {
             group_id: input.groupId,
             user_id: user.id,
             attempt,
-            timeout_ms: error.timeoutMs,
+            itinerary_items: candidate.itinerary_items.length,
+            attractions: candidate.attractions.length,
+            expenses: candidate.expenses.length,
           });
+          output = candidate;
+          break;
         }
 
-        throw error;
-      }
+        if (isUsableCompactLongTripPlan(candidate, input)) {
+          candidate.warnings = [
+            ...new Set([
+              ...candidate.warnings,
+              'Viagem longa gerada em formato compacto para evitar timeout.',
+            ]),
+          ];
+          logAiEvent('warn', 'compact_long_trip_accepted', {
+            group_id: input.groupId,
+            user_id: user.id,
+            attempt,
+            reasons: quality.reasons,
+            itinerary_items: candidate.itinerary_items.length,
+          });
+          output = candidate;
+          break;
+        }
 
-      const schema = validateRawPlanSchema(rawOutput);
-      if (!schema.ok) {
-        qualityReasons = schema.reasons;
-        validationFailureKind = 'schema';
-        logAiEvent('warn', 'schema_validation_failed', {
+        qualityReasons = quality.reasons;
+        validationFailureKind = 'quality';
+        logAiEvent('warn', 'quality_retry_needed', {
           group_id: input.groupId,
           user_id: user.id,
           attempt,
-          error_code: 'VALIDATION_FAILED',
           reasons: qualityReasons,
-          raw_top_level_keys: Object.keys(asRecord(rawOutput)),
-        });
-        continue;
-      }
-
-      const candidate = ensurePlanShape(rawOutput, input);
-      if (contextWarnings.length) {
-        candidate.warnings = [...new Set([...candidate.warnings, ...contextWarnings])];
-      }
-      const quality = validatePlanQuality(candidate, input);
-
-      if (quality.ok) {
-        logAiEvent('info', 'quality_passed', {
-          group_id: input.groupId,
-          user_id: user.id,
-          attempt,
-          itinerary_items: candidate.itinerary_items.length,
-          attractions: candidate.attractions.length,
-          expenses: candidate.expenses.length,
-        });
-        output = candidate;
-        break;
-      }
-
-      if (isUsableCompactLongTripPlan(candidate, input)) {
-        candidate.warnings = [
-          ...new Set([
-            ...candidate.warnings,
-            'Viagem longa gerada em formato compacto para evitar timeout.',
-          ]),
-        ];
-        logAiEvent('warn', 'compact_long_trip_accepted', {
-          group_id: input.groupId,
-          user_id: user.id,
-          attempt,
-          reasons: quality.reasons,
           itinerary_items: candidate.itinerary_items.length,
         });
-        output = candidate;
-        break;
       }
 
-      qualityReasons = quality.reasons;
-      validationFailureKind = 'quality';
-      logAiEvent('warn', 'quality_retry_needed', {
-        group_id: input.groupId,
-        user_id: user.id,
-        attempt,
-        reasons: qualityReasons,
-        itinerary_items: candidate.itinerary_items.length,
-      });
-    }
-
-    if (!output) {
-      if (validationFailureKind === 'schema') throw new AiSchemaError(qualityReasons);
-      throw new AiQualityError(qualityReasons);
+      if (!output) {
+        if (validationFailureKind === 'schema') throw new AiSchemaError(qualityReasons);
+        throw new AiQualityError(qualityReasons);
+      }
     }
 
     const { data: generation, error: insertError } = await adminSupabase
@@ -3044,7 +3745,11 @@ Deno.serve(async (req) => {
         group_id: input.groupId,
         user_id: user.id,
         input,
-        output,
+        output: {
+          ...output,
+          generation_mode: generationMode,
+          large_trip: generationSizing.isLargeTrip,
+        },
         status: 'generated',
       })
       .select('id')
@@ -3103,6 +3808,8 @@ Deno.serve(async (req) => {
 
     const responseBody = {
       generationId: generation.id,
+      generationMode,
+      largeTrip: generationSizing.isLargeTrip,
       quota: {
         used: quotaResult?.ai_generations_used ?? used,
         limit: quotaResult?.ai_generations_limit ?? limit,
@@ -3117,6 +3824,7 @@ Deno.serve(async (req) => {
       user_id: user.id,
       generation_id: generation.id,
       response_status: 200,
+      generation_mode: generationMode,
       itinerary_items: output.itinerary_items.length,
       attractions: output.attractions.length,
       expenses: output.expenses.length,
@@ -3148,16 +3856,16 @@ Deno.serve(async (req) => {
       logAiEvent('error', 'openai_timeout', {
         group_id: input.groupId,
         user_id: user.id,
-        error_code: 'TIMEOUT',
+        error_code: 'AI_TIMEOUT',
         timeout_ms: error.timeoutMs,
         message,
       });
 
       return errorResponse(
-        'TIMEOUT',
-        message,
+        'AI_TIMEOUT',
+        'A viagem é grande e a IA demorou mais que o esperado. Tente gerar por etapas.',
         504,
-        { timeoutMs: error.timeoutMs },
+        { timeoutMs: error.timeoutMs, originalMessage: message },
       );
     }
 

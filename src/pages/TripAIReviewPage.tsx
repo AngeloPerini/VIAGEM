@@ -21,6 +21,7 @@ import {
   clearTripAIReview,
   generateTripPlan,
   getStoredTripAIReview,
+  isLargeTripAIInput,
   storeTripAIReview,
   updateTripGenerationFeedback,
 } from '../services/tripAIService';
@@ -930,7 +931,9 @@ export function TripAIReviewPage() {
     setIsRegenerating(true);
 
     try {
-      const nextPlan = await generateTripPlan(review.input);
+      const nextPlan = await generateTripPlan(review.input, {
+        strategy: isLargeTripAIInput(review.input) ? 'staged' : 'auto',
+      });
       persistReview(nextPlan);
       setIsEditingPlan(false);
       setFeedback('');

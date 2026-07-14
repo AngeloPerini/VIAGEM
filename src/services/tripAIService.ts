@@ -21,6 +21,12 @@ import { normalizeLinks } from '../utils/links';
 import { supabase } from './supabaseClient';
 
 const REVIEW_STORAGE_KEY = 'controle-viagem-ai-review-v1';
+export type TripAIGenerationStrategy = 'auto' | 'single' | 'staged' | 'summary';
+
+type GenerateTripPlanOptions = {
+  strategy?: TripAIGenerationStrategy;
+};
+
 const validTypes: ItineraryType[] = [
   'arrival',
   'lodging',
@@ -117,6 +123,38 @@ const normalizeKeyPart = (value: unknown) =>
     .replace(/[^a-z0-9]+/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
+
+const parseDateOnly = (value?: string) => {
+  if (!value) return null;
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  if (!match) return null;
+  const date = new Date(Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3])));
+  return Number.isNaN(date.getTime()) ? null : date;
+};
+
+export const getTripAIDayCount = (input: Pick<TripAIInput, 'startDate' | 'endDate'>) => {
+  const start = parseDateOnly(input.startDate);
+  const end = parseDateOnly(input.endDate);
+  if (!start || !end || end < start) return 1;
+  return Math.max(1, Math.floor((end.getTime() - start.getTime()) / (24 * 60 * 60 * 1000)) + 1);
+};
+
+export const getTripAIExpectedActivityCount = (input: Pick<TripAIInput, 'startDate' | 'endDate'>) =>
+  getTripAIDayCount(input) * (getTripAIDayCount(input) > 15 ? 3 : 4);
+
+export const isLargeTripAIInput = (input: Pick<TripAIInput, 'countries' | 'description' | 'startDate' | 'endDate'>) => {
+  const countriesCount = input.countries.length;
+  const tripDays = getTripAIDayCount(input);
+  const expectedActivities = getTripAIExpectedActivityCount(input);
+  const estimatedPromptSize = JSON.stringify({
+    countries: input.countries,
+    description: input.description,
+    startDate: input.startDate,
+    endDate: input.endDate,
+  }).length + countriesCount * 600 + tripDays * 160;
+
+  return countriesCount > 3 || tripDays > 12 || expectedActivities > 20 || estimatedPromptSize > 18_000;
+};
 
 const normalizeType = (value: unknown): ItineraryType => {
   const normalized = stripDiacritics(asString(value));
@@ -474,6 +512,10 @@ export const normalizeTripAIPlan = (value: unknown): TripAIPlan => {
 
   return {
     generationId: asString(record.generationId) || undefined,
+    generationMode: asString(record.generationMode || record.generation_mode) || undefined,
+    largeTrip: record.largeTrip === undefined && record.large_trip === undefined
+      ? undefined
+      : Boolean(record.largeTrip ?? record.large_trip),
     intentSummary: asString(record.intentSummary || record.intent_summary || record.interpreted_intent) || undefined,
     summary: asString(record.summary, 'Previa de viagem gerada com IA.'),
     documents: asArray<unknown>(record.documents).map(normalizeDocument),
@@ -510,7 +552,14 @@ const withExpenseDateDefaults = (
   }),
 });
 
-const findTripAIQualityIssues = (plan: TripAIPlan) => {
+const getItineraryDayNumber = (day: unknown) => {
+  const text = asString(day);
+  const match = /(?:dia|day)\s*(\d{1,3})/i.exec(text) ?? /^(\d{1,3})(?:\D|$)/.exec(text);
+  const dayNumber = Number(match?.[1]);
+  return Number.isFinite(dayNumber) && dayNumber > 0 ? dayNumber : null;
+};
+
+const findTripAIQualityIssues = (plan: TripAIPlan, input?: Pick<TripAIInput, 'startDate' | 'endDate'>) => {
   const issues = new Set<string>();
 
   plan.itinerary_items.forEach((item) => {
@@ -538,6 +587,24 @@ const findTripAIQualityIssues = (plan: TripAIPlan) => {
       issues.add('rota usa international como origem genérica');
     }
   });
+
+  if (input) {
+    const tripDays = getTripAIDayCount(input);
+    const itemsByDay = new Map<number, number>();
+
+    plan.itinerary_items.forEach((item) => {
+      const dayNumber = getItineraryDayNumber(item.day);
+      if (!dayNumber) return;
+      itemsByDay.set(dayNumber, (itemsByDay.get(dayNumber) ?? 0) + 1);
+    });
+
+    for (let day = 1; day <= tripDays; day += 1) {
+      if ((itemsByDay.get(day) ?? 0) < 3) {
+        issues.add('cada dia precisa ter pelo menos 3 atividades');
+        break;
+      }
+    }
+  }
 
   return [...issues];
 };
@@ -574,11 +641,15 @@ const parseFunctionError = async (error: unknown) => {
   };
 };
 
-export async function generateTripPlan(input: TripAIInput): Promise<TripAIPlan> {
+export async function generateTripPlan(input: TripAIInput, options: GenerateTripPlanOptions = {}): Promise<TripAIPlan> {
   assertValidDateRange(input.startDate, input.endDate);
+  const strategy = options.strategy ?? input.generationStrategy ?? (isLargeTripAIInput(input) ? 'staged' : 'auto');
 
   const { data, error } = await supabase.functions.invoke('generate-trip-plan', {
-    body: input,
+    body: {
+      ...input,
+      generationStrategy: strategy,
+    },
   });
 
   if (error) {
@@ -616,7 +687,7 @@ export async function generateTripPlan(input: TripAIInput): Promise<TripAIPlan> 
   }
 
   const plan = withExpenseDateDefaults(normalizeTripAIPlan(data), input.startDate, input.endDate);
-  const qualityIssues = findTripAIQualityIssues(plan);
+  const qualityIssues = findTripAIQualityIssues(plan, input);
   if (qualityIssues.length) {
     throw new TripAIFunctionError(
       'A prévia gerada ficou genérica demais. Tente informar cidades ou mais detalhes da viagem.',
@@ -798,7 +869,7 @@ export async function updateTripGenerationFeedback(
 
 export async function applyTripPlan(review: TripAIReviewState, plan: TripAIPlan, feedback?: string): Promise<ApplyTripPlanResult> {
   assertValidDateRange(review.input.startDate, review.input.endDate);
-  const qualityIssues = findTripAIQualityIssues(plan);
+  const qualityIssues = findTripAIQualityIssues(plan, review.input);
   if (qualityIssues.length) {
     throw new TripAIFunctionError(
       'A prévia gerada ficou genérica demais. Tente informar cidades ou mais detalhes da viagem.',

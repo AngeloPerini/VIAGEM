@@ -274,6 +274,7 @@ export type TripAIInput = {
   endDate: string;
   style: TripStyle;
   groupId: string;
+  generationStrategy?: 'auto' | 'single' | 'staged' | 'summary';
 };
 
 export type TripAIDocument = {
@@ -294,6 +295,8 @@ export type TripAIRoute = {
 
 export type TripAIPlan = {
   generationId?: string;
+  generationMode?: 'single' | 'staged' | 'summary' | string;
+  largeTrip?: boolean;
   intentSummary?: string;
   summary: string;
   documents: TripAIDocument[];

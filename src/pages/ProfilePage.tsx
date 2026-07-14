@@ -82,7 +82,14 @@ import { getItineraryItems } from '../services/itineraryService';
 import { getAttractions } from '../services/attractionsService';
 import { currencyNames, getCachedExchangeRates, TRAVEL_CURRENCIES } from '../services/currencyService';
 import { supabase } from '../services/supabaseClient';
-import { generateTripPlan, storeTripAIReview, TripAIFunctionError } from '../services/tripAIService';
+import {
+  generateTripPlan,
+  getTripAIDayCount,
+  isLargeTripAIInput,
+  storeTripAIReview,
+  TripAIFunctionError,
+  type TripAIGenerationStrategy,
+} from '../services/tripAIService';
 import type {
   Attraction,
   CategoryMeta,
@@ -299,10 +306,12 @@ const TRIP_DESCRIPTION_TOO_LONG_MESSAGE = 'A descrição está muito longa. Resu
 const TRIP_DESCRIPTION_PLACEHOLDER =
   'Descreva sua viagem, preferências, cidades desejadas, ritmo, orçamento, restrições, transporte, hospedagem e qualquer detalhe importante.';
 
-type AiGenerationPhase = 'destination-context' | 'itinerary' | 'validation';
+type AiGenerationPhase = 'destination-context' | 'staged' | 'summary' | 'itinerary' | 'validation';
 
 const aiGenerationPhaseMessages: Record<AiGenerationPhase, string> = {
   'destination-context': 'Buscando informações do destino...',
+  staged: 'Sua viagem possui vários países. Vamos gerar o roteiro em etapas para evitar falhas...',
+  summary: 'Gerando uma versão resumida por etapas...',
   itinerary: 'Montando roteiro com IA...',
   validation: 'Validando roteiro...',
 };
@@ -900,6 +909,7 @@ export function ProfilePage() {
   const [aiGenerationPhase, setAiGenerationPhase] = useState<AiGenerationPhase | null>(null);
   const [aiFailedGroup, setAiFailedGroup] = useState<UserTravelGroup | null>(null);
   const [aiRetryInput, setAiRetryInput] = useState<TripAIInput | null>(null);
+  const [aiLastErrorCode, setAiLastErrorCode] = useState<string | null>(null);
   const [recentlyCreatedTripId, setRecentlyCreatedTripId] = useState<string | null>(null);
   const [isJoiningTrip, setIsJoiningTrip] = useState(false);
   const [tripActionId, setTripActionId] = useState<string | null>(null);
@@ -1076,6 +1086,27 @@ export function ProfilePage() {
     : null;
   const shouldShowCreateTripForm = !activeGroup || showCreateTripForm;
   const parsedTripCountries = () => parseCountryInput(tripCountries);
+  const createTripCountries = parsedTripCountries();
+  const isCreateTripLargeForAI = isLargeTripAIInput({
+    countries: createTripCountries,
+    description: tripDescription,
+    startDate: tripStartDate,
+    endDate: tripEndDate,
+  });
+  const activeTripAIInput = activeGroup ? ({
+    tripName: activeGroup.name,
+    countries: activeGroup.countries?.length
+      ? activeGroup.countries.flatMap((country) => parseCountryInput(country))
+      : [],
+    description: activeGroup.description ?? '',
+    startDate: activeGroup.startDate ?? '',
+    endDate: activeGroup.endDate ?? '',
+    style: (activeGroup.travelStyle as TripStyle | undefined) ?? 'intermediaria',
+    groupId: activeGroup.id,
+  } satisfies TripAIInput) : null;
+  const isActiveTripLargeForAI = activeTripAIInput ? isLargeTripAIInput(activeTripAIInput) : false;
+  const isRetryTripLargeForAI = aiRetryInput ? isLargeTripAIInput(aiRetryInput) : false;
+  const shouldRetryByStages = isRetryTripLargeForAI || aiLastErrorCode === 'AI_TIMEOUT' || aiLastErrorCode === 'TIMEOUT';
   const isTripDescriptionTooLong = tripDescription.length > TRIP_DESCRIPTION_MAX_LENGTH;
   const isTripDateRangeInvalid = isDateRangeInvalid(tripStartDate, tripEndDate);
   const isActiveTripDateRangeInvalid = isDateRangeInvalid(activeGroup?.startDate, activeGroup?.endDate);
@@ -1131,7 +1162,8 @@ export function ProfilePage() {
         SUPABASE_PROFILE_ERROR: caughtError.message || 'Não foi possível preparar seu perfil para gerar com IA.',
         GROUP_NOT_CREATED: caughtError.message || 'Não foi possível criar o grupo da viagem antes da IA.',
         SUPABASE_INSERT_ERROR: caughtError.message,
-        TIMEOUT: caughtError.message || 'A OpenAI demorou demais para responder. Tente gerar novamente.',
+        AI_TIMEOUT: caughtError.message || 'A viagem é grande e a IA demorou mais que o esperado. Tente gerar por etapas.',
+        TIMEOUT: caughtError.message || 'A viagem é grande e a IA demorou mais que o esperado. Tente gerar por etapas.',
         FORBIDDEN: 'Você não participa desta viagem ou o group_id não pertence ao seu usuário.',
         AI_GENERATION_FAILED: caughtError.message || 'A IA não concluiu a prévia. Tente gerar novamente.',
         INVALID_DATE_RANGE: INVALID_DATE_RANGE_MESSAGE,
@@ -1148,15 +1180,25 @@ export function ProfilePage() {
     return caughtError instanceof Error ? caughtError.message : 'Nao foi possivel gerar a previa com IA.';
   };
 
-  const generateTripPlanWithPhases = async (input: TripAIInput) => {
-    setAiGenerationPhase('destination-context');
+  const generateTripPlanWithPhases = async (
+    input: TripAIInput,
+    strategy?: TripAIGenerationStrategy,
+  ) => {
+    const resolvedStrategy = strategy ?? (isLargeTripAIInput(input) ? 'staged' : 'auto');
+    setAiGenerationPhase(
+      resolvedStrategy === 'summary'
+        ? 'summary'
+        : resolvedStrategy === 'staged'
+          ? 'staged'
+          : 'destination-context',
+    );
     const timers = [
-      window.setTimeout(() => setAiGenerationPhase('itinerary'), 900),
-      window.setTimeout(() => setAiGenerationPhase('validation'), 2400),
+      window.setTimeout(() => setAiGenerationPhase(resolvedStrategy === 'summary' ? 'summary' : resolvedStrategy === 'staged' ? 'staged' : 'itinerary'), 900),
+      window.setTimeout(() => setAiGenerationPhase('validation'), resolvedStrategy === 'auto' || resolvedStrategy === 'single' ? 2400 : 5200),
     ];
 
     try {
-      const plan = await generateTripPlan(input);
+      const plan = await generateTripPlan(input, { strategy: resolvedStrategy });
       setAiGenerationPhase('validation');
       return plan;
     } finally {
@@ -1164,12 +1206,17 @@ export function ProfilePage() {
     }
   };
 
-  const openAIReview = async (input: TripAIInput, group: UserTravelGroup) => {
+  const openAIReview = async (
+    input: TripAIInput,
+    group: UserTravelGroup,
+    strategy?: TripAIGenerationStrategy,
+  ) => {
     assertValidDateRange(input.startDate, input.endDate);
     setActiveGroup(group);
-    const plan = await generateTripPlanWithPhases(input);
+    const plan = await generateTripPlanWithPhases(input, strategy);
     setAiFailedGroup(null);
     setAiRetryInput(null);
+    setAiLastErrorCode(null);
     setShowCreateTripForm(false);
     goToAIReview(input, group, plan);
   };
@@ -1341,6 +1388,7 @@ export function ProfilePage() {
     setStatus(null);
     setAiFailedGroup(null);
     setAiRetryInput(null);
+    setAiLastErrorCode(null);
     setShowCreateTripForm(true);
     navigateProfileSection('create-ai');
   };
@@ -1348,6 +1396,7 @@ export function ProfilePage() {
   const openManualTripCreation = () => {
     setError(null);
     setStatus(null);
+    setAiLastErrorCode(null);
     setShowCreateTripForm(true);
     navigateProfileSection('create-ai');
   };
@@ -1674,47 +1723,27 @@ export function ProfilePage() {
   };
 
   const handleGenerateActiveTripPreview = async () => {
-    if (!activeGroup) return;
+    if (!activeGroup || !activeTripAIInput) return;
 
     setError(null);
     setStatus(null);
+    setAiLastErrorCode(null);
     setIsGeneratingAI(true);
 
     try {
       validateDescriptionLength(activeGroup.description ?? '');
-      const countries = activeGroup.countries?.length
-        ? activeGroup.countries.flatMap((country) => parseCountryInput(country))
-        : [];
-      if (!countries.length) throw new Error(t('ai.missingCountries'));
+      if (!activeTripAIInput.countries.length) throw new Error(t('ai.missingCountries'));
       if (!activeGroup.startDate || !activeGroup.endDate) throw new Error(t('ai.missingDates'));
       assertValidDateRange(activeGroup.startDate, activeGroup.endDate);
-      const input: TripAIInput = {
-        tripName: activeGroup.name,
-        countries,
-        description: activeGroup.description ?? '',
-        startDate: activeGroup.startDate ?? '',
-        endDate: activeGroup.endDate ?? '',
-        style: (activeGroup.travelStyle as TripStyle | undefined) ?? 'intermediaria',
-        groupId: activeGroup.id,
-      };
-      await openAIReview(input, activeGroup);
+      await openAIReview(activeTripAIInput, activeGroup, isActiveTripLargeForAI ? 'staged' : 'auto');
     } catch (caughtError) {
       console.error('Falha ao gerar previa com IA para viagem ativa', {
         groupId: activeGroup.id,
         error: caughtError,
       });
       setAiFailedGroup(activeGroup);
-      setAiRetryInput({
-        tripName: activeGroup.name,
-        countries: activeGroup.countries?.length
-          ? activeGroup.countries.flatMap((country) => parseCountryInput(country))
-          : [],
-        description: activeGroup.description ?? '',
-        startDate: activeGroup.startDate ?? '',
-        endDate: activeGroup.endDate ?? '',
-        style: (activeGroup.travelStyle as TripStyle | undefined) ?? 'intermediaria',
-        groupId: activeGroup.id,
-      });
+      setAiRetryInput(activeTripAIInput);
+      setAiLastErrorCode(caughtError instanceof TripAIFunctionError ? caughtError.code ?? null : null);
       await loadProfile().catch(() => null);
       setError(formatAIError(caughtError));
     } finally {
@@ -1723,7 +1752,7 @@ export function ProfilePage() {
     }
   };
 
-  const handleRetryAI = async () => {
+  const handleRetryAI = async (strategy?: TripAIGenerationStrategy) => {
     if (!aiFailedGroup || !aiRetryInput) return;
 
     setError(null);
@@ -1732,13 +1761,15 @@ export function ProfilePage() {
 
     try {
       assertValidDateRange(aiRetryInput.startDate, aiRetryInput.endDate);
-      await openAIReview(aiRetryInput, aiFailedGroup);
+      const retryStrategy = strategy ?? (shouldRetryByStages ? 'staged' : 'auto');
+      await openAIReview(aiRetryInput, aiFailedGroup, retryStrategy);
     } catch (caughtError) {
       console.error('Falha ao tentar gerar novamente a previa com IA', {
         groupId: aiFailedGroup.id,
         input: aiRetryInput,
         error: caughtError,
       });
+      setAiLastErrorCode(caughtError instanceof TripAIFunctionError ? caughtError.code ?? null : null);
       await loadProfile().catch(() => null);
       setError(formatAIError(caughtError));
     } finally {
@@ -1750,6 +1781,7 @@ export function ProfilePage() {
   const handleContinueWithoutAI = async () => {
     setAiFailedGroup(null);
     setAiRetryInput(null);
+    setAiLastErrorCode(null);
     setError(null);
     setStatus(t('ai.manualContinue'));
     await refreshGroups({ silent: true }).catch(() => null);
@@ -2004,6 +2036,11 @@ export function ProfilePage() {
             {createTripCountryOnlyAIHint}
           </p>
         ) : null}
+        {isCreateTripLargeForAI ? (
+          <p className="rounded-2xl bg-amber-50 dark:bg-amber-400/10 px-4 py-3 text-sm font-bold text-amber-800 dark:text-amber-200">
+            Essa viagem possui {createTripCountries.length} países e {getTripAIDayCount({ startDate: tripStartDate, endDate: tripEndDate })} dias. A IA será gerada por etapas para evitar timeout e contará como uma única prévia.
+          </p>
+        ) : null}
         <div className="grid gap-4 md:grid-cols-3">
           <label className="block">
             <span className="mb-2 block text-sm font-bold text-slate-600 dark:text-slate-300">{t('profile.startDate')}</span>
@@ -2124,6 +2161,11 @@ export function ProfilePage() {
             <p className="mt-2 text-sm font-bold leading-6 text-slate-600 dark:text-slate-300">
               A IA roda pela Edge Function do Supabase e abre a tela de revisão antes de aplicar qualquer roteiro.
             </p>
+            {isActiveTripLargeForAI ? (
+              <p className="mt-3 rounded-2xl bg-amber-50 dark:bg-amber-400/10 px-4 py-3 text-sm font-bold text-amber-800 dark:text-amber-200">
+                Essa viagem possui vários países, dias ou atividades previstas. Vamos gerar o roteiro em etapas para melhorar estabilidade e qualidade; a prévia continua contando como uma geração.
+              </p>
+            ) : null}
             <button
               type="button"
               onClick={() => void handleGenerateActiveTripPreview()}
@@ -2131,7 +2173,11 @@ export function ProfilePage() {
               className="mt-4 inline-flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-teal-700 dark:bg-emerald-400 px-5 font-black text-white dark:text-emerald-950 transition hover:bg-teal-800 disabled:cursor-not-allowed disabled:opacity-70 sm:w-auto"
             >
               {isGeneratingAI ? <Loader2 className="h-5 w-5 animate-spin" /> : <Sparkles className="h-5 w-5" />}
-              {isGeneratingAI ? aiGenerationMessage ?? t('profile.generatingAI') : t('profile.generateAI')}
+              {isGeneratingAI
+                ? aiGenerationMessage ?? t('profile.generatingAI')
+                : isActiveTripLargeForAI
+                  ? 'Gerar roteiro por etapas com IA'
+                  : t('profile.generateAI')}
             </button>
             {isGeneratingAI && aiGenerationMessage ? (
               <p className="mt-3 rounded-2xl bg-white px-4 py-3 text-sm font-black text-teal-800 dark:bg-slate-800 dark:text-emerald-200">
@@ -3140,21 +3186,35 @@ export function ProfilePage() {
                       <p className="mt-2 text-sm font-bold leading-6 text-amber-900 dark:text-amber-100">
                         {t('ai.retryOrManual', { tripName: aiFailedGroup.name })}
                       </p>
+                      {shouldRetryByStages ? (
+                        <p className="mt-3 rounded-2xl bg-white/80 px-4 py-3 text-sm font-black text-amber-900 dark:bg-slate-900/80 dark:text-amber-200">
+                          Sua viagem possui vários países ou excedeu o tempo da IA. A próxima tentativa será por etapas.
+                        </p>
+                      ) : null}
                       {(isGeneratingAI && aiGenerationMessage) || retryCountryOnlyAIHint ? (
                         <p className="mt-3 rounded-2xl bg-white/80 px-4 py-3 text-sm font-black text-amber-900 dark:bg-slate-900/80 dark:text-amber-200">
                           {isGeneratingAI && aiGenerationMessage ? aiGenerationMessage : retryCountryOnlyAIHint}
                         </p>
                       ) : null}
                     </div>
-                    <div className="grid gap-2 sm:grid-cols-2 lg:min-w-[25rem]">
+                    <div className="grid gap-2 sm:grid-cols-3 lg:min-w-[34rem]">
                       <button
                         type="button"
-                        onClick={() => void handleRetryAI()}
+                        onClick={() => void handleRetryAI(shouldRetryByStages ? 'staged' : undefined)}
                         disabled={isGeneratingAI || aiGenerationBlocked || isDateRangeInvalid(aiRetryInput.startDate, aiRetryInput.endDate)}
                         className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl bg-teal-700 dark:bg-emerald-400 px-5 font-black text-white dark:text-emerald-950 transition hover:bg-teal-800 disabled:cursor-not-allowed disabled:opacity-70"
                       >
                         {isGeneratingAI ? <Loader2 className="h-5 w-5 animate-spin" /> : <Sparkles className="h-5 w-5" />}
-                        {t('ai.retry')}
+                        {shouldRetryByStages ? 'Gerar roteiro por etapas' : t('ai.retry')}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => void handleRetryAI('summary')}
+                        disabled={isGeneratingAI || aiGenerationBlocked || isDateRangeInvalid(aiRetryInput.startDate, aiRetryInput.endDate)}
+                        className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl bg-slate-950 px-5 font-black text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-70 dark:bg-slate-100 dark:text-slate-950"
+                      >
+                        {isGeneratingAI ? <Loader2 className="h-5 w-5 animate-spin" /> : <Route className="h-5 w-5" />}
+                        Tentar versão resumida
                       </button>
                       <button
                         type="button"
