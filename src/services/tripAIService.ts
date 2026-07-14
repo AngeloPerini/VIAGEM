@@ -12,9 +12,10 @@ import type {
   TripAIPlan,
   TripAIRoute,
   TripAIReviewState,
+  TripStyle,
   TravelCurrencyCode,
 } from '../types';
-import { normalizeCountryId } from '../data/countries';
+import { countryLabel, normalizeCountryId } from '../data/countries';
 import { assertValidDateRange } from '../utils/dateRange';
 import { getTodayDateInputValue, isAccommodationCategory, toDateInputValue } from '../utils/expenseDates';
 import { normalizeLinks } from '../utils/links';
@@ -395,6 +396,14 @@ const expenseKey = (
     detail?: string | null;
     description?: string | null;
     details?: string | null;
+    currency?: string | null;
+    amount?: number | null;
+    expenseDate?: string | null;
+    checkInDate?: string | null;
+    checkOutDate?: string | null;
+    expense_date?: string | null;
+    check_in_date?: string | null;
+    check_out_date?: string | null;
   },
 ) =>
   [
@@ -402,6 +411,11 @@ const expenseKey = (
     normalizeCountry(expense.country),
     normalizeKeyPart(expense.title ?? expense.description),
     normalizeKeyPart(expense.detail ?? expense.details),
+    asString(expense.currency),
+    String(Math.round(Number(expense.amount ?? 0))),
+    toDateInputValue(expense.expenseDate ?? expense.expense_date ?? ''),
+    toDateInputValue(expense.checkInDate ?? expense.check_in_date ?? ''),
+    toDateInputValue(expense.checkOutDate ?? expense.check_out_date ?? ''),
   ].join('|');
 
 const uniqueByKey = <T>(items: T[], getKey: (item: T) => string) => {
@@ -559,6 +573,388 @@ const getItineraryDayNumber = (day: unknown) => {
   return Number.isFinite(dayNumber) && dayNumber > 0 ? dayNumber : null;
 };
 
+const formatDateOnly = (date: Date) => date.toISOString().slice(0, 10);
+
+const addDays = (date: Date, days: number) =>
+  new Date(date.getTime() + days * 24 * 60 * 60 * 1000);
+
+const getTripAIDateForDay = (input: Pick<TripAIInput, 'startDate'>, dayNumber: number) => {
+  const start = parseDateOnly(input.startDate);
+  if (!start) return '';
+  return formatDateOnly(addDays(start, Math.max(0, dayNumber - 1)));
+};
+
+const genericExpenseTitlePatterns = [
+  /transporte\s+local$/i,
+  /transporte\s+di[aá]rio$/i,
+  /hospedagem\s+base$/i,
+  /hospedagem\s+di[aá]ria$/i,
+  /alimenta[cç][aã]o\s+base$/i,
+  /passeio\s+base$/i,
+  /estimativa\s+gen[eé]rica$/i,
+  /custo\s+m[eé]dio$/i,
+  /despesa\s+geral$/i,
+  /gasto\s+estimado$/i,
+  /outros\s+gastos$/i,
+  /gasto\s+da\s+viagem$/i,
+  /ingressos\s+e\s+experi[eê]ncias$/i,
+  /alimenta[cç][aã]o\s+di[aá]ria$/i,
+  /reserva\s+para\s+imprevistos$/i,
+];
+
+const isGenericExpenseTitle = (value: unknown) => {
+  const title = asString(value);
+  return Boolean(title) && genericExpenseTitlePatterns.some((pattern) => pattern.test(title));
+};
+
+const getExpenseText = (expense: Pick<Expense, 'category' | 'title'> & { detail?: string | null }) =>
+  stripDiacritics([expense.category, expense.title, expense.detail].map((part) => asString(part)).join(' '));
+
+const isTransportExpense = (expense: Pick<Expense, 'category' | 'title'> & { detail?: string | null }) => {
+  const text = getExpenseText(expense);
+  return normalizeKeyPart(expense.category).includes('transporte') ||
+    ['trem', 'metro', 'metr', 'taxi', 'uber', 'voo', 'onibus', 'traslado', 'transfer', 'ferry']
+      .some((term) => text.includes(term));
+};
+
+const isFoodExpense = (expense: Pick<Expense, 'category' | 'title'> & { detail?: string | null }) => {
+  const text = getExpenseText(expense);
+  return normalizeKeyPart(expense.category).includes('aliment') ||
+    ['almoco', 'jantar', 'cafe', 'restaurante'].some((term) => text.includes(term));
+};
+
+const isTourExpense = (expense: Pick<Expense, 'category' | 'title'> & { detail?: string | null }) => {
+  const text = getExpenseText(expense);
+  return normalizeKeyPart(expense.category).includes('passeio') ||
+    ['ingresso', 'museu', 'tour', 'atracao', 'bilhete'].some((term) => text.includes(term));
+};
+
+const hashText = (value: string) =>
+  [...value].reduce((hash, char) => (hash * 31 + char.charCodeAt(0)) % 9973, 17);
+
+const varyAmount = (baseAmount: number, seed: string, minimum = 1) => {
+  const factor = 0.88 + (hashText(seed) % 29) / 100;
+  return Math.max(minimum, Math.round(baseAmount * factor));
+};
+
+const getStyleBaseAmounts = (style: TripStyle) => {
+  if (style === 'confortavel') return { lodgingNight: 190, localTransportDay: 32, foodDay: 76, activity: 34, route: 85 };
+  if (style === 'economica') return { lodgingNight: 75, localTransportDay: 12, foodDay: 30, activity: 16, route: 42 };
+  return { lodgingNight: 120, localTransportDay: 20, foodDay: 48, activity: 24, route: 58 };
+};
+
+const getCountryCostFactor = (country: CountryId | string | undefined) => {
+  const normalized = normalizeCountry(country);
+  if (normalized === 'switzerland') return 1.45;
+  if (['england', 'scotland', 'united_kingdom', 'great_britain'].includes(normalized)) return 1.2;
+  if (normalized === 'japan') return 1.1;
+  if (normalized === 'brazil') return 0.65;
+  return 1;
+};
+
+type ExpenseStaySegment = {
+  country: CountryId;
+  city: string;
+  startDay: number;
+  endDay: number;
+  startDate: string;
+  checkOutDate: string;
+  nights: number;
+  days: number;
+};
+
+const getExpenseStaySegments = (input: TripAIInput, itineraryItems: ItineraryItem[]): ExpenseStaySegment[] => {
+  const tripDays = getTripAIDayCount(input);
+  const byDay = new Map<number, ItineraryItem[]>();
+
+  itineraryItems.forEach((item) => {
+    const dayNumber = getItineraryDayNumber(item.day);
+    if (!dayNumber) return;
+    byDay.set(dayNumber, [...(byDay.get(dayNumber) ?? []), item]);
+  });
+
+  const segments: ExpenseStaySegment[] = [];
+
+  for (let day = 1; day <= tripDays; day += 1) {
+    const items = (byDay.get(day) ?? [])
+      .filter((item) => normalizeCountry(item.country) !== 'international')
+      .sort((a, b) => asString(a.time).localeCompare(asString(b.time)));
+    const representative = items.find((item) => item.city) ?? items[0];
+    const country = normalizeCountry(representative?.country ?? input.countries[(day - 1) % Math.max(1, input.countries.length)] ?? input.countries[0]);
+    const city = representative?.city || countryLabel(country);
+    const previous = segments.at(-1);
+
+    if (previous && previous.country === country && normalizeKeyPart(previous.city) === normalizeKeyPart(city)) {
+      previous.endDay = day;
+      previous.days = previous.endDay - previous.startDay + 1;
+      previous.nights = Math.max(1, previous.endDay - previous.startDay);
+      previous.checkOutDate = getTripAIDateForDay(input, previous.startDay + previous.nights);
+      continue;
+    }
+
+    segments.push({
+      country,
+      city,
+      startDay: day,
+      endDay: day,
+      startDate: getTripAIDateForDay(input, day),
+      checkOutDate: getTripAIDateForDay(input, day + 1),
+      nights: 1,
+      days: 1,
+    });
+  }
+
+  return segments;
+};
+
+const findStayForExpense = (input: TripAIInput, stays: ExpenseStaySegment[], expense: Expense) => {
+  const text = normalizeKeyPart(`${expense.title} ${expense.detail ?? ''}`);
+  const country = normalizeCountry(expense.country);
+  const byText = stays.find((stay) =>
+    text.includes(normalizeKeyPart(stay.city)) || stay.country === country,
+  );
+  if (byText) return byText;
+
+  const date = toDateInputValue(expense.expenseDate) || toDateInputValue(expense.checkInDate);
+  if (date) {
+    const start = parseDateOnly(input.startDate);
+    const current = parseDateOnly(date);
+    if (start && current) {
+      const day = Math.max(1, Math.min(getTripAIDayCount(input), Math.floor((current.getTime() - start.getTime()) / (24 * 60 * 60 * 1000)) + 1));
+      return stays.find((stay) => day >= stay.startDay && day <= stay.endDay) ?? stays[0];
+    }
+  }
+
+  return stays[0];
+};
+
+const findActivityForExpense = (itineraryItems: ItineraryItem[], stay: ExpenseStaySegment, expense: Expense) => {
+  const date = toDateInputValue(expense.expenseDate) || stay.startDate;
+  const text = normalizeKeyPart(`${expense.title} ${expense.detail ?? ''}`);
+
+  return itineraryItems.find((item) =>
+    item.type === 'tour' &&
+    (item.day.includes(date) || normalizeKeyPart(item.city) === normalizeKeyPart(stay.city)) &&
+    (text.includes(normalizeKeyPart(item.title)) || normalizeKeyPart(item.title).includes(text) || normalizeKeyPart(item.city) === normalizeKeyPart(stay.city))
+  ) ?? itineraryItems.find((item) => item.type === 'tour' && normalizeKeyPart(item.city) === normalizeKeyPart(stay.city));
+};
+
+const getExpenseFamilyKey = (expense: Expense) => {
+  const title = normalizeKeyPart(expense.title);
+  const date = toDateInputValue(expense.expenseDate);
+  const checkIn = toDateInputValue(expense.checkInDate);
+  const checkOut = toDateInputValue(expense.checkOutDate);
+
+  if (isAccommodationCategory(expense.category)) {
+    return ['hospedagem', normalizeCountry(expense.country), title, checkIn, checkOut].join('|');
+  }
+
+  if (isTransportExpense(expense)) {
+    const isRoute = /->|→/.test(expense.title);
+    return isRoute
+      ? ['transporte-rota', normalizeCountry(expense.country), title, date].join('|')
+      : ['transporte-local', normalizeCountry(expense.country), title].join('|');
+  }
+
+  if (isTourExpense(expense)) {
+    return ['passeio', normalizeCountry(expense.country), title].join('|');
+  }
+
+  return expenseKey(expense);
+};
+
+const buildFallbackAIExpenses = (input: TripAIInput, itineraryItems: ItineraryItem[]) => {
+  const stays = getExpenseStaySegments(input, itineraryItems);
+  const baseAmounts = getStyleBaseAmounts(input.style);
+  const stayExpenses = stays.flatMap((stay) => {
+    const currency = getDefaultCurrencyForCountry(stay.country);
+    const factor = getCountryCostFactor(stay.country);
+
+    return [
+      normalizeExpense({
+        category: 'Hospedagem',
+        title: `Hospedagem em ${stay.city}`,
+        detail: `${stay.nights} ${stay.nights === 1 ? 'noite' : 'noites'} em ${stay.city}. Estimativa sugerida pela IA.`,
+        country: stay.country,
+        currency,
+        amount: varyAmount(baseAmounts.lodgingNight * factor * stay.nights, `lodging-${stay.city}-${stay.startDate}`, 20),
+        expense_date: stay.startDate,
+        check_in_date: stay.startDate,
+        check_out_date: stay.checkOutDate,
+      }),
+      normalizeExpense({
+        category: 'Transporte',
+        title: `Transporte urbano em ${stay.city}`,
+        detail: `Metrô, ônibus ou táxi durante ${stay.days} ${stay.days === 1 ? 'dia' : 'dias'} em ${stay.city}.`,
+        country: stay.country,
+        currency,
+        amount: varyAmount(baseAmounts.localTransportDay * factor * stay.days, `local-${stay.city}-${stay.startDate}`, 5),
+        expense_date: stay.startDate,
+      }),
+      normalizeExpense({
+        category: 'Alimentacao',
+        title: `Alimentação em ${stay.city}`,
+        detail: `Cafés, almoços e jantares durante ${stay.days} ${stay.days === 1 ? 'dia' : 'dias'} em ${stay.city}.`,
+        country: stay.country,
+        currency,
+        amount: varyAmount(baseAmounts.foodDay * factor * stay.days, `food-${stay.city}-${stay.startDate}`, 8),
+        expense_date: stay.startDate,
+      }),
+    ];
+  });
+  const tourExpenses = itineraryItems
+    .filter((item) => item.type === 'tour')
+    .slice(0, 8)
+    .map((item) => {
+      const dayNumber = getItineraryDayNumber(item.day) ?? 1;
+      const country = normalizeCountry(item.country);
+      const city = item.city || countryLabel(country);
+      const date = getTripAIDateForDay(input, dayNumber);
+
+      return normalizeExpense({
+        category: 'Passeios',
+        title: `Ingresso ${item.title.replace(/^visita\s+a\s+/i, '').replace(/^passeio\s+por\s+/i, '')}`,
+        detail: `Atividade em ${city} prevista para ${date}. Estimativa sugerida pela IA.`,
+        country,
+        currency: getDefaultCurrencyForCountry(country),
+        amount: varyAmount(getStyleBaseAmounts(input.style).activity * getCountryCostFactor(country), `${item.title}-${date}`, 5),
+        expense_date: date,
+      });
+    });
+
+  return [...stayExpenses, ...tourExpenses];
+};
+
+const sanitizeTripAIExpenses = (plan: TripAIPlan, input: TripAIInput): TripAIPlan => {
+  const stays = getExpenseStaySegments(input, plan.itinerary_items);
+  const baseAmounts = getStyleBaseAmounts(input.style);
+  const cleaned = plan.expenses.flatMap((expense) => {
+    const stay = findStayForExpense(input, stays, expense);
+    if (!stay) return [];
+
+    const genericTitle = isGenericExpenseTitle(expense.title) || isGenericPlaceholderText(expense.title) || isGenericPlaceholderText(expense.detail);
+    const factor = getCountryCostFactor(stay.country);
+    const currency = expense.currency ?? getDefaultCurrencyForCountry(stay.country);
+
+    if (isAccommodationCategory(expense.category)) {
+      return [{
+        ...expense,
+        category: 'Hospedagem',
+        country: stay.country,
+        title: `Hospedagem em ${stay.city}`,
+        detail: `${stay.nights} ${stay.nights === 1 ? 'noite' : 'noites'} em ${stay.city}. ${expense.detail || 'Estimativa sugerida pela IA.'}`,
+        currency,
+        amount: varyAmount(baseAmounts.lodgingNight * factor * stay.nights, `lodging-${stay.city}-${stay.startDate}`, 20),
+        expenseDate: stay.startDate,
+        checkInDate: stay.startDate,
+        checkOutDate: stay.checkOutDate,
+      }];
+    }
+
+    if (isTransportExpense(expense)) {
+      const hasRouteTitle = /->|→|\b(trem|voo|ônibus|onibus|traslado|transfer|ferry)\b/i.test(expense.title);
+      const title = genericTitle || !hasRouteTitle
+        ? `Transporte urbano em ${stay.city}`
+        : expense.title.replace(/\s*→\s*/g, ' -> ');
+
+      return [{
+        ...expense,
+        category: 'Transporte',
+        country: stay.country,
+        title,
+        detail: hasRouteTitle
+          ? `${expense.detail || 'Deslocamento previsto no roteiro.'} Estimativa sugerida pela IA.`
+          : `Metrô, ônibus ou táxi durante a estadia em ${stay.city}. Estimativa consolidada por cidade.`,
+        currency,
+        amount: hasRouteTitle && expense.amount && expense.amount > 0
+          ? expense.amount
+          : varyAmount((hasRouteTitle ? baseAmounts.route : baseAmounts.localTransportDay * stay.days) * factor, `${title}-${stay.startDate}`, 5),
+        expenseDate: hasRouteTitle ? toDateInputValue(expense.expenseDate) || stay.startDate : stay.startDate,
+        checkInDate: null,
+        checkOutDate: null,
+      }];
+    }
+
+    if (isFoodExpense(expense)) {
+      return [{
+        ...expense,
+        category: 'Alimentacao',
+        country: stay.country,
+        title: genericTitle ? `Alimentação em ${stay.city}` : expense.title,
+        detail: `Estimativa de refeições durante ${stay.days} ${stay.days === 1 ? 'dia' : 'dias'} em ${stay.city}.`,
+        currency,
+        amount: expense.amount && expense.amount > 0
+          ? expense.amount
+          : varyAmount(baseAmounts.foodDay * factor * stay.days, `food-${stay.city}-${stay.startDate}`, 8),
+        expenseDate: stay.startDate,
+        checkInDate: null,
+        checkOutDate: null,
+      }];
+    }
+
+    if (isTourExpense(expense)) {
+      const activity = genericTitle ? findActivityForExpense(plan.itinerary_items, stay, expense) : null;
+      const activityTitle = activity?.title.replace(/^visita\s+a\s+/i, '').replace(/^passeio\s+por\s+/i, '');
+      const title = genericTitle && activityTitle ? `Ingresso ${activityTitle}` : expense.title;
+      if (!title || isGenericExpenseTitle(title)) return [];
+      const dayNumber = activity ? getItineraryDayNumber(activity.day) ?? stay.startDay : stay.startDay;
+      const date = toDateInputValue(expense.expenseDate) || getTripAIDateForDay(input, dayNumber);
+
+      return [{
+        ...expense,
+        category: 'Passeios',
+        country: stay.country,
+        title,
+        detail: activityTitle
+          ? `Atividade em ${stay.city} prevista para ${date}. Estimativa sugerida pela IA.`
+          : expense.detail || `Passeio previsto em ${stay.city}. Estimativa sugerida pela IA.`,
+        currency,
+        amount: expense.amount && expense.amount > 0
+          ? expense.amount
+          : varyAmount(baseAmounts.activity * factor, `${title}-${date}`, 5),
+        expenseDate: date,
+        checkInDate: null,
+        checkOutDate: null,
+      }];
+    }
+
+    if (genericTitle) return [];
+
+    return [{
+      ...expense,
+      country: normalizeCountry(expense.country) || stay.country,
+      amount: expense.amount && expense.amount > 0 ? expense.amount : varyAmount(45 * factor, `${expense.title}-${stay.city}`, 5),
+      expenseDate: toDateInputValue(expense.expenseDate) || stay.startDate,
+    }];
+  });
+  const fallbackExpenses = buildFallbackAIExpenses(input, plan.itinerary_items);
+  const activityFallbackExpenses = fallbackExpenses.filter((expense) => isTourExpense(expense));
+  const cleanedWithActivities = [
+    ...cleaned,
+    ...activityFallbackExpenses.filter((activityExpense) => {
+      const key = normalizeKeyPart(activityExpense.title);
+      return !cleaned.some((expense) => {
+        const existingKey = normalizeKeyPart(expense.title);
+        return existingKey.includes(key) || key.includes(existingKey);
+      });
+    }),
+  ];
+  const merged = cleanedWithActivities.length >= Math.min(5, Math.max(3, input.countries.length))
+    ? cleanedWithActivities
+    : [...cleanedWithActivities, ...fallbackExpenses];
+
+  return {
+    ...plan,
+    expenses: uniqueByKey(
+      merged
+        .filter((expense) => expense.title.trim())
+        .filter((expense) => !isGenericExpenseTitle(expense.title))
+        .filter((expense) => Number(expense.amount ?? 0) > 0),
+      getExpenseFamilyKey,
+    ).slice(0, 24),
+  };
+};
+
 const findTripAIQualityIssues = (plan: TripAIPlan, input?: Pick<TripAIInput, 'startDate' | 'endDate'>) => {
   const issues = new Set<string>();
 
@@ -586,6 +982,19 @@ const findTripAIQualityIssues = (plan: TripAIPlan, input?: Pick<TripAIInput, 'st
     if ((from === 'international' || from === 'internacional') && to) {
       issues.add('rota usa international como origem genérica');
     }
+  });
+
+  const expenseKeys = new Set<string>();
+  plan.expenses.forEach((expense) => {
+    if (isGenericExpenseTitle(expense.title) || isGenericPlaceholderText(expense.title) || isGenericPlaceholderText(expense.detail)) {
+      issues.add('gastos contém nomes ou descrições genéricas');
+    }
+
+    const key = getExpenseFamilyKey(expense);
+    if (expenseKeys.has(key)) {
+      issues.add('gastos contém duplicatas');
+    }
+    expenseKeys.add(key);
   });
 
   if (input) {
@@ -686,7 +1095,10 @@ export async function generateTripPlan(input: TripAIInput, options: GenerateTrip
     });
   }
 
-  const plan = withExpenseDateDefaults(normalizeTripAIPlan(data), input.startDate, input.endDate);
+  const plan = sanitizeTripAIExpenses(
+    withExpenseDateDefaults(normalizeTripAIPlan(data), input.startDate, input.endDate),
+    input,
+  );
   const qualityIssues = findTripAIQualityIssues(plan, input);
   if (qualityIssues.length) {
     throw new TripAIFunctionError(
@@ -884,7 +1296,10 @@ export async function applyTripPlan(review: TripAIReviewState, plan: TripAIPlan,
   const userId = await requireCurrentUserId();
   const { groupId } = review.input;
   const scopedPlan = scopePlanToAllowedCountries(
-    withExpenseDateDefaults(plan, review.input.startDate, review.input.endDate),
+    sanitizeTripAIExpenses(
+      withExpenseDateDefaults(plan, review.input.startDate, review.input.endDate),
+      review.input,
+    ),
     review.input.countries,
   );
 
@@ -923,7 +1338,7 @@ export async function applyTripPlan(review: TripAIReviewState, plan: TripAIPlan,
       .eq('group_id', groupId),
     supabase
       .from('expenses')
-      .select('category,country,description,details')
+      .select('category,country,description,details,currency,amount,expense_date,check_in_date,check_out_date')
       .eq('group_id', groupId),
     supabase
       .from('attractions')
@@ -953,6 +1368,11 @@ export async function applyTripPlan(review: TripAIReviewState, plan: TripAIPlan,
         country: expense.country ?? 'international',
         description: expense.description ?? '',
         details: expense.details ?? '',
+        currency: expense.currency ?? '',
+        amount: Number(expense.amount ?? 0),
+        expense_date: expense.expense_date ?? '',
+        check_in_date: expense.check_in_date ?? '',
+        check_out_date: expense.check_out_date ?? '',
       }),
     ),
   );
@@ -1092,11 +1512,16 @@ export function getStoredTripAIReview(): TripAIReviewState | null {
     const parsed = JSON.parse(stored) as TripAIReviewState;
     return {
       ...parsed,
-      plan: withExpenseDateDefaults(
-        normalizeTripAIPlan(parsed.plan),
-        parsed.input?.startDate,
-        parsed.input?.endDate,
-      ),
+      plan: parsed.input
+        ? sanitizeTripAIExpenses(
+            withExpenseDateDefaults(
+              normalizeTripAIPlan(parsed.plan),
+              parsed.input.startDate,
+              parsed.input.endDate,
+            ),
+            parsed.input,
+          )
+        : normalizeTripAIPlan(parsed.plan),
     };
   } catch {
     return null;

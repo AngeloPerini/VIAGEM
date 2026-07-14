@@ -1430,20 +1430,364 @@ const completeItineraryItems = (items: Record<string, unknown>[], input: TripPla
     .map((item, index) => ({ ...item, order_index: index }));
 };
 
-const createFallbackExpenses = (input: TripPlanInput) => {
-  const primaryCountry = input.countries[0] ?? 'international';
-  const primaryCurrency = currencyForCountry(primaryCountry);
-  const lodgingAmount = input.style === 'confortavel' ? 180 : input.style === 'economica' ? 80 : 120;
-  const foodAmount = input.style === 'confortavel' ? 65 : input.style === 'economica' ? 30 : 45;
+const genericExpenseTitlePatterns = [
+  /transporte\s+local$/,
+  /transporte\s+di[aá]rio$/,
+  /hospedagem\s+base$/,
+  /hospedagem\s+di[aá]ria$/,
+  /alimenta[cç][aã]o\s+base$/,
+  /passeio\s+base$/,
+  /estimativa\s+gen[eé]rica$/,
+  /custo\s+m[eé]dio$/,
+  /despesa\s+geral$/,
+  /gasto\s+estimado$/,
+  /outros\s+gastos$/,
+  /gasto\s+da\s+viagem$/,
+  /ingressos\s+e\s+experi[eê]ncias$/,
+  /alimenta[cç][aã]o\s+di[aá]ria$/,
+  /reserva\s+para\s+imprevistos$/,
+];
 
-  return [
-    { category: 'Hospedagem', title: 'Hospedagem base', detail: 'Estimativa por diária', amount: lodgingAmount, country: primaryCountry, currency: primaryCurrency },
-    { category: 'Transporte', title: 'Transporte local', detail: 'Metrô, ônibus, trem ou táxi', amount: input.style === 'confortavel' ? 45 : 25, country: primaryCountry, currency: primaryCurrency },
-    { category: 'Passeios', title: 'Ingressos e experiências', detail: 'Museus, mirantes e atrações principais', amount: input.style === 'economica' ? 35 : 70, country: primaryCountry, currency: primaryCurrency },
-    { category: 'Alimentacao', title: 'Alimentação diária', detail: 'Cafés, almoços e jantares', amount: foodAmount, country: primaryCountry, currency: primaryCurrency },
-    { category: 'Seguro', title: 'Seguro viagem', detail: 'Estimativa geral', amount: 60, country: primaryCountry, currency: 'BRL' },
-    { category: 'Outros', title: 'Reserva para imprevistos', detail: 'Margem de segurança', amount: 100, country: primaryCountry, currency: primaryCurrency },
-  ];
+const isGenericExpenseTitle = (value: unknown) => {
+  const text = stripDiacritics(asText(value)).trim();
+  return Boolean(text) && genericExpenseTitlePatterns.some((pattern) => pattern.test(text));
+};
+
+const expenseCategoryKey = (value: unknown) => stripDiacritics(asText(value)).replace(/[^a-z0-9]+/g, ' ').trim();
+
+const isAccommodationExpense = (expense: Record<string, unknown>) =>
+  expenseCategoryKey(expense.category).includes('hosped') ||
+  ['hospedagem', 'hotel', 'apartamento', 'lodging'].some((keyword) =>
+    stripDiacritics(`${asText(expense.title)} ${asText(expense.detail)} ${asText(expense.description)}`).includes(keyword),
+  );
+
+const isTransportExpense = (expense: Record<string, unknown>) =>
+  expenseCategoryKey(expense.category).includes('transport') ||
+  ['trem', 'metro', 'metrô', 'taxi', 'uber', 'voo', 'onibus', 'ônibus', 'transfer', 'traslado']
+    .some((keyword) => stripDiacritics(`${asText(expense.title)} ${asText(expense.detail)} ${asText(expense.description)}`).includes(stripDiacritics(keyword)));
+
+const isFoodExpense = (expense: Record<string, unknown>) =>
+  expenseCategoryKey(expense.category).includes('aliment') ||
+  ['almoco', 'almoço', 'jantar', 'cafe', 'café', 'restaurante'].some((keyword) =>
+    stripDiacritics(`${asText(expense.title)} ${asText(expense.detail)} ${asText(expense.description)}`).includes(stripDiacritics(keyword)),
+  );
+
+const isTourExpense = (expense: Record<string, unknown>) =>
+  expenseCategoryKey(expense.category).includes('passeio') ||
+  ['ingresso', 'museu', 'tour', 'atração', 'atracao', 'bilhete'].some((keyword) =>
+    stripDiacritics(`${asText(expense.title)} ${asText(expense.detail)} ${asText(expense.description)}`).includes(stripDiacritics(keyword)),
+  );
+
+const hashText = (value: string) =>
+  [...value].reduce((hash, char) => (hash * 31 + char.charCodeAt(0)) % 9973, 17);
+
+const varyAmount = (baseAmount: number, seed: string, minimum = 1) => {
+  const factor = 0.88 + (hashText(seed) % 29) / 100;
+  return Math.max(minimum, Math.round(baseAmount * factor));
+};
+
+const getStyleBaseAmounts = (style: TripStyle) => {
+  if (style === 'confortavel') {
+    return { lodgingNight: 190, localTransportDay: 32, foodDay: 76, activity: 34, route: 85 };
+  }
+
+  if (style === 'economica') {
+    return { lodgingNight: 75, localTransportDay: 12, foodDay: 30, activity: 16, route: 42 };
+  }
+
+  return { lodgingNight: 120, localTransportDay: 20, foodDay: 48, activity: 24, route: 58 };
+};
+
+const getCountryCostFactor = (country: string) => {
+  const key = countryKey(country);
+  if (key === 'switzerland') return 1.45;
+  if (['england', 'scotland', 'united_kingdom', 'great_britain'].includes(key)) return 1.2;
+  if (key === 'japan') return 1.1;
+  if (key === 'brazil') return 0.65;
+  return 1;
+};
+
+type ExpenseStaySegment = {
+  country: string;
+  city: string;
+  startDay: number;
+  endDay: number;
+  startDate: string;
+  endDate: string;
+  checkOutDate: string;
+  nights: number;
+  days: number;
+};
+
+const getDateAfterTripDay = (input: TripPlanInput, dayNumber: number) => {
+  const start = parseDateOnly(input.startDate);
+  if (!start) return getDateForDay(input, dayNumber);
+  return formatDateOnly(addDays(start, Math.max(0, dayNumber)));
+};
+
+const getPrimaryStayForDay = (
+  input: TripPlanInput,
+  itineraryItems: Record<string, unknown>[],
+  dayNumber: number,
+) => {
+  const dayItems = itineraryItems
+    .filter((item) => getDayNumberFromItem(item) === dayNumber)
+    .filter((item) => {
+      const country = asText(item.country);
+      return country && !internationalCountryKeys.has(countryKey(country));
+    })
+    .sort((a, b) => getTimeMinutes(a.time) - getTimeMinutes(b.time));
+  const representative = dayItems.find((item) => asText(item.city)) ?? dayItems[0];
+  const country = asText(representative?.country) || getCountryForDay(input, dayNumber);
+  const city = sanitizeCityForCountry(asText(representative?.city), country, dayNumber);
+
+  return { country, city };
+};
+
+const getStaySegments = (
+  input: TripPlanInput,
+  itineraryItems: Record<string, unknown>[],
+): ExpenseStaySegment[] => {
+  const tripDays = getTripDayCount(input);
+  const dayStays = Array.from({ length: tripDays }, (_, index) => {
+    const dayNumber = index + 1;
+    return {
+      dayNumber,
+      ...getPrimaryStayForDay(input, itineraryItems, dayNumber),
+    };
+  });
+  const segments: ExpenseStaySegment[] = [];
+
+  dayStays.forEach((stay) => {
+    const previous = segments.at(-1);
+    if (
+      previous &&
+      countryKey(previous.country) === countryKey(stay.country) &&
+      cityKey(previous.city) === cityKey(stay.city)
+    ) {
+      previous.endDay = stay.dayNumber;
+      previous.endDate = getDateForDay(input, stay.dayNumber);
+      previous.days = previous.endDay - previous.startDay + 1;
+      previous.nights = Math.max(1, previous.endDay - previous.startDay);
+      previous.checkOutDate = getDateAfterTripDay(input, previous.startDay + previous.nights - 1);
+      return;
+    }
+
+    const startDate = getDateForDay(input, stay.dayNumber);
+    segments.push({
+      country: stay.country,
+      city: stay.city,
+      startDay: stay.dayNumber,
+      endDay: stay.dayNumber,
+      startDate,
+      endDate: startDate,
+      checkOutDate: getDateAfterTripDay(input, stay.dayNumber),
+      nights: 1,
+      days: 1,
+    });
+  });
+
+  return segments;
+};
+
+const findStayForExpense = (
+  input: TripPlanInput,
+  stays: ExpenseStaySegment[],
+  expense: Record<string, unknown>,
+) => {
+  const explicitDate = asText(expense.expense_date ?? expense.expenseDate ?? expense.date ?? expense.check_in_date ?? expense.checkInDate);
+  const titleText = normalizeKey(`${asText(expense.title)} ${asText(expense.description)} ${asText(expense.detail)}`);
+  const country = countryKey(expense.country);
+  const byText = stays.find((stay) =>
+    titleText.includes(cityKey(stay.city)) ||
+    (country && countryKey(stay.country) === country),
+  );
+  if (byText) return byText;
+
+  if (explicitDate && isDateWithinTripRange(explicitDate, input)) {
+    const dayNumber = Math.max(
+      1,
+      Math.min(
+        getTripDayCount(input),
+        Math.floor(((parseDateOnly(explicitDate)?.getTime() ?? 0) - (parseDateOnly(input.startDate)?.getTime() ?? 0)) / MS_PER_DAY) + 1,
+      ),
+    );
+    return stays.find((stay) => dayNumber >= stay.startDay && dayNumber <= stay.endDay) ?? stays[0];
+  }
+
+  return stays[0];
+};
+
+const routeTransportLabel = (route: Record<string, unknown>) => {
+  const text = stripDiacritics(`${asText(route.transport)} ${asText(route.transport_type)} ${asText(route.description)} ${asText(route.notes)}`);
+  if (text.includes('voo') || text.includes('flight')) return 'Voo';
+  if (text.includes('onibus') || text.includes('ônibus') || text.includes('bus')) return 'Ônibus';
+  if (text.includes('taxi') || text.includes('uber') || text.includes('traslado') || text.includes('transfer')) return 'Traslado';
+  if (text.includes('motorhome')) return 'Motorhome';
+  return 'Trem';
+};
+
+const createRouteExpenses = (
+  input: TripPlanInput,
+  stays: ExpenseStaySegment[],
+  routes: Record<string, unknown>[],
+) => {
+  const explicitRoutes = routes
+    .map((route) => {
+      const from = asText(route.from);
+      const to = asText(route.to);
+      if (!from || !to || usesInternationalAsCity(from) || usesInternationalAsCity(to) || normalizeKey(from) === normalizeKey(to)) {
+        return null;
+      }
+
+      const matchingStayIndex = stays.findIndex((stay) => normalizeKey(to).includes(cityKey(stay.city)) || cityKey(stay.city).includes(cityKey(to)));
+      const stay = matchingStayIndex >= 0 ? stays[matchingStayIndex] : stays[0];
+      const country = stay?.country ?? input.countries[0] ?? 'international';
+      const currency = currencyForCountry(country);
+      const label = routeTransportLabel(route);
+      const date = stay?.startDate ?? input.startDate;
+      const amount = varyAmount(getStyleBaseAmounts(input.style).route * getCountryCostFactor(country), `${label}-${from}-${to}-${date}`, 8);
+
+      return {
+        category: 'Transporte',
+        title: `${label} ${from} -> ${to}`,
+        detail: `Deslocamento entre ${from} e ${to} em ${date}. Estimativa sugerida pela IA.`,
+        amount,
+        currency,
+        country,
+        expense_date: date,
+        links: [],
+      };
+    })
+    .filter((expense): expense is Record<string, unknown> => Boolean(expense));
+
+  if (explicitRoutes.length) return explicitRoutes;
+
+  return stays.slice(1).map((stay, index) => {
+    const previous = stays[index];
+    const country = stay.country;
+    const currency = currencyForCountry(country);
+    const label = input.description.toLowerCase().includes('motorhome') ? 'Motorhome' : 'Trem';
+    const amount = varyAmount(getStyleBaseAmounts(input.style).route * getCountryCostFactor(country), `${previous.city}-${stay.city}-${stay.startDate}`, 8);
+
+    return {
+      category: 'Transporte',
+      title: `${label} ${previous.city} -> ${stay.city}`,
+      detail: `Deslocamento entre estadias de ${previous.city} para ${stay.city}. Estimativa sugerida pela IA.`,
+      amount,
+      currency,
+      country,
+      expense_date: stay.startDate,
+      links: [],
+    };
+  });
+};
+
+const createActivityExpenses = (
+  input: TripPlanInput,
+  itineraryItems: Record<string, unknown>[],
+) => {
+  const baseAmounts = getStyleBaseAmounts(input.style);
+  const seen = new Set<string>();
+
+  return itineraryItems
+    .filter((item) => looksLikeAttraction(item, true))
+    .map((item) => {
+      const title = asText(item.title);
+      const key = normalizeKey(title);
+      if (!key || seen.has(key)) return null;
+      seen.add(key);
+
+      const dayNumber = getDayNumberFromItem(item) ?? 1;
+      const country = asText(item.country) || getCountryForDay(input, dayNumber);
+      const city = sanitizeCityForCountry(item.city, country, dayNumber);
+      const date = asText(item.date) || getDateForDay(input, dayNumber);
+      const amount = varyAmount(baseAmounts.activity * getCountryCostFactor(country), `${title}-${city}-${date}`, 5);
+
+      return {
+        category: 'Passeios',
+        title: `Ingresso ${title.replace(/^visita\s+a\s+/i, '').replace(/^passeio\s+por\s+/i, '')}`.slice(0, 120),
+        detail: `Atividade em ${city} prevista para ${date}. Estimativa sugerida pela IA.`,
+        amount,
+        currency: currencyForCountry(country),
+        country,
+        expense_date: date,
+        links: safeArray(item.links),
+      };
+    })
+    .filter((expense): expense is Record<string, unknown> => Boolean(expense))
+    .slice(0, 8);
+};
+
+const createFallbackExpenses = (
+  input: TripPlanInput,
+  itineraryItems: Record<string, unknown>[] = [],
+  routes: Record<string, unknown>[] = [],
+) => {
+  const stays = getStaySegments(input, itineraryItems);
+  const baseAmounts = getStyleBaseAmounts(input.style);
+  const stayExpenses = stays.flatMap((stay) => {
+    const currency = currencyForCountry(stay.country);
+    const factor = getCountryCostFactor(stay.country);
+    const lodgingAmount = varyAmount(baseAmounts.lodgingNight * factor * stay.nights, `lodging-${stay.city}-${stay.startDate}`, 20);
+    const transportAmount = varyAmount(baseAmounts.localTransportDay * factor * stay.days, `local-${stay.city}-${stay.startDate}`, 5);
+    const foodAmount = varyAmount(baseAmounts.foodDay * factor * stay.days, `food-${stay.city}-${stay.startDate}`, 8);
+
+    return [
+      {
+        category: 'Hospedagem',
+        title: `Hospedagem em ${stay.city}`,
+        detail: `${stay.nights} ${stay.nights === 1 ? 'noite' : 'noites'} em ${stay.city}. Estimativa por estadia sugerida pela IA.`,
+        amount: lodgingAmount,
+        country: stay.country,
+        currency,
+        expense_date: stay.startDate,
+        check_in_date: stay.startDate,
+        check_out_date: stay.checkOutDate,
+        links: [],
+      },
+      {
+        category: 'Transporte',
+        title: `Transporte urbano em ${stay.city}`,
+        detail: `Metrô, ônibus ou táxi durante ${stay.days} ${stay.days === 1 ? 'dia' : 'dias'} em ${stay.city}.`,
+        amount: transportAmount,
+        country: stay.country,
+        currency,
+        expense_date: stay.startDate,
+        links: [],
+      },
+      {
+        category: 'Alimentacao',
+        title: `Alimentação em ${stay.city}`,
+        detail: `Cafés, almoços e jantares durante ${stay.days} ${stay.days === 1 ? 'dia' : 'dias'} em ${stay.city}.`,
+        amount: foodAmount,
+        country: stay.country,
+        currency,
+        expense_date: stay.startDate,
+        links: [],
+      },
+    ];
+  });
+  const internationalTrip = input.countries.some((country) => countryKey(country) !== 'brazil');
+  const insuranceExpense = internationalTrip
+    ? [{
+        category: 'Seguro',
+        title: 'Seguro viagem internacional',
+        detail: 'Seguro para todo o período internacional. Confira coberturas e exigências atuais.',
+        amount: varyAmount(95, `${input.tripName}-insurance`, 30),
+        country: input.countries[0] ?? 'international',
+        currency: 'BRL',
+        expense_date: input.startDate,
+        links: [],
+      }]
+    : [];
+
+  return sanitizeGeneratedExpenses(input, [
+    ...stayExpenses,
+    ...createRouteExpenses(input, stays, routes),
+    ...createActivityExpenses(input, itineraryItems),
+    ...insuranceExpense,
+  ], itineraryItems, routes);
 };
 
 const createFallbackDocuments = (input: TripPlanInput) => {
@@ -1564,7 +1908,230 @@ const expenseKey = (expense: Record<string, unknown>) =>
     countryKey(expense.country),
     normalizeKey(expense.title ?? expense.description),
     normalizeKey(expense.detail ?? expense.details),
+    normalizeCurrencyCode(expense.currency),
+    Math.round(Number(expense.amount ?? expense.value ?? expense.estimated_cost ?? 0)),
+    asText(expense.expense_date ?? expense.expenseDate ?? expense.date),
+    asText(expense.check_in_date ?? expense.checkInDate),
+    asText(expense.check_out_date ?? expense.checkOutDate),
   ].join('|');
+
+const getExpenseFamilyKey = (expense: Record<string, unknown>) => {
+  const title = normalizeKey(expense.title ?? expense.description);
+  const category = expenseCategoryKey(expense.category);
+  const country = countryKey(expense.country);
+  const date = asText(expense.expense_date ?? expense.expenseDate ?? expense.date);
+  const checkIn = asText(expense.check_in_date ?? expense.checkInDate);
+  const checkOut = asText(expense.check_out_date ?? expense.checkOutDate);
+
+  if (isAccommodationExpense(expense)) {
+    return ['hospedagem', country, title, checkIn, checkOut].join('|');
+  }
+
+  if (isTransportExpense(expense)) {
+    const isLocalTransport = title.includes('transporte_urbano') || title.includes('transporte_local');
+    const isRoute = !isLocalTransport && /->|→/.test(asText(expense.title ?? expense.description));
+    return isRoute
+      ? ['transporte-rota', country, title, date].join('|')
+      : ['transporte-local', country, title].join('|');
+  }
+
+  if (isTourExpense(expense)) {
+    return ['passeio', country, title].join('|');
+  }
+
+  return [category, country, title, normalizeCurrencyCode(expense.currency), Math.round(Number(expense.amount ?? 0)), date, checkIn, checkOut].join('|');
+};
+
+const getExpenseDateFromRecord = (expense: Record<string, unknown>) =>
+  asText(expense.expense_date ?? expense.expenseDate ?? expense.date ?? expense.spent_at);
+
+const normalizeGeneratedExpenseRecord = (expense: Record<string, unknown>) => {
+  const amount = Number(expense.amount ?? expense.value ?? expense.estimated_cost ?? 0);
+  const currency = normalizeCurrencyCode(expense.currency);
+
+  return {
+    ...expense,
+    category: asText(expense.category, 'Outros'),
+    title: asText(expense.title ?? expense.description ?? expense.category),
+    detail: asText(expense.detail ?? expense.details ?? expense.description ?? 'Estimativa sugerida pela IA.'),
+    amount: Number.isFinite(amount) ? amount : 0,
+    currency,
+    expense_date: getExpenseDateFromRecord(expense),
+    check_in_date: asText(expense.check_in_date ?? expense.checkInDate ?? expense.checkin ?? expense.start_date),
+    check_out_date: asText(expense.check_out_date ?? expense.checkOutDate ?? expense.checkout ?? expense.end_date),
+    links: safeArray(expense.links),
+  };
+};
+
+const findActivityForExpense = (
+  input: TripPlanInput,
+  itineraryItems: Record<string, unknown>[],
+  stay: ExpenseStaySegment,
+  expense: Record<string, unknown>,
+) => {
+  const date = getExpenseDateFromRecord(expense) || stay.startDate;
+  const titleText = normalizeKey(`${asText(expense.title)} ${asText(expense.detail)} ${asText(expense.description)}`);
+
+  return itineraryItems.find((item) => {
+    const itemDate = asText(item.date) || getDateForDay(input, getDayNumberFromItem(item) ?? 1);
+    if (itemDate !== date) return false;
+    if (!looksLikeAttraction(item, true)) return false;
+    const itemTitle = normalizeKey(item.title);
+    return titleText.includes(itemTitle) || itemTitle.includes(titleText) || cityKey(item.city) === cityKey(stay.city);
+  }) ?? itineraryItems.find((item) =>
+    looksLikeAttraction(item, true) &&
+    cityKey(item.city) === cityKey(stay.city)
+  );
+};
+
+const sanitizeGeneratedExpenses = (
+  input: TripPlanInput,
+  rawExpenses: Record<string, unknown>[],
+  itineraryItems: Record<string, unknown>[] = [],
+  routes: Record<string, unknown>[] = [],
+) => {
+  const stays = getStaySegments(input, itineraryItems);
+  const baseAmounts = getStyleBaseAmounts(input.style);
+  const cleaned = rawExpenses
+    .map(normalizeGeneratedExpenseRecord)
+    .flatMap((expense) => {
+      const stay = findStayForExpense(input, stays, expense);
+      if (!stay) return [];
+
+      const category = asText(expense.category, 'Outros');
+      const originalTitle = asText(expense.title);
+      const genericTitle = isGenericExpenseTitle(originalTitle) || hasGenericPlaceholder(originalTitle, expense.detail, expense.description);
+      const factor = getCountryCostFactor(stay.country);
+      const currency = normalizeCurrencyCode(expense.currency || currencyForCountry(stay.country));
+      const base = {
+        ...expense,
+        country: asText(expense.country) || stay.country,
+        currency,
+        links: safeArray(expense.links),
+      };
+
+      if (isAccommodationExpense(expense)) {
+        const amount = varyAmount(baseAmounts.lodgingNight * factor * stay.nights, `lodging-${stay.city}-${stay.startDate}`, 20);
+
+        return [{
+          ...base,
+          category: 'Hospedagem',
+          title: `Hospedagem em ${stay.city}`,
+          detail: `${stay.nights} ${stay.nights === 1 ? 'noite' : 'noites'} em ${stay.city}. ${asText(expense.detail, 'Estimativa sugerida pela IA.')}`,
+          amount,
+          expense_date: stay.startDate,
+          check_in_date: stay.startDate,
+          check_out_date: stay.checkOutDate,
+        }];
+      }
+
+      if (isTransportExpense(expense)) {
+        const title = asText(expense.title);
+        const hasRouteTitle = /->|→/.test(title) || /\b(trem|voo|ônibus|onibus|traslado|transfer|ferry)\b/i.test(title);
+        const normalizedTitle = genericTitle || !hasRouteTitle
+          ? `Transporte urbano em ${stay.city}`
+          : title.replace(/\s*->\s*/g, ' -> ').replace(/\s*→\s*/g, ' -> ');
+        const amount = hasRouteTitle && Number(expense.amount) > 0
+          ? Number(expense.amount)
+          : varyAmount(
+              (hasRouteTitle ? baseAmounts.route : baseAmounts.localTransportDay * stay.days) * factor,
+              `${normalizedTitle}-${stay.startDate}`,
+              5,
+            );
+
+        return [{
+          ...base,
+          category: 'Transporte',
+          title: normalizedTitle,
+          detail: hasRouteTitle
+            ? `${asText(expense.detail, 'Deslocamento previsto no roteiro.')} Estimativa sugerida pela IA.`
+            : `Metrô, ônibus ou táxi durante a estadia em ${stay.city}. Estimativa consolidada por cidade.`,
+          amount,
+          expense_date: hasRouteTitle && getExpenseDateFromRecord(expense) && isDateWithinTripRange(getExpenseDateFromRecord(expense), input)
+            ? getExpenseDateFromRecord(expense)
+            : stay.startDate,
+          check_in_date: '',
+          check_out_date: '',
+        }];
+      }
+
+      if (isFoodExpense(expense)) {
+        const amount = Number(expense.amount) > 0
+          ? Number(expense.amount)
+          : varyAmount(baseAmounts.foodDay * factor * stay.days, `food-${stay.city}-${stay.startDate}`, 8);
+
+        return [{
+          ...base,
+          category: 'Alimentacao',
+          title: genericTitle ? `Alimentação em ${stay.city}` : originalTitle,
+          detail: `Estimativa de refeições durante ${stay.days} ${stay.days === 1 ? 'dia' : 'dias'} em ${stay.city}.`,
+          amount,
+          expense_date: stay.startDate,
+          check_in_date: '',
+          check_out_date: '',
+        }];
+      }
+
+      if (isTourExpense(expense)) {
+        const activity = genericTitle ? findActivityForExpense(input, itineraryItems, stay, expense) : null;
+        const activityTitle = asText(activity?.title).replace(/^visita\s+a\s+/i, '').replace(/^passeio\s+por\s+/i, '');
+        const title = genericTitle && activityTitle ? `Ingresso ${activityTitle}` : originalTitle;
+        if (!title || isGenericExpenseTitle(title)) return [];
+        const date = asText(activity?.date) || getExpenseDateFromRecord(expense) || stay.startDate;
+        const amount = Number(expense.amount) > 0
+          ? Number(expense.amount)
+          : varyAmount(baseAmounts.activity * factor, `${title}-${date}`, 5);
+
+        return [{
+          ...base,
+          category: 'Passeios',
+          title,
+          detail: activityTitle
+            ? `Atividade em ${stay.city} prevista para ${date}. Estimativa sugerida pela IA.`
+            : asText(expense.detail, `Passeio previsto em ${stay.city}. Estimativa sugerida pela IA.`),
+          amount,
+          expense_date: date,
+          check_in_date: '',
+          check_out_date: '',
+        }];
+      }
+
+      if (genericTitle) return [];
+
+      return [{
+        ...base,
+        title: originalTitle,
+        detail: asText(expense.detail, `Estimativa específica para ${stay.city}.`),
+        amount: Number(expense.amount) > 0 ? Number(expense.amount) : varyAmount(45 * factor, `${originalTitle}-${stay.city}`, 5),
+        expense_date: getExpenseDateFromRecord(expense) && isDateWithinTripRange(getExpenseDateFromRecord(expense), input)
+          ? getExpenseDateFromRecord(expense)
+          : stay.startDate,
+      }];
+    });
+  const withRouteFallbacks = [
+    ...cleaned,
+    ...createRouteExpenses(input, stays, routes).filter((routeExpense) => {
+      const key = normalizeKey(routeExpense.title);
+      return !cleaned.some((expense) => normalizeKey(expense.title).includes(key) || key.includes(normalizeKey(expense.title)));
+    }),
+    ...createActivityExpenses(input, itineraryItems).filter((activityExpense) => {
+      const key = normalizeKey(activityExpense.title);
+      return !cleaned.some((expense) => normalizeKey(expense.title).includes(key) || key.includes(normalizeKey(expense.title)));
+    }),
+  ];
+  const seen = new Set<string>();
+
+  return withRouteFallbacks
+    .filter((expense) => asText(expense.title) && !isGenericExpenseTitle(expense.title))
+    .filter((expense) => Number(expense.amount) > 0)
+    .filter((expense) => {
+      const key = getExpenseFamilyKey(expense);
+      if (!key || seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    })
+    .slice(0, 24);
+};
 
 const travelIntensiveText = [
   'voo longo',
@@ -1686,6 +2253,15 @@ const findGenericContentIssues = (plan: Record<string, unknown>) => {
   asRecords(plan.routes).forEach((route, index) => {
     if (usesInternationalAsCity(route.from) || usesInternationalAsCity(route.to)) {
       issues.push(`routes[${index}] usa international como origem/destino generico`);
+    }
+  });
+
+  asRecords(plan.expenses).forEach((expense, index) => {
+    if (
+      isGenericExpenseTitle(expense.title ?? expense.description) ||
+      hasGenericPlaceholder(expense.title, expense.description, expense.detail)
+    ) {
+      issues.push(`expenses[${index}] generico`);
     }
   });
 
@@ -1920,6 +2496,7 @@ const ensurePlanShape = (value: unknown, input: TripPlanInput) => {
   const itineraryItems = completeItineraryItems(normalizedItineraryItems, input);
   const itineraryWasSupplemented = itineraryItems.length > normalizedItineraryItems.length;
 
+  const rawRoutes = asRecords(plan.routes);
   const normalizedExpenses = uniqueByKey(
     asRecords(plan.expenses)
       .map((expense) => {
@@ -1928,7 +2505,10 @@ const ensurePlanShape = (value: unknown, input: TripPlanInput) => {
           category: asText(expense.category, 'Outros'),
           title: asText(expense.title ?? expense.description, 'Gasto planejado'),
           detail: asText(expense.detail ?? expense.details, 'Aproximado / planejado'),
-          amount: Number(expense.amount ?? expense.value ?? 0),
+          amount: Number(expense.amount ?? expense.estimated_cost ?? expense.value ?? 0),
+          expense_date: asText(expense.expense_date ?? expense.expenseDate ?? expense.date ?? expense.spent_at),
+          check_in_date: asText(expense.check_in_date ?? expense.checkInDate ?? expense.checkin ?? expense.start_date),
+          check_out_date: asText(expense.check_out_date ?? expense.checkOutDate ?? expense.checkout ?? expense.end_date),
           links: safeArray(expense.links),
         };
         const country = resolvePlanCountry(expense.country, countryMap, fallbackCountry, normalizedExpense, {
@@ -1946,7 +2526,14 @@ const ensurePlanShape = (value: unknown, input: TripPlanInput) => {
       .filter((expense) => asText(expense.title)),
     expenseKey,
   );
-  const expenses = normalizedExpenses.length ? normalizedExpenses : createFallbackExpenses(input);
+  const sanitizedExpenses = sanitizeGeneratedExpenses(input, normalizedExpenses, itineraryItems, rawRoutes);
+  const fallbackExpenses = createFallbackExpenses(input, itineraryItems, rawRoutes);
+  const expenses = uniqueByKey(
+    sanitizedExpenses.length >= Math.min(5, Math.max(3, input.countries.length))
+      ? sanitizedExpenses
+      : [...sanitizedExpenses, ...fallbackExpenses],
+    getExpenseFamilyKey,
+  );
 
   const explicitAttractions = asRecords(plan.attractions)
     .map((attraction) => {
@@ -1989,7 +2576,8 @@ const ensurePlanShape = (value: unknown, input: TripPlanInput) => {
   const finalWarnings = [
     ...warnings,
     itineraryWasSupplemented ? 'Alguns dias foram complementados automaticamente para evitar roteiro vazio.' : '',
-    normalizedExpenses.length ? '' : 'Despesas aproximadas foram complementadas por categoria.',
+    sanitizedExpenses.length === normalizedExpenses.length ? '' : 'Gastos genéricos ou repetidos da IA foram consolidados antes da prévia.',
+    expenses.length > sanitizedExpenses.length ? 'Despesas aproximadas foram complementadas com nomes, datas e períodos específicos.' : '',
   ].filter(Boolean);
   const documents = uniqueByKey(
     [
@@ -2017,7 +2605,7 @@ const ensurePlanShape = (value: unknown, input: TripPlanInput) => {
     intent_summary: asText(plan.intent_summary, intent.summary),
     summary: asText(plan.summary, `Prévia de roteiro para ${input.tripName}.`),
     documents,
-    routes: asRecords(plan.routes),
+    routes: rawRoutes,
     itinerary_items: itineraryItems,
     expenses,
     attractions: finalAttractions,
@@ -2526,7 +3114,13 @@ Ritmo:
 Tipos permitidos: chegada, hospedagem, passeio, transporte, alimentacao, voo, trem, motorhome, descanso, compras, documento, outro.
 Categorias de despesas: Hospedagem, Transporte, Passeios, Alimentacao, Comprinhas, Documentos, Seguro, Outros.
 
-Despesas: gere 6 a 10 gastos aproximados compativeis com roteiro. Use estimated_cost/amount apenas como estimativa revisavel. Use currency e amount na moeda local correta: Inglaterra/Reino Unido GBP, Suica CHF, Japao JPY, Estados Unidos USD, Zona Euro EUR, Brasil BRL. Se houver duvida, use EUR para zona do euro e BRL apenas para Brasil.
+Despesas: gere gastos aproximados realistas, especificos e deduplicados, compativeis com roteiro. Cada gasto deve ter categoria, title especifico, description/detail, country, city quando aplicavel, currency, amount, expense_date e check_in_date/check_out_date para hospedagem. Use currency e amount na moeda local correta: Inglaterra/Reino Unido GBP, Suica CHF, Japao JPY, Estados Unidos USD, Zona Euro EUR, Brasil BRL. Se houver duvida, use EUR para zona do euro e BRL apenas para Brasil.
+- Nunca use nomes finais genericos de gastos como "Transporte local", "Hospedagem base", "Alimentacao base", "Passeio base", "Estimativa generica", "Custo medio", "Despesa geral", "Transporte diario", "Hospedagem diaria", "Gasto estimado", "Outros gastos" ou "Gasto da viagem".
+- Hospedagem deve ser uma despesa por cidade/estadia, com title "Hospedagem em Roma", "Hospedagem em Paris", etc., check_in_date e check_out_date coerentes.
+- Transporte entre cidades deve ser especifico: "Trem Roma -> Milao", "Traslado aeroporto -> hospedagem em Roma". Transporte urbano deve ser consolidado uma vez por cidade/periodo: "Transporte urbano em Roma".
+- Atividades pagas devem virar gasto especifico vinculado a data da atividade: "Ingresso Coliseu", "Ingresso Museu do Louvre". Nao duplique com uma despesa generica de passeios.
+- Nao crie varias despesas iguais. Se uma estimativa se repetir, consolide em uma unica despesa por cidade, deslocamento, atividade ou hospedagem.
+- Valores devem variar conforme tipo, cidade, duracao, noites e deslocamento; nao clone o mesmo valor em varias linhas.
 Attractions: inclua apenas atracoes reais do roteiro: museus, pracas, mirantes, parques, bairros turisticos e experiencias. Nao inclua hotel, aeroporto, metro, refeicoes ou deslocamentos.
 Routes: inclua rotas uteis entre cidades-base/aeroportos/estacoes ou trechos de estrada. Exemplos bons: "Aeroporto de Haneda -> Shinjuku", "Tokyo -> Kyoto", "Roma -> Florenca", "Florenca -> Veneza". Nunca retorne "international -> Tokyo"; use "Chegada ao aeroporto" ou uma origem real.
 Documentos: retorne documentos especificos para o destino, inclua category "Documentos" e use linguagem cautelosa quando a regra legal puder mudar: "verifique a exigencia atual antes da viagem". Evite afirmacoes legais absolutas sem base atualizada.
@@ -2573,10 +3167,15 @@ Retorne exatamente este objeto:
   "expenses": [
     {
       "category": "uma das categorias permitidas",
+      "title": "nome especifico do gasto",
       "description": "string",
       "estimated_cost": 0,
       "currency": "BRL, EUR, USD, JPY, CHF ou GBP",
-      "country": "um dos allowedCountries ou international apenas em transporte internacional"
+      "country": "um dos allowedCountries ou international apenas em transporte internacional",
+      "city": "cidade real quando aplicavel",
+      "expense_date": "YYYY-MM-DD",
+      "check_in_date": "YYYY-MM-DD ou vazio",
+      "check_out_date": "YYYY-MM-DD ou vazio"
     }
   ],
   "attractions": [
@@ -2958,7 +3557,10 @@ Qualidade obrigatoria:
 - Use cidades e atracoes reais. Nunca use "Ponto turistico principal", "Atracao principal", "Local famoso", "Passeio pela cidade", "Cidade escolhida", "Destino principal", "TBD" ou "A definir".
 - Nao repita atividades, cidades ou documentos ja listados.
 - Atracoes devem ser pontos reais do roteiro; nao inclua hotel, aeroporto, metro ou refeicao em attractions.
-- Despesas devem usar a moeda local correta do pais e serem estimativas revisaveis.
+- Despesas devem usar a moeda local correta do pais e serem estimativas revisaveis, especificas e deduplicadas.
+- Nunca use nomes finais genericos de gastos como "Transporte local", "Hospedagem base", "Alimentacao base", "Passeio base", "Estimativa generica", "Custo medio", "Despesa geral", "Transporte diario", "Hospedagem diaria", "Gasto estimado", "Outros gastos" ou "Gasto da viagem".
+- Hospedagem deve ser por cidade/estadia, com check_in_date e check_out_date. Transporte urbano deve ser consolidado por cidade/periodo. Atividade paga deve usar nome especifico, como "Ingresso Coliseu".
+- Nao crie varias despesas iguais. Valores e datas devem variar conforme cidade, deslocamento, atividade ou noites.
 - Documentos devem ser especificos e consolidados; use linguagem cautelosa sobre regras oficiais.
 
 Retorne exatamente este objeto:
@@ -2996,7 +3598,7 @@ Retorne exatamente este objeto:
     { "from": "string", "to": "string", "transport_type": "string", "duration": "string", "description": "string", "estimated_cost": 0, "currency": "BRL, EUR, USD, JPY, CHF ou GBP" }
   ],
   "expenses": [
-    { "category": "Hospedagem", "description": "string", "estimated_cost": 0, "currency": "BRL, EUR, USD, JPY, CHF ou GBP", "country": "${block.country}" }
+    { "category": "Hospedagem", "title": "Hospedagem em cidade real", "description": "string", "estimated_cost": 0, "currency": "BRL, EUR, USD, JPY, CHF ou GBP", "country": "${block.country}", "city": "cidade real", "expense_date": "YYYY-MM-DD", "check_in_date": "YYYY-MM-DD ou vazio", "check_out_date": "YYYY-MM-DD ou vazio" }
   ],
   "attractions": [
     { "name": "string", "city": "string", "country": "${block.country}", "description": "string", "suggested_day": 1, "suggested_time": "10:00" }
