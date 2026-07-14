@@ -119,6 +119,8 @@ const createExpense = (): Expense => ({
   euro: { min: 0, max: 0 },
   real: { min: 0, max: 0 },
   links: [],
+  isPaid: false,
+  paidAt: null,
 });
 
 const createAttraction = (): Attraction => ({

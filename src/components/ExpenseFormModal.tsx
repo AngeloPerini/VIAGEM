@@ -65,6 +65,8 @@ const createBlankExpense = (
   euro: { min: 0, max: 0 },
   real: { min: 0, max: 0 },
   links: [],
+  isPaid: false,
+  paidAt: null,
 });
 
 export function ExpenseFormModal({
@@ -93,6 +95,7 @@ export function ExpenseFormModal({
   const [currency, setCurrency] = useState<TravelCurrencyCode>('EUR');
   const [amount, setAmount] = useState('');
   const [links, setLinks] = useState<LinkItem[]>([]);
+  const [isPaid, setIsPaid] = useState(false);
   const [validationError, setValidationError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -106,6 +109,7 @@ export function ExpenseFormModal({
     setCurrency(source.currency ?? defaultCurrency ?? getDefaultCurrencyForCountry(source.country ?? defaultCountry));
     setAmount(stringifyAmountForInput(source.amount ?? source.euro.min ?? source.real.min));
     setLinks(source.links ?? []);
+    setIsPaid(Boolean(source.isPaid));
     setValidationError(null);
   }, [categories, defaultCurrency, selectableCountryOptions, expense, isOpen]);
 
@@ -173,6 +177,8 @@ export function ExpenseFormModal({
       euro: euroRange,
       real: realRange,
       links: normalizeLinks(links),
+      isPaid,
+      paidAt: isPaid ? expense?.paidAt ?? null : null,
     });
   };
 
@@ -312,6 +318,21 @@ export function ExpenseFormModal({
                   </p>
                 ) : null}
               </div>
+
+              <label className="flex min-h-14 items-center justify-between gap-4 rounded-2xl border border-slate-200 bg-white px-4 py-3 dark:border-slate-700 dark:bg-slate-800 md:col-span-2">
+                <span className="min-w-0">
+                  <span className="block text-sm font-black text-slate-700 dark:text-slate-200">Gasto comprado</span>
+                  <span className="mt-0.5 block text-xs font-semibold text-slate-400 dark:text-slate-500">
+                    Marcado como comprado entra no Progresso do Orçamento.
+                  </span>
+                </span>
+                <input
+                  type="checkbox"
+                  checked={isPaid}
+                  onChange={(event) => setIsPaid(event.target.checked)}
+                  className="h-5 w-5 shrink-0 accent-teal-700 dark:accent-emerald-400"
+                />
+              </label>
               <LinksEditor links={links} onChange={setLinks} />
             </div>
 

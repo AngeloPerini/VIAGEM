@@ -1,5 +1,5 @@
 import { AnimatePresence, motion } from 'framer-motion';
-import { Edit3, MoreVertical, Trash2 } from 'lucide-react';
+import { CheckCircle2, Circle, Edit3, MoreVertical, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { countryNames } from '../data/countries';
 import type { CategoryMeta, ExchangeRateMap, Expense, RealValueMode } from '../types';
@@ -24,6 +24,7 @@ type ExpenseTableProps = {
   canManageCategory?: boolean;
   onEdit: (expense: Expense) => void;
   onDelete: (id: string) => void;
+  onTogglePaid?: (expense: Expense) => void;
   onEditCategory?: (category: CategoryMeta) => void;
   onDeleteCategory?: (category: CategoryMeta) => void;
 };
@@ -38,6 +39,7 @@ export function ExpenseTable({
   canManageCategory = false,
   onEdit,
   onDelete,
+  onTogglePaid,
   onEditCategory,
   onDeleteCategory,
 }: ExpenseTableProps) {
@@ -153,60 +155,81 @@ export function ExpenseTable({
               <th className="px-4 py-4 font-black">Pais</th>
               <th className="px-4 py-4 font-black">Moeda</th>
               <th className="px-4 py-4 font-black">Real</th>
+              <th className="px-4 py-4 text-right font-black">Status</th>
               {canManage ? <th className="px-7 py-4 text-right font-black">Acoes</th> : null}
             </tr>
           </thead>
           <tbody>
             <AnimatePresence initial={false}>
               {expenses.length ? (
-                expenses.map((expense) => (
-                  <motion.tr
-                    layout
-                    key={expense.id}
-                    className="border-t border-slate-100 text-slate-700 dark:border-slate-800 dark:text-slate-300"
-                    initial={{ opacity: 0, x: -12 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    exit={{ opacity: 0, x: 18 }}
-                    transition={{ duration: 0.24 }}
-                  >
-                    <td className="px-7 py-4 font-bold text-slate-950 dark:text-slate-50">{expense.title}</td>
-                    <td className="px-4 py-4 text-slate-500 dark:text-slate-400">{expense.detail || '-'}</td>
-                    <td className="px-4 py-4">
-                      <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-black text-slate-600 dark:bg-slate-800 dark:text-slate-300">
-                        {getCountryName(expense)}
-                      </span>
-                    </td>
-                    <td className="px-4 py-4 font-semibold">
-                      {formatRange(getExpenseOriginalRange(expense), getExpenseCurrency(expense))}
-                    </td>
-                    <td className="px-4 py-4 font-semibold">{formatRange(getExpenseRealRange(expense, exchangeRates), 'BRL')}</td>
-                    {canManage ? (
-                      <td className="px-7 py-4">
-                        <div className="flex justify-end gap-2">
-                          <LinksMenu links={expense.links} align="right" />
+                expenses.map((expense) => {
+                  const PaidIcon = expense.isPaid ? CheckCircle2 : Circle;
+
+                  return (
+                      <motion.tr
+                        layout
+                        key={expense.id}
+                        className="border-t border-slate-100 text-slate-700 dark:border-slate-800 dark:text-slate-300"
+                        initial={{ opacity: 0, x: -12 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        exit={{ opacity: 0, x: 18 }}
+                        transition={{ duration: 0.24 }}
+                      >
+                        <td className="px-7 py-4 font-bold text-slate-950 dark:text-slate-50">{expense.title}</td>
+                        <td className="px-4 py-4 text-slate-500 dark:text-slate-400">{expense.detail || '-'}</td>
+                        <td className="px-4 py-4">
+                          <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-black text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+                            {getCountryName(expense)}
+                          </span>
+                        </td>
+                        <td className="px-4 py-4 font-semibold">
+                          {formatRange(getExpenseOriginalRange(expense), getExpenseCurrency(expense))}
+                        </td>
+                        <td className="px-4 py-4 font-semibold">{formatRange(getExpenseRealRange(expense, exchangeRates), 'BRL')}</td>
+                        <td className="px-4 py-4 text-right">
                           <button
                             type="button"
-                            aria-label={`Editar ${expense.title}`}
-                            onClick={() => onEdit(expense)}
-                            className="inline-flex h-10 items-center gap-2 rounded-xl border border-slate-200 px-3 text-sm font-black text-slate-600 transition hover:border-teal-200 hover:bg-teal-50 hover:text-teal-700 dark:border-slate-700 dark:text-slate-300 dark:hover:border-emerald-500/60 dark:hover:bg-emerald-500/10 dark:hover:text-emerald-300"
+                            onClick={() => onTogglePaid?.(expense)}
+                            disabled={!canManage || !onTogglePaid}
+                            className={`inline-flex min-h-9 items-center gap-1.5 rounded-full border px-3 text-xs font-black transition disabled:cursor-not-allowed disabled:opacity-70 ${
+                              expense.isPaid
+                                ? 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-400/40 dark:bg-emerald-400/10 dark:text-emerald-300'
+                                : 'border-slate-200 bg-white text-slate-500 hover:border-teal-300 hover:text-teal-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-emerald-400 dark:hover:text-emerald-300'
+                            }`}
+                            aria-label={`${expense.isPaid ? 'Marcar como pendente' : 'Marcar como comprado'} ${expense.title}`}
                           >
-                            <Edit3 className="h-4 w-4" />
-                            Editar
+                            <PaidIcon className="h-4 w-4" />
+                            {expense.isPaid ? 'Comprado' : 'Pendente'}
                           </button>
-                          <button
-                            type="button"
-                            aria-label={`Excluir ${expense.title}`}
-                            onClick={() => onDelete(expense.id)}
-                            className="inline-flex h-10 items-center gap-2 rounded-xl border border-slate-200 px-3 text-sm font-black text-slate-600 transition hover:border-rose-200 hover:bg-rose-50 hover:text-rose-700 dark:border-slate-700 dark:text-slate-300 dark:hover:border-rose-500/60 dark:hover:bg-rose-500/10 dark:hover:text-rose-300"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                            Excluir
-                          </button>
-                        </div>
-                      </td>
-                    ) : null}
-                  </motion.tr>
-                ))
+                        </td>
+                        {canManage ? (
+                          <td className="px-7 py-4">
+                            <div className="flex justify-end gap-2">
+                              <LinksMenu links={expense.links} align="right" />
+                              <button
+                                type="button"
+                                aria-label={`Editar ${expense.title}`}
+                                onClick={() => onEdit(expense)}
+                                className="inline-flex h-10 items-center gap-2 rounded-xl border border-slate-200 px-3 text-sm font-black text-slate-600 transition hover:border-teal-200 hover:bg-teal-50 hover:text-teal-700 dark:border-slate-700 dark:text-slate-300 dark:hover:border-emerald-500/60 dark:hover:bg-emerald-500/10 dark:hover:text-emerald-300"
+                              >
+                                <Edit3 className="h-4 w-4" />
+                                Editar
+                              </button>
+                              <button
+                                type="button"
+                                aria-label={`Excluir ${expense.title}`}
+                                onClick={() => onDelete(expense.id)}
+                                className="inline-flex h-10 items-center gap-2 rounded-xl border border-slate-200 px-3 text-sm font-black text-slate-600 transition hover:border-rose-200 hover:bg-rose-50 hover:text-rose-700 dark:border-slate-700 dark:text-slate-300 dark:hover:border-rose-500/60 dark:hover:bg-rose-500/10 dark:hover:text-rose-300"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                                Excluir
+                              </button>
+                            </div>
+                          </td>
+                        ) : null}
+                      </motion.tr>
+                  );
+                })
               ) : (
                 <motion.tr
                   key="empty-expenses"
@@ -215,7 +238,7 @@ export function ExpenseTable({
                   animate={{ opacity: 1 }}
                   exit={{ opacity: 0 }}
                 >
-                  <td colSpan={canManage ? 6 : 5} className="px-7 py-8">
+                  <td colSpan={canManage ? 7 : 6} className="px-7 py-8">
                     <p className="rounded-2xl bg-slate-50 px-4 py-4 text-sm font-bold text-slate-500 dark:bg-slate-800 dark:text-slate-300">
                       Nenhum gasto cadastrado nesta categoria.
                     </p>
@@ -229,63 +252,80 @@ export function ExpenseTable({
 
       <div className="space-y-3 p-4 md:hidden">
         <AnimatePresence initial={false}>
-          {expenses.length ? expenses.map((expense) => (
-            <motion.article
-              layout
-              key={expense.id}
-              className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-800/70"
-              initial={{ opacity: 0, scale: 0.96 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.96 }}
-            >
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <h3 className="font-black text-slate-950 dark:text-slate-50">{expense.title}</h3>
-                  {expense.detail ? <p className="text-sm text-slate-500 dark:text-slate-400">{expense.detail}</p> : null}
-                  <span className="mt-2 inline-flex rounded-full bg-slate-100 px-3 py-1 text-xs font-black text-slate-600 dark:bg-slate-700 dark:text-slate-200">
-                    {getCountryName(expense)}
-                  </span>
-                  <div className="mt-3">
-                    <LinksMenu links={expense.links} />
+          {expenses.length ? expenses.map((expense) => {
+            const PaidIcon = expense.isPaid ? CheckCircle2 : Circle;
+
+            return (
+              <motion.article
+                layout
+                key={expense.id}
+                className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-800/70"
+                initial={{ opacity: 0, scale: 0.96 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.96 }}
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <h3 className="font-black text-slate-950 dark:text-slate-50">{expense.title}</h3>
+                    {expense.detail ? <p className="text-sm text-slate-500 dark:text-slate-400">{expense.detail}</p> : null}
+                    <span className="mt-2 inline-flex rounded-full bg-slate-100 px-3 py-1 text-xs font-black text-slate-600 dark:bg-slate-700 dark:text-slate-200">
+                      {getCountryName(expense)}
+                    </span>
+                    <div className="mt-3">
+                      <LinksMenu links={expense.links} />
+                    </div>
+                  </div>
+                  {canManage ? (
+                    <div className="flex flex-col gap-2">
+                      <button
+                        type="button"
+                        aria-label={`Editar ${expense.title}`}
+                        onClick={() => onEdit(expense)}
+                        className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-slate-200 px-3 text-sm font-black text-slate-600 dark:border-slate-700 dark:text-slate-200"
+                      >
+                        <Edit3 className="h-4 w-4" />
+                        Editar
+                      </button>
+                      <button
+                        type="button"
+                        aria-label={`Excluir ${expense.title}`}
+                        onClick={() => onDelete(expense.id)}
+                        className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-slate-200 px-3 text-sm font-black text-rose-700 dark:border-slate-700 dark:text-rose-300"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                        Excluir
+                      </button>
+                    </div>
+                  ) : null}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => onTogglePaid?.(expense)}
+                  disabled={!canManage || !onTogglePaid}
+                  className={`mt-4 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border px-3 py-2 text-sm font-black transition disabled:cursor-not-allowed disabled:opacity-70 ${
+                    expense.isPaid
+                      ? 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-400/40 dark:bg-emerald-400/10 dark:text-emerald-300'
+                      : 'border-slate-200 bg-white text-slate-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300'
+                  }`}
+                >
+                  <PaidIcon className="h-5 w-5" />
+                  {expense.isPaid ? 'Comprado' : 'Pendente'}
+                </button>
+                <div className="mt-4 grid grid-cols-2 gap-3">
+                  <div className="rounded-2xl bg-slate-50 p-3 dark:bg-slate-900">
+                    <p className="text-xs font-bold uppercase text-slate-400 dark:text-slate-500">Moeda</p>
+                    <p className="mt-1 font-black text-slate-950 dark:text-slate-50">
+                      {formatRange(getExpenseOriginalRange(expense), getExpenseCurrency(expense))}
+                    </p>
+                  </div>
+                  <div className="rounded-2xl bg-slate-50 p-3 dark:bg-slate-900">
+                    <p className="text-xs font-bold uppercase text-slate-400 dark:text-slate-500">Real</p>
+                    <p className="mt-1 font-black text-slate-950 dark:text-slate-50">{formatRange(getExpenseRealRange(expense, exchangeRates), 'BRL')}</p>
                   </div>
                 </div>
-                {canManage ? (
-                  <div className="flex flex-col gap-2">
-                    <button
-                      type="button"
-                      aria-label={`Editar ${expense.title}`}
-                      onClick={() => onEdit(expense)}
-                      className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-slate-200 px-3 text-sm font-black text-slate-600 dark:border-slate-700 dark:text-slate-200"
-                    >
-                      <Edit3 className="h-4 w-4" />
-                      Editar
-                    </button>
-                    <button
-                      type="button"
-                      aria-label={`Excluir ${expense.title}`}
-                      onClick={() => onDelete(expense.id)}
-                      className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-slate-200 px-3 text-sm font-black text-rose-700 dark:border-slate-700 dark:text-rose-300"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                      Excluir
-                    </button>
-                  </div>
-                ) : null}
-              </div>
-              <div className="mt-4 grid grid-cols-2 gap-3">
-                <div className="rounded-2xl bg-slate-50 p-3 dark:bg-slate-900">
-                  <p className="text-xs font-bold uppercase text-slate-400 dark:text-slate-500">Moeda</p>
-                  <p className="mt-1 font-black text-slate-950 dark:text-slate-50">
-                    {formatRange(getExpenseOriginalRange(expense), getExpenseCurrency(expense))}
-                  </p>
-                </div>
-                <div className="rounded-2xl bg-slate-50 p-3 dark:bg-slate-900">
-                  <p className="text-xs font-bold uppercase text-slate-400 dark:text-slate-500">Real</p>
-                  <p className="mt-1 font-black text-slate-950 dark:text-slate-50">{formatRange(getExpenseRealRange(expense, exchangeRates), 'BRL')}</p>
-                </div>
-              </div>
-            </motion.article>
-          )) : (
+              </motion.article>
+            );
+          }) : (
             <motion.p
               key="empty-expenses"
               className="rounded-2xl bg-slate-50 px-4 py-5 text-sm font-bold text-slate-500 dark:bg-slate-800 dark:text-slate-300"

@@ -4,6 +4,8 @@ import autoTable from 'jspdf-autotable';
 import {
   AlertTriangle,
   ArrowRight,
+  CheckCircle2,
+  Circle,
   Edit3,
   FileText,
   Plus,
@@ -42,6 +44,7 @@ import {
   deleteExpense,
   getCachedExpenses,
   getExpenses,
+  setExpensePaid,
   subscribeExpenses,
   updateExpense,
 } from './services/expensesService';
@@ -684,6 +687,29 @@ function TravelWorkspace({ groupId }: { groupId: string }) {
   const visibleTransactions = showAllTransactions ? recentTransactions : recentTransactions.slice(0, 5);
   const selectedTotalLabel = formatRange(filteredGrandTotal.real, 'BRL', true);
   const originalTotalLabel = formatOriginalCurrencyBreakdown(filteredGrandTotal.originalByCurrency);
+  const budgetPlannedTotal = useMemo(
+    () => calculateExpensesTotal(scopedExpenses, exchangeRates, false),
+    [exchangeRates, scopedExpenses],
+  );
+  const paidExpenses = useMemo(
+    () => scopedExpenses.filter((expense) => expense.isPaid),
+    [scopedExpenses],
+  );
+  const budgetPaidTotal = useMemo(
+    () => calculateExpensesTotal(paidExpenses, exchangeRates, false),
+    [exchangeRates, paidExpenses],
+  );
+  const plannedBudgetValue = rangeMidpoint(budgetPlannedTotal.real);
+  const paidBudgetValue = rangeMidpoint(budgetPaidTotal.real);
+  const budgetProgress = plannedBudgetValue > 0 ? (paidBudgetValue / plannedBudgetValue) * 100 : 0;
+  const budgetProgressLabel = plannedBudgetValue > 0
+    ? `${budgetProgress >= 10 ? Math.round(budgetProgress) : budgetProgress.toFixed(1)}%`
+    : '--';
+  const budgetProgressWidth = `${Math.min(Math.max(budgetProgress, 0), 100)}%`;
+  const isBudgetProgressOver = budgetProgress > 100;
+  const budgetProgressText = plannedBudgetValue > 0
+    ? `${formatRange(budgetPaidTotal.real, 'BRL', true)} de ${formatRange(budgetPlannedTotal.real, 'BRL', true)} comprados`
+    : 'Nenhum gasto cadastrado.';
   const eurQuote = exchangeRates.EUR ?? null;
   const tripDestinations = activeGroup?.countries?.length
     ? activeGroup.countries.map((country) => countryNames[normalizeCountryId(country)]).join(', ')
@@ -730,6 +756,37 @@ function TravelWorkspace({ groupId }: { groupId: string }) {
       const message = 'Nao foi possivel salvar a edicao do gasto. Verifique os dados e tente novamente.';
       setExpenseFormError(message);
       setExpenseSyncWarning(message);
+    } finally {
+      setIsExpenseSaving(false);
+    }
+  };
+
+  const handleToggleExpensePaid = async (expense: Expense) => {
+    if (isExpenseSaving) return;
+
+    const previousExpenses = expenses;
+    const nextPaid = !expense.isPaid;
+    const paidAt = nextPaid ? new Date().toISOString() : null;
+    setIsExpenseSaving(true);
+    setExpenseSyncWarning(null);
+    setExpenses((current) =>
+      current.map((item) =>
+        item.id === expense.id
+          ? { ...item, isPaid: nextPaid, paidAt }
+          : item,
+      ),
+    );
+
+    try {
+      const savedExpense = await setExpensePaid(groupId, expense.id, nextPaid);
+      setExpenses((current) =>
+        current.map((item) => (item.id === savedExpense.id ? savedExpense : item)),
+      );
+      setExpenseSyncWarning(null);
+    } catch (error) {
+      console.error('Nao foi possivel atualizar o status do gasto:', error);
+      setExpenses(previousExpenses);
+      setExpenseSyncWarning('Nao foi possivel atualizar o status do gasto. Tente novamente.');
     } finally {
       setIsExpenseSaving(false);
     }
@@ -853,7 +910,7 @@ function TravelWorkspace({ groupId }: { groupId: string }) {
     const startY = (tableState.lastAutoTable?.finalY ?? 250) + 24;
     autoTable(doc, {
       startY,
-      head: [['Data', 'Pais', 'Categoria', 'Gasto', 'Detalhe', 'Moeda', 'Valor original', 'Valor BRL']],
+      head: [['Data', 'Pais', 'Categoria', 'Gasto', 'Detalhe', 'Moeda', 'Valor original', 'Valor BRL', 'Status']],
       body: recentTransactions.map((expense) => {
         const category = categoryById.get(expense.category);
         return [
@@ -865,6 +922,7 @@ function TravelWorkspace({ groupId }: { groupId: string }) {
           getExpenseCurrency(expense),
           formatRange(getExpenseOriginalRange(expense), getExpenseCurrency(expense)),
           formatRange(getExpenseRealRange(expense, exchangeRates), 'BRL'),
+          expense.isPaid ? 'Comprado' : 'Pendente',
         ];
       }),
       styles: { font: 'helvetica', fontSize: 7.5, cellPadding: 4, overflow: 'linebreak' },
@@ -875,10 +933,11 @@ function TravelWorkspace({ groupId }: { groupId: string }) {
         1: { cellWidth: 72 },
         2: { cellWidth: 80 },
         3: { cellWidth: 120 },
-        4: { cellWidth: 150 },
+        4: { cellWidth: 120 },
         5: { cellWidth: 44 },
-        6: { cellWidth: 86, halign: 'right' },
-        7: { cellWidth: 86, halign: 'right' },
+        6: { cellWidth: 78, halign: 'right' },
+        7: { cellWidth: 78, halign: 'right' },
+        8: { cellWidth: 66 },
       },
       margin: { left: marginX, right: marginX },
       didDrawPage: () => {
@@ -1099,13 +1158,21 @@ function TravelWorkspace({ groupId }: { groupId: string }) {
                   <div className="mt-8">
                     <div className="mb-2.5 flex items-center justify-between gap-4 text-sm font-bold text-[#45464d] dark:text-slate-300">
                       <span>Progresso do Orçamento</span>
-                      <span>--</span>
+                      <span>{budgetProgressLabel}</span>
                     </div>
                     <div className="h-2 overflow-hidden rounded-full bg-[#e7edf7] dark:bg-slate-800">
-                      <div className="h-full w-0 rounded-full bg-[#007c68]" />
+                      <div
+                        className={`h-full rounded-full transition-[width] duration-500 ${isBudgetProgressOver ? 'bg-amber-500' : 'bg-[#007c68] dark:bg-emerald-400'}`}
+                        style={{ width: budgetProgressWidth }}
+                      />
                     </div>
-                    <p className="mt-3 text-sm font-semibold text-[#8c8f9a] dark:text-slate-400">
-                      Nenhum orçamento previsto foi encontrado; exibindo apenas gastos reais cadastrados.
+                    <p className="mt-3 text-sm font-black text-[#0b1326] dark:text-slate-100">
+                      {budgetProgressText}
+                    </p>
+                    <p className="mt-1 text-sm font-semibold text-[#8c8f9a] dark:text-slate-400">
+                      {plannedBudgetValue > 0
+                        ? 'Nenhum orçamento previsto foi definido; o progresso considera os gastos cadastrados.'
+                        : 'Adicione gastos e marque os itens comprados para acompanhar o progresso.'}
                     </p>
                   </div>
                 </article>
@@ -1447,11 +1514,12 @@ function TravelWorkspace({ groupId }: { groupId: string }) {
                       <div className={`hidden md:block ${showAllTransactions ? 'max-h-[28rem] overflow-y-auto' : ''}`}>
                         <table className="w-full table-fixed border-collapse text-left">
                           <colgroup>
-                            <col className="w-[38%]" />
-                            <col className="w-[18%]" />
+                            <col className="w-[31%]" />
+                            <col className="w-[16%]" />
+                            <col className="w-[13%]" />
                             <col className="w-[14%]" />
-                            <col className="w-[17%]" />
-                            {canManageExpenses ? <col className="w-[13%]" /> : null}
+                            <col className="w-[14%]" />
+                            {canManageExpenses ? <col className="w-[12%]" /> : null}
                           </colgroup>
                           <thead className={showAllTransactions ? 'sticky top-0 z-10 bg-white shadow-[0_1px_0_#eef2f7] dark:bg-slate-900 dark:shadow-[0_1px_0_#1e293b]' : undefined}>
                             <tr className="text-sm font-black text-[#45464d] dark:text-slate-300">
@@ -1459,6 +1527,7 @@ function TravelWorkspace({ groupId }: { groupId: string }) {
                               <th className="px-4 py-3">Categoria</th>
                               <th className="whitespace-nowrap px-4 py-3">Data</th>
                               <th className="px-4 py-3 text-right">Valor</th>
+                              <th className="px-4 py-3">Status</th>
                               {canManageExpenses ? <th className="px-5 py-3 text-right">Ações</th> : null}
                             </tr>
                           </thead>
@@ -1473,6 +1542,7 @@ function TravelWorkspace({ groupId }: { groupId: string }) {
                                   icon: inferExpenseCategoryIconId({ id: expense.category, name: expense.category, icon: undefined }),
                                 };
                               const CategoryIcon = getExpenseCategoryIcon(category);
+                              const PaidIcon = expense.isPaid ? CheckCircle2 : Circle;
                               const value = realValueMode === 'converted'
                                 ? formatRange(getExpenseRealRange(expense, exchangeRates), 'BRL')
                                 : formatRange(getExpenseOriginalRange(expense), getExpenseCurrency(expense));
@@ -1505,6 +1575,22 @@ function TravelWorkspace({ groupId }: { groupId: string }) {
                                   </td>
                                   <td className="whitespace-nowrap px-4 py-2.5 text-sm font-semibold text-[#45464d] dark:text-slate-300">{formatExpenseDate(expense.createdAt)}</td>
                                   <td className="px-4 py-2.5 text-right text-sm font-black text-[#0b1326] dark:text-slate-50">{value}</td>
+                                  <td className="px-4 py-2.5">
+                                    <button
+                                      type="button"
+                                      onClick={() => void handleToggleExpensePaid(expense)}
+                                      disabled={!canManageExpenses || isExpenseSaving}
+                                      aria-label={expense.isPaid ? `Marcar ${expense.title} como pendente` : `Marcar ${expense.title} como comprado`}
+                                      className={`inline-flex h-8 max-w-full items-center justify-center gap-1.5 rounded-full border px-2.5 text-xs font-black transition disabled:cursor-not-allowed disabled:opacity-60 ${
+                                        expense.isPaid
+                                          ? 'border-emerald-200 bg-emerald-50 text-[#007c68] dark:border-emerald-400/30 dark:bg-emerald-400/10 dark:text-emerald-300'
+                                          : 'border-[#dfe5ee] text-[#45464d] hover:border-[#007c68] hover:text-[#007c68] dark:border-slate-700 dark:text-slate-300 dark:hover:border-emerald-400 dark:hover:text-emerald-300'
+                                      }`}
+                                    >
+                                      <PaidIcon className="h-4 w-4 shrink-0" />
+                                      <span className="truncate">{expense.isPaid ? 'Comprado' : 'Pendente'}</span>
+                                    </button>
+                                  </td>
                                   {canManageExpenses ? (
                                     <td className="px-5 py-2.5">
                                       <div className="flex justify-end gap-2">
@@ -1545,6 +1631,7 @@ function TravelWorkspace({ groupId }: { groupId: string }) {
                               icon: inferExpenseCategoryIconId({ id: expense.category, name: expense.category, icon: undefined }),
                             };
                           const CategoryIcon = getExpenseCategoryIcon(category);
+                          const PaidIcon = expense.isPaid ? CheckCircle2 : Circle;
                           const value = realValueMode === 'converted'
                             ? formatRange(getExpenseRealRange(expense, exchangeRates), 'BRL')
                             : formatRange(getExpenseOriginalRange(expense), getExpenseCurrency(expense));
@@ -1564,6 +1651,20 @@ function TravelWorkspace({ groupId }: { groupId: string }) {
                                   <p className="mt-3 text-xl font-black text-[#0b1326] dark:text-slate-50">{value}</p>
                                 </div>
                               </div>
+                              <button
+                                type="button"
+                                onClick={() => void handleToggleExpensePaid(expense)}
+                                disabled={!canManageExpenses || isExpenseSaving}
+                                aria-label={expense.isPaid ? `Marcar ${expense.title} como pendente` : `Marcar ${expense.title} como comprado`}
+                                className={`mt-4 flex h-10 w-full items-center justify-center gap-2 rounded-xl border text-sm font-black transition disabled:cursor-not-allowed disabled:opacity-60 ${
+                                  expense.isPaid
+                                    ? 'border-emerald-200 bg-emerald-50 text-[#007c68] dark:border-emerald-400/30 dark:bg-emerald-400/10 dark:text-emerald-300'
+                                    : 'border-[#dfe5ee] bg-white text-[#45464d] hover:border-[#007c68] hover:text-[#007c68] dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-emerald-400 dark:hover:text-emerald-300'
+                                }`}
+                              >
+                                <PaidIcon className="h-4 w-4" />
+                                {expense.isPaid ? 'Comprado' : 'Pendente'}
+                              </button>
                               {canManageExpenses ? (
                                 <div className="mt-4 grid grid-cols-2 gap-2">
                                   <button

@@ -299,6 +299,8 @@ const normalizeExpense = (value: unknown): Expense => {
     euro,
     real,
     links: normalizeLinkArray(record.links),
+    isPaid: false,
+    paidAt: null,
   };
 };
 
@@ -614,6 +616,8 @@ const expensePayload = (expense: Expense, groupId: string, userId: string) => ({
   brl_min: expense.real.min,
   brl_max: expense.real.max,
   links: normalizeLinks(expense.links),
+  is_paid: expense.isPaid ?? false,
+  paid_at: expense.isPaid ? expense.paidAt ?? new Date().toISOString() : null,
 });
 
 const itineraryPayload = (item: ItineraryItem, groupId: string, userId: string, orderIndex: number) => ({

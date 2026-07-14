@@ -37,6 +37,8 @@ export type Expense = {
   euro: CurrencyRange;
   real: CurrencyRange;
   links?: LinkItem[];
+  isPaid?: boolean;
+  paidAt?: string | null;
   createdAt?: string;
 };
 

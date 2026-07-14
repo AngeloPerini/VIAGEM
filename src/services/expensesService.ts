@@ -22,6 +22,8 @@ type ExpenseRow = {
   currency: string | null;
   amount: number | null;
   links: LinkItem[] | null;
+  is_paid: boolean | null;
+  paid_at: string | null;
   created_at?: string;
 };
 
@@ -77,6 +79,8 @@ const toExpense = (row: ExpenseRow): Expense => ({
   euro: { min: Number(row.euro_min ?? 0), max: Number(row.euro_max ?? row.euro_min ?? 0) },
   real: { min: Number(row.brl_min ?? 0), max: Number(row.brl_max ?? row.brl_min ?? 0) },
   links: Array.isArray(row.links) ? row.links : [],
+  isPaid: Boolean(row.is_paid),
+  paidAt: row.paid_at,
   createdAt: row.created_at,
 });
 
@@ -87,6 +91,7 @@ const toExpensePayload = (expense: Expense) => {
   const brlMax = toFiniteNumber(expense.real?.max, brlMin);
   const currency = normalizeCurrency(expense.currency);
   const amountFallback = currency === 'BRL' ? brlMin : euroMin;
+  const isPaid = Boolean(expense.isPaid);
 
   return {
     category: expense.category,
@@ -100,6 +105,8 @@ const toExpensePayload = (expense: Expense) => {
     brl_min: brlMin,
     brl_max: brlMax,
     links: normalizeLinks(expense.links),
+    is_paid: isPaid,
+    paid_at: isPaid ? expense.paidAt ?? new Date().toISOString() : null,
   };
 };
 
@@ -177,6 +184,28 @@ export async function updateExpense(groupId: string, id: string, expense: Expens
   if (!data) throw new Error('Gasto nao encontrado nesta viagem.');
   await notifyExpensesChanged(groupId, `Gasto atualizado: ${expense.title}.`);
   return toExpense(data as ExpenseRow);
+}
+
+export async function setExpensePaid(groupId: string, id: string, isPaid: boolean) {
+  const { data, error } = await supabase
+    .from('expenses')
+    .update({
+      is_paid: isPaid,
+      paid_at: isPaid ? new Date().toISOString() : null,
+    })
+    .eq('group_id', groupId)
+    .eq('id', id)
+    .select('*')
+    .single();
+
+  if (error) throw error;
+  if (!data) throw new Error('Gasto nao encontrado nesta viagem.');
+  const expense = toExpense(data as ExpenseRow);
+  await notifyExpensesChanged(
+    groupId,
+    `${expense.title} marcado como ${isPaid ? 'comprado' : 'pendente'}.`,
+  );
+  return expense;
 }
 
 export async function deleteExpense(groupId: string, id: string) {
