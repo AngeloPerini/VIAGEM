@@ -68,6 +68,29 @@ export const convertCurrencyRangeToReal = (
   };
 };
 
+export const getConversionTargetCurrency = (sourceCurrency: TravelCurrencyCode): TravelCurrencyCode =>
+  sourceCurrency === 'BRL' ? 'EUR' : 'BRL';
+
+export const convertCurrencyRange = (
+  range: CurrencyRange,
+  sourceCurrency: TravelCurrencyCode,
+  targetCurrency: TravelCurrencyCode,
+  rates?: ExchangeRateMap,
+  fallback?: CurrencyRange,
+): CurrencyRange => {
+  if (sourceCurrency === targetCurrency) return range;
+
+  const sourceRate = sourceCurrency === 'BRL' ? 1 : rates ? getRateForCurrency(sourceCurrency, rates) : null;
+  const targetRate = targetCurrency === 'BRL' ? 1 : rates ? getRateForCurrency(targetCurrency, rates) : null;
+
+  if (!sourceRate || !targetRate) return fallback ?? emptyRange();
+
+  return {
+    min: (range.min * sourceRate) / targetRate,
+    max: (range.max * sourceRate) / targetRate,
+  };
+};
+
 export const formatMoney = (value: number, currency: TravelCurrencyCode, compact = false) => {
   const rounded = compact ? roundForSummary(value) : value;
   return getFormatter(currency).format(rounded);
@@ -109,7 +132,41 @@ export const parseCurrencyInput = (input: string): CurrencyRange => {
   return normalizeRange({ min, max });
 };
 
-export const parseAmountInput = (input: string) => parseCurrencyInput(input).min;
+const stripAmountInput = (input: string) =>
+  input
+    .replace(/BRL|EUR|USD|JPY|CHF|GBP/gi, '')
+    .replace(/R\$/gi, '')
+    .replace(/US\$/gi, '')
+    .replace(/[€£¥\s]/g, '')
+    .replace(/[^\d.,-]/g, '');
+
+const parseLocalizedAmount = (input: string) => {
+  const value = stripAmountInput(input);
+  if (!value || value.includes('-') || !/\d/.test(value)) return Number.NaN;
+
+  const lastComma = value.lastIndexOf(',');
+  const lastDot = value.lastIndexOf('.');
+  const decimalSeparator = lastComma >= 0 || lastDot >= 0
+    ? lastComma > lastDot
+      ? ','
+      : '.'
+    : null;
+
+  if (!decimalSeparator) return Number(value.replace(/[.,]/g, ''));
+
+  const decimalIndex = decimalSeparator === ',' ? lastComma : lastDot;
+  const integerPart = value.slice(0, decimalIndex).replace(/[.,]/g, '') || '0';
+  const decimalPart = value.slice(decimalIndex + 1).replace(/[.,]/g, '');
+
+  return Number(`${integerPart}.${decimalPart}`);
+};
+
+export const parseAmountInput = (input: string) => parseLocalizedAmount(input);
+
+export const isValidAmountInput = (input: string) => {
+  const parsed = parseAmountInput(input);
+  return input.trim().length > 0 && Number.isFinite(parsed) && parsed >= 0;
+};
 
 export const stringifyRangeForInput = (range: CurrencyRange) => {
   const normalized = normalizeRange(range);

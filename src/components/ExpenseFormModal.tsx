@@ -5,15 +5,16 @@ import type { FormEvent } from 'react';
 import { buildCountryOptions, normalizeCountryId } from '../data/countries';
 import {
   currencyNames,
-  currencySymbols,
   getRateForCurrency,
   TRAVEL_CURRENCIES,
 } from '../services/currencyService';
 import type { CategoryMeta, CountryId, CountryMeta, ExchangeRateMap, Expense, LinkItem, TravelCurrencyCode } from '../types';
 import { hasInvalidLinks, normalizeLinks } from '../utils/links';
 import {
-  convertCurrencyRangeToReal,
+  convertCurrencyRange,
   formatMoney,
+  getConversionTargetCurrency,
+  isValidAmountInput,
   parseAmountInput,
   stringifyAmountForInput,
 } from '../utils/money';
@@ -26,6 +27,8 @@ type ExpenseFormModalProps = {
   countryOptions: CountryMeta[];
   exchangeRates: ExchangeRateMap;
   defaultCurrency?: TravelCurrencyCode;
+  errorMessage?: string | null;
+  isSaving?: boolean;
   onClose: () => void;
   onSave: (expense: Expense) => void;
 };
@@ -71,6 +74,8 @@ export function ExpenseFormModal({
   countryOptions,
   exchangeRates,
   defaultCurrency,
+  errorMessage,
+  isSaving = false,
   onClose,
   onSave,
 }: ExpenseFormModalProps) {
@@ -88,6 +93,7 @@ export function ExpenseFormModal({
   const [currency, setCurrency] = useState<TravelCurrencyCode>('EUR');
   const [amount, setAmount] = useState('');
   const [links, setLinks] = useState<LinkItem[]>([]);
+  const [validationError, setValidationError] = useState<string | null>(null);
 
   useEffect(() => {
     const defaultCountry = getDefaultCountry(selectableCountryOptions);
@@ -100,21 +106,22 @@ export function ExpenseFormModal({
     setCurrency(source.currency ?? defaultCurrency ?? getDefaultCurrencyForCountry(source.country ?? defaultCountry));
     setAmount(stringifyAmountForInput(source.amount ?? source.euro.min ?? source.real.min));
     setLinks(source.links ?? []);
+    setValidationError(null);
   }, [categories, defaultCurrency, selectableCountryOptions, expense, isOpen]);
 
-  const numericAmount = parseAmountInput(amount);
+  const isAmountValid = isValidAmountInput(amount);
+  const numericAmount = isAmountValid ? parseAmountInput(amount) : 0;
   const amountRange = { min: numericAmount, max: numericAmount };
-  const convertedReal = convertCurrencyRangeToReal(amountRange, currency, exchangeRates, expense?.real);
-  const eurRate = getRateForCurrency('EUR', exchangeRates);
-  const currentRate = getRateForCurrency(currency, exchangeRates);
-  const euroRange = currency === 'EUR'
-    ? amountRange
-    : eurRate && currentRate
-      ? {
-          min: convertedReal.min / eurRate,
-          max: convertedReal.max / eurRate,
-        }
-      : expense?.euro ?? { min: 0, max: 0 };
+  const realRange = convertCurrencyRange(amountRange, currency, 'BRL', exchangeRates, expense?.real);
+  const euroRange = convertCurrencyRange(amountRange, currency, 'EUR', exchangeRates, expense?.euro);
+  const conversionTargetCurrency = getConversionTargetCurrency(currency);
+  const convertedEstimate = conversionTargetCurrency === 'BRL' ? realRange : euroRange;
+  const hasRateForCurrency = (targetCurrency: TravelCurrencyCode) =>
+    Boolean(getRateForCurrency(targetCurrency, exchangeRates));
+  const isConversionRateMissing =
+    currency !== conversionTargetCurrency &&
+    (!hasRateForCurrency(currency) || !hasRateForCurrency(conversionTargetCurrency));
+  const displayedError = validationError ?? errorMessage;
 
   const handleCountryChange = (nextCountry: CountryId) => {
     setCountry(nextCountry);
@@ -123,7 +130,37 @@ export function ExpenseFormModal({
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (hasInvalidLinks(links)) return;
+    setValidationError(null);
+
+    if (!category) {
+      setValidationError('Selecione uma categoria para o gasto.');
+      return;
+    }
+
+    if (!country) {
+      setValidationError('Selecione um pais para o gasto.');
+      return;
+    }
+
+    if (!title.trim()) {
+      setValidationError('Informe um nome para o gasto.');
+      return;
+    }
+
+    if (!currency) {
+      setValidationError('Selecione uma moeda para o gasto.');
+      return;
+    }
+
+    if (!isAmountValid) {
+      setValidationError('Informe um valor valido, maior ou igual a zero.');
+      return;
+    }
+
+    if (hasInvalidLinks(links)) {
+      setValidationError('Revise os links uteis antes de salvar.');
+      return;
+    }
 
     onSave({
       id: expense?.id ?? crypto.randomUUID(),
@@ -134,7 +171,7 @@ export function ExpenseFormModal({
       currency,
       amount: numericAmount,
       euro: euroRange,
-      real: convertedReal,
+      real: realRange,
       links: normalizeLinks(links),
     });
   };
@@ -176,6 +213,12 @@ export function ExpenseFormModal({
                 <X className="h-5 w-5" />
               </button>
             </div>
+
+            {displayedError ? (
+              <p className="mb-4 rounded-2xl bg-rose-50 px-4 py-3 text-sm font-bold text-rose-700 dark:bg-rose-500/10 dark:text-rose-200">
+                {displayedError}
+              </p>
+            ) : null}
 
             <div className="grid gap-4 md:grid-cols-2">
               <label>
@@ -261,11 +304,11 @@ export function ExpenseFormModal({
               <div className="rounded-2xl bg-slate-50 px-4 py-3 dark:bg-slate-800 md:col-span-2">
                 <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-400 dark:text-slate-500">Conversão estimada</p>
                 <p className="mt-2 text-lg font-black text-slate-950 dark:text-slate-50">
-                  {currencySymbols[currency]} {amount || '0'} ≈ {formatMoney(convertedReal.min, 'BRL')}
+                  {formatMoney(numericAmount, currency)} ≈ {formatMoney(convertedEstimate.min, conversionTargetCurrency)}
                 </p>
-                {currency !== 'BRL' && !currentRate ? (
+                {isConversionRateMissing ? (
                   <p className="mt-1 text-sm font-bold text-amber-700 dark:text-amber-200">
-                    Cotação indisponível. O valor em BRL será mantido pelo último dado salvo, se houver.
+                    Cotação indisponível. A conversão para {conversionTargetCurrency} será mantida pelo último dado salvo, se houver.
                   </p>
                 ) : null}
               </div>
@@ -282,9 +325,10 @@ export function ExpenseFormModal({
               </button>
               <button
                 type="submit"
+                disabled={isSaving}
                 className="h-12 rounded-2xl bg-slate-950 px-6 font-bold text-white shadow-xl shadow-slate-900/20 transition hover:bg-teal-700 dark:bg-emerald-400 dark:text-emerald-950 dark:hover:bg-emerald-300"
               >
-                Salvar gasto
+                {isSaving ? 'Salvando...' : 'Salvar gasto'}
               </button>
             </div>
           </motion.form>

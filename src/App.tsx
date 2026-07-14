@@ -310,6 +310,7 @@ function TravelWorkspace({ groupId }: { groupId: string }) {
   const [quoteWarning, setQuoteWarning] = useState<string | null>(null);
   const [failedQuoteCurrencies, setFailedQuoteCurrencies] = useState<TravelCurrencyCode[]>([]);
   const [expenseSyncWarning, setExpenseSyncWarning] = useState<string | null>(null);
+  const [expenseFormError, setExpenseFormError] = useState<string | null>(null);
   const [categorySyncWarning, setCategorySyncWarning] = useState<string | null>(null);
   const [workspaceNotice, setWorkspaceNotice] = useState<string | null>(null);
   const [isExpenseLoading, setIsExpenseLoading] = useState(false);
@@ -705,8 +706,11 @@ function TravelWorkspace({ groupId }: { groupId: string }) {
   );
 
   const handleSaveExpense = async (expense: Expense) => {
+    if (isExpenseSaving) return;
+
     const isEditing = expenses.some((item) => item.id === expense.id);
     setIsExpenseSaving(true);
+    setExpenseFormError(null);
 
     try {
       const savedExpense = isEditing
@@ -718,17 +722,14 @@ function TravelWorkspace({ groupId }: { groupId: string }) {
           : [savedExpense, ...current],
       );
       setExpenseSyncWarning(null);
+      setExpenseFormError(null);
       setIsModalOpen(false);
       setEditingExpense(null);
-    } catch {
-      setExpenses((current) =>
-        isEditing
-          ? current.map((item) => (item.id === expense.id ? expense : item))
-          : [expense, ...current],
-      );
-      setExpenseSyncWarning('Nao foi possivel salvar no Supabase. Alteracao mantida no cache local.');
-      setIsModalOpen(false);
-      setEditingExpense(null);
+    } catch (error) {
+      console.error('Nao foi possivel salvar o gasto:', error);
+      const message = 'Nao foi possivel salvar a edicao do gasto. Verifique os dados e tente novamente.';
+      setExpenseFormError(message);
+      setExpenseSyncWarning(message);
     } finally {
       setIsExpenseSaving(false);
     }
@@ -753,11 +754,13 @@ function TravelWorkspace({ groupId }: { groupId: string }) {
 
   const openNewExpenseModal = () => {
     setEditingExpense(null);
+    setExpenseFormError(null);
     setIsModalOpen(true);
   };
 
   const openEditExpenseModal = (expense: Expense) => {
     setEditingExpense(expense);
+    setExpenseFormError(null);
     setIsModalOpen(true);
   };
 
@@ -1673,9 +1676,12 @@ function TravelWorkspace({ groupId }: { groupId: string }) {
         countryOptions={expenseCountryOptions}
         exchangeRates={exchangeRates}
         defaultCurrency={originCurrency}
+        errorMessage={expenseFormError}
+        isSaving={isExpenseSaving}
         onClose={() => {
           setIsModalOpen(false);
           setEditingExpense(null);
+          setExpenseFormError(null);
         }}
         onSave={(expense) => void handleSaveExpense(expense)}
       />

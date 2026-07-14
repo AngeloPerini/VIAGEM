@@ -32,6 +32,11 @@ const normalizeCurrency = (value: unknown): TravelCurrencyCode => {
     : 'EUR';
 };
 
+const toFiniteNumber = (value: unknown, fallback = 0) => {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : fallback;
+};
+
 const cacheKey = (groupId: string) => `${STORAGE_KEY}-${groupId}`;
 
 async function getCurrentUserId() {
@@ -75,19 +80,28 @@ const toExpense = (row: ExpenseRow): Expense => ({
   createdAt: row.created_at,
 });
 
-const toExpensePayload = (expense: Expense) => ({
-  category: expense.category,
-  country: normalizeCountryId(expense.country ?? 'international'),
-  description: expense.title,
-  details: expense.detail || null,
-  currency: normalizeCurrency(expense.currency),
-  amount: Number(expense.amount ?? expense.euro.min ?? 0),
-  euro_min: expense.euro.min,
-  euro_max: expense.euro.max,
-  brl_min: expense.real.min,
-  brl_max: expense.real.max,
-  links: normalizeLinks(expense.links),
-});
+const toExpensePayload = (expense: Expense) => {
+  const euroMin = toFiniteNumber(expense.euro?.min);
+  const euroMax = toFiniteNumber(expense.euro?.max, euroMin);
+  const brlMin = toFiniteNumber(expense.real?.min);
+  const brlMax = toFiniteNumber(expense.real?.max, brlMin);
+  const currency = normalizeCurrency(expense.currency);
+  const amountFallback = currency === 'BRL' ? brlMin : euroMin;
+
+  return {
+    category: expense.category,
+    country: normalizeCountryId(expense.country ?? 'international'),
+    description: expense.title,
+    details: expense.detail || null,
+    currency,
+    amount: toFiniteNumber(expense.amount, amountFallback),
+    euro_min: euroMin,
+    euro_max: euroMax,
+    brl_min: brlMin,
+    brl_max: brlMax,
+    links: normalizeLinks(expense.links),
+  };
+};
 
 const notifyExpensesChanged = async (groupId: string, detail = 'Os gastos da viagem foram atualizados.') => {
   await notifyGroupMembers({
