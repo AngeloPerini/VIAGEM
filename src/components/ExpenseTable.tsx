@@ -12,6 +12,7 @@ import {
   getExpenseRealRange,
 } from '../utils/money';
 import { getExpenseCategoryIcon } from '../utils/expenseCategoryIcons';
+import { getExpenseDateDisplay } from '../utils/expenseDates';
 import { LinksMenu } from './LinksMenu';
 
 type ExpenseTableProps = {
@@ -152,6 +153,7 @@ export function ExpenseTable({
             <tr className="text-xs uppercase tracking-[0.16em] text-slate-400 dark:text-slate-500">
               <th className="px-7 py-4 font-black">{category.id === 'lodging' ? 'Cidade' : category.label}</th>
               <th className="px-4 py-4 font-black">Detalhe</th>
+              <th className="px-4 py-4 font-black">Data</th>
               <th className="px-4 py-4 font-black">Pais</th>
               <th className="px-4 py-4 font-black">Moeda</th>
               <th className="px-4 py-4 font-black">Real</th>
@@ -164,6 +166,7 @@ export function ExpenseTable({
               {expenses.length ? (
                 expenses.map((expense) => {
                   const PaidIcon = expense.isPaid ? CheckCircle2 : Circle;
+                  const dateDisplay = getExpenseDateDisplay(expense, [category]);
 
                   return (
                       <motion.tr
@@ -177,6 +180,10 @@ export function ExpenseTable({
                       >
                         <td className="px-7 py-4 font-bold text-slate-950 dark:text-slate-50">{expense.title}</td>
                         <td className="px-4 py-4 text-slate-500 dark:text-slate-400">{expense.detail || '-'}</td>
+                        <td className="px-4 py-4 text-sm font-semibold text-slate-600 dark:text-slate-300">
+                          <span className="block">{dateDisplay.label}</span>
+                          <span className="block text-xs font-bold text-slate-400 dark:text-slate-500">{dateDisplay.detail}</span>
+                        </td>
                         <td className="px-4 py-4">
                           <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-black text-slate-600 dark:bg-slate-800 dark:text-slate-300">
                             {getCountryName(expense)}
@@ -238,7 +245,7 @@ export function ExpenseTable({
                   animate={{ opacity: 1 }}
                   exit={{ opacity: 0 }}
                 >
-                  <td colSpan={canManage ? 7 : 6} className="px-7 py-8">
+                  <td colSpan={canManage ? 8 : 7} className="px-7 py-8">
                     <p className="rounded-2xl bg-slate-50 px-4 py-4 text-sm font-bold text-slate-500 dark:bg-slate-800 dark:text-slate-300">
                       Nenhum gasto cadastrado nesta categoria.
                     </p>
@@ -254,6 +261,7 @@ export function ExpenseTable({
         <AnimatePresence initial={false}>
           {expenses.length ? expenses.map((expense) => {
             const PaidIcon = expense.isPaid ? CheckCircle2 : Circle;
+            const dateDisplay = getExpenseDateDisplay(expense, [category]);
 
             return (
               <motion.article
@@ -268,6 +276,9 @@ export function ExpenseTable({
                   <div>
                     <h3 className="font-black text-slate-950 dark:text-slate-50">{expense.title}</h3>
                     {expense.detail ? <p className="text-sm text-slate-500 dark:text-slate-400">{expense.detail}</p> : null}
+                    <p className="mt-1 text-sm font-bold text-slate-500 dark:text-slate-400">
+                      {dateDisplay.label} · {dateDisplay.detail}
+                    </p>
                     <span className="mt-2 inline-flex rounded-full bg-slate-100 px-3 py-1 text-xs font-black text-slate-600 dark:bg-slate-700 dark:text-slate-200">
                       {getCountryName(expense)}
                     </span>

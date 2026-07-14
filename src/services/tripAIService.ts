@@ -16,6 +16,7 @@ import type {
 } from '../types';
 import { normalizeCountryId } from '../data/countries';
 import { assertValidDateRange } from '../utils/dateRange';
+import { getTodayDateInputValue, isAccommodationCategory, toDateInputValue } from '../utils/expenseDates';
 import { normalizeLinks } from '../utils/links';
 import { supabase } from './supabaseClient';
 
@@ -276,6 +277,7 @@ const normalizeExpense = (value: unknown): Expense => {
   const record = asRecord(value);
   const detail = asString(record.detail || record.details, 'Valor aproximado planejado.');
   const country = normalizeCountry(record.country);
+  const category = normalizeCategory(record.category);
   const currency = normalizeCurrencyCode(record.currency || getDefaultCurrencyForCountry(country));
   const rawEuro = normalizeRange(record.euro);
   const rawReal = normalizeRange(record.real || record.brl);
@@ -290,7 +292,7 @@ const normalizeExpense = (value: unknown): Expense => {
 
   return {
     id: crypto.randomUUID(),
-    category: normalizeCategory(record.category),
+    category,
     country,
     title: asString(record.title || record.description, 'Gasto planejado'),
     detail: detail.toLowerCase().includes('aproxim') ? detail : `${detail} Aproximado / planejado.`,
@@ -301,6 +303,21 @@ const normalizeExpense = (value: unknown): Expense => {
     links: normalizeLinkArray(record.links),
     isPaid: false,
     paidAt: null,
+    expenseDate: toDateInputValue(record.expense_date as string | null)
+      || toDateInputValue(record.expenseDate as string | null)
+      || toDateInputValue(record.date as string | null)
+      || toDateInputValue(record.spent_at as string | null)
+      || null,
+    checkInDate: toDateInputValue(record.check_in_date as string | null)
+      || toDateInputValue(record.checkInDate as string | null)
+      || toDateInputValue(record.checkin as string | null)
+      || toDateInputValue(record.start_date as string | null)
+      || null,
+    checkOutDate: toDateInputValue(record.check_out_date as string | null)
+      || toDateInputValue(record.checkOutDate as string | null)
+      || toDateInputValue(record.checkout as string | null)
+      || toDateInputValue(record.end_date as string | null)
+      || null,
   };
 };
 
@@ -470,6 +487,29 @@ export const normalizeTripAIPlan = (value: unknown): TripAIPlan => {
   };
 };
 
+const withExpenseDateDefaults = (
+  plan: TripAIPlan,
+  tripStartDate?: string,
+  tripEndDate?: string,
+): TripAIPlan => ({
+  ...plan,
+  expenses: plan.expenses.map((expense) => {
+    const isAccommodation = isAccommodationCategory(expense.category);
+    const expenseDate = toDateInputValue(expense.expenseDate)
+      || (isAccommodation ? toDateInputValue(tripStartDate) : '')
+      || getTodayDateInputValue();
+
+    return {
+      ...expense,
+      expenseDate,
+      checkInDate: expense.checkInDate
+        || (isAccommodation ? toDateInputValue(tripStartDate) || null : null),
+      checkOutDate: expense.checkOutDate
+        || (isAccommodation ? toDateInputValue(tripEndDate) || null : null),
+    };
+  }),
+});
+
 const findTripAIQualityIssues = (plan: TripAIPlan) => {
   const issues = new Set<string>();
 
@@ -575,7 +615,7 @@ export async function generateTripPlan(input: TripAIInput): Promise<TripAIPlan> 
     });
   }
 
-  const plan = normalizeTripAIPlan(data);
+  const plan = withExpenseDateDefaults(normalizeTripAIPlan(data), input.startDate, input.endDate);
   const qualityIssues = findTripAIQualityIssues(plan);
   if (qualityIssues.length) {
     throw new TripAIFunctionError(
@@ -618,6 +658,9 @@ const expensePayload = (expense: Expense, groupId: string, userId: string) => ({
   links: normalizeLinks(expense.links),
   is_paid: expense.isPaid ?? false,
   paid_at: expense.isPaid ? expense.paidAt ?? new Date().toISOString() : null,
+  expense_date: toDateInputValue(expense.expenseDate) || getTodayDateInputValue(),
+  check_in_date: toDateInputValue(expense.checkInDate) || null,
+  check_out_date: toDateInputValue(expense.checkOutDate) || null,
 });
 
 const itineraryPayload = (item: ItineraryItem, groupId: string, userId: string, orderIndex: number) => ({
@@ -769,7 +812,10 @@ export async function applyTripPlan(review: TripAIReviewState, plan: TripAIPlan,
 
   const userId = await requireCurrentUserId();
   const { groupId } = review.input;
-  const scopedPlan = scopePlanToAllowedCountries(plan, review.input.countries);
+  const scopedPlan = scopePlanToAllowedCountries(
+    withExpenseDateDefaults(plan, review.input.startDate, review.input.endDate),
+    review.input.countries,
+  );
 
   const { data: membership, error: membershipError } = await supabase
     .from('group_members')
@@ -975,7 +1021,11 @@ export function getStoredTripAIReview(): TripAIReviewState | null {
     const parsed = JSON.parse(stored) as TripAIReviewState;
     return {
       ...parsed,
-      plan: normalizeTripAIPlan(parsed.plan),
+      plan: withExpenseDateDefaults(
+        normalizeTripAIPlan(parsed.plan),
+        parsed.input?.startDate,
+        parsed.input?.endDate,
+      ),
     };
   } catch {
     return null;

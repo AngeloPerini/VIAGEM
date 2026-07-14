@@ -3,6 +3,7 @@ import { defaultExpenses } from '../data/defaultExpenses';
 import { STORAGE_KEY } from '../data/initialExpenses';
 import { normalizeCountryId } from '../data/countries';
 import type { CountryId, Expense, LinkItem, TravelCurrencyCode } from '../types';
+import { getTodayDateInputValue, toDateInputValue } from '../utils/expenseDates';
 import { normalizeLinks } from '../utils/links';
 import { notifyGroupMembers } from './notificationsService';
 import { supabase } from './supabaseClient';
@@ -24,6 +25,9 @@ type ExpenseRow = {
   links: LinkItem[] | null;
   is_paid: boolean | null;
   paid_at: string | null;
+  expense_date: string | null;
+  check_in_date: string | null;
+  check_out_date: string | null;
   created_at?: string;
 };
 
@@ -81,6 +85,9 @@ const toExpense = (row: ExpenseRow): Expense => ({
   links: Array.isArray(row.links) ? row.links : [],
   isPaid: Boolean(row.is_paid),
   paidAt: row.paid_at,
+  expenseDate: toDateInputValue(row.expense_date) || toDateInputValue(row.created_at),
+  checkInDate: toDateInputValue(row.check_in_date) || null,
+  checkOutDate: toDateInputValue(row.check_out_date) || null,
   createdAt: row.created_at,
 });
 
@@ -92,6 +99,7 @@ const toExpensePayload = (expense: Expense) => {
   const currency = normalizeCurrency(expense.currency);
   const amountFallback = currency === 'BRL' ? brlMin : euroMin;
   const isPaid = Boolean(expense.isPaid);
+  const expenseDate = toDateInputValue(expense.expenseDate) || getTodayDateInputValue();
 
   return {
     category: expense.category,
@@ -107,6 +115,9 @@ const toExpensePayload = (expense: Expense) => {
     links: normalizeLinks(expense.links),
     is_paid: isPaid,
     paid_at: isPaid ? expense.paidAt ?? new Date().toISOString() : null,
+    expense_date: expenseDate,
+    check_in_date: toDateInputValue(expense.checkInDate) || null,
+    check_out_date: toDateInputValue(expense.checkOutDate) || null,
   };
 };
 

@@ -18,6 +18,13 @@ import {
   parseAmountInput,
   stringifyAmountForInput,
 } from '../utils/money';
+import {
+  getStayNightCount,
+  getTodayDateInputValue,
+  isAccommodationCategory,
+  isValidDateInput,
+  toDateInputValue,
+} from '../utils/expenseDates';
 import { LinksEditor } from './LinksEditor';
 
 type ExpenseFormModalProps = {
@@ -27,6 +34,8 @@ type ExpenseFormModalProps = {
   countryOptions: CountryMeta[];
   exchangeRates: ExchangeRateMap;
   defaultCurrency?: TravelCurrencyCode;
+  tripStartDate?: string;
+  tripEndDate?: string;
   errorMessage?: string | null;
   isSaving?: boolean;
   onClose: () => void;
@@ -67,6 +76,9 @@ const createBlankExpense = (
   links: [],
   isPaid: false,
   paidAt: null,
+  expenseDate: getTodayDateInputValue(),
+  checkInDate: null,
+  checkOutDate: null,
 });
 
 export function ExpenseFormModal({
@@ -76,6 +88,8 @@ export function ExpenseFormModal({
   countryOptions,
   exchangeRates,
   defaultCurrency,
+  tripStartDate,
+  tripEndDate,
   errorMessage,
   isSaving = false,
   onClose,
@@ -96,6 +110,9 @@ export function ExpenseFormModal({
   const [amount, setAmount] = useState('');
   const [links, setLinks] = useState<LinkItem[]>([]);
   const [isPaid, setIsPaid] = useState(false);
+  const [expenseDate, setExpenseDate] = useState(getTodayDateInputValue());
+  const [checkInDate, setCheckInDate] = useState('');
+  const [checkOutDate, setCheckOutDate] = useState('');
   const [validationError, setValidationError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -110,8 +127,11 @@ export function ExpenseFormModal({
     setAmount(stringifyAmountForInput(source.amount ?? source.euro.min ?? source.real.min));
     setLinks(source.links ?? []);
     setIsPaid(Boolean(source.isPaid));
+    setExpenseDate(toDateInputValue(source.expenseDate) || getTodayDateInputValue());
+    setCheckInDate(toDateInputValue(source.checkInDate) || (!expense && isAccommodationCategory(source.category, categories) ? toDateInputValue(tripStartDate) : ''));
+    setCheckOutDate(toDateInputValue(source.checkOutDate) || (!expense && isAccommodationCategory(source.category, categories) ? toDateInputValue(tripEndDate) : ''));
     setValidationError(null);
-  }, [categories, defaultCurrency, selectableCountryOptions, expense, isOpen]);
+  }, [categories, defaultCurrency, selectableCountryOptions, expense, isOpen, tripEndDate, tripStartDate]);
 
   const isAmountValid = isValidAmountInput(amount);
   const numericAmount = isAmountValid ? parseAmountInput(amount) : 0;
@@ -125,7 +145,21 @@ export function ExpenseFormModal({
   const isConversionRateMissing =
     currency !== conversionTargetCurrency &&
     (!hasRateForCurrency(currency) || !hasRateForCurrency(conversionTargetCurrency));
+  const isAccommodation = isAccommodationCategory(category, categories);
+  const nights = getStayNightCount(checkInDate, checkOutDate);
+  const averageNightAmount = nights ? numericAmount / nights : null;
   const displayedError = validationError ?? errorMessage;
+
+  const handleCategoryChange = (nextCategory: string) => {
+    const wasAccommodation = isAccommodationCategory(category, categories);
+    const willBeAccommodation = isAccommodationCategory(nextCategory, categories);
+    setCategory(nextCategory);
+
+    if (!wasAccommodation && willBeAccommodation) {
+      if (!checkInDate) setCheckInDate(toDateInputValue(tripStartDate));
+      if (!checkOutDate) setCheckOutDate(toDateInputValue(tripEndDate));
+    }
+  };
 
   const handleCountryChange = (nextCountry: CountryId) => {
     setCountry(nextCountry);
@@ -161,6 +195,26 @@ export function ExpenseFormModal({
       return;
     }
 
+    const normalizedExpenseDate = toDateInputValue(expenseDate) || getTodayDateInputValue();
+    if (!isValidDateInput(normalizedExpenseDate)) {
+      setValidationError('Informe uma data valida para o gasto.');
+      return;
+    }
+
+    const normalizedCheckInDate = toDateInputValue(checkInDate);
+    const normalizedCheckOutDate = toDateInputValue(checkOutDate);
+    if (isAccommodation) {
+      if (!normalizedCheckInDate || !normalizedCheckOutDate) {
+        setValidationError('Informe a data de entrada e saida da hospedagem.');
+        return;
+      }
+
+      if (!getStayNightCount(normalizedCheckInDate, normalizedCheckOutDate)) {
+        setValidationError('A data de saida nao pode ser anterior a data de entrada.');
+        return;
+      }
+    }
+
     if (hasInvalidLinks(links)) {
       setValidationError('Revise os links uteis antes de salvar.');
       return;
@@ -179,6 +233,9 @@ export function ExpenseFormModal({
       links: normalizeLinks(links),
       isPaid,
       paidAt: isPaid ? expense?.paidAt ?? null : null,
+      expenseDate: normalizedExpenseDate,
+      checkInDate: normalizedCheckInDate || expense?.checkInDate || null,
+      checkOutDate: normalizedCheckOutDate || expense?.checkOutDate || null,
     });
   };
 
@@ -194,7 +251,7 @@ export function ExpenseFormModal({
         >
           <motion.form
             onSubmit={handleSubmit}
-            className="w-full max-w-2xl rounded-[2rem] bg-white p-5 shadow-2xl shadow-slate-950/30 dark:border dark:border-slate-700 dark:bg-slate-900 md:p-7"
+            className="max-h-[calc(100svh-1.5rem)] w-full max-w-2xl overflow-y-auto rounded-[2rem] bg-white p-5 shadow-2xl shadow-slate-950/30 dark:border dark:border-slate-700 dark:bg-slate-900 md:p-7"
             initial={{ opacity: 0, y: 40, scale: 0.98 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 30, scale: 0.98 }}
@@ -231,7 +288,7 @@ export function ExpenseFormModal({
                 <span className="mb-2 block text-sm font-bold text-slate-600 dark:text-slate-300">Categoria</span>
                 <select
                   value={category}
-                  onChange={(event) => setCategory(event.target.value)}
+                  onChange={(event) => handleCategoryChange(event.target.value)}
                   required
                   className="h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 font-semibold text-slate-900 outline-none transition focus:border-teal-400 focus:ring-4 focus:ring-teal-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-50 dark:focus:border-emerald-400 dark:focus:ring-emerald-400/20"
                 >
@@ -282,6 +339,18 @@ export function ExpenseFormModal({
               </label>
 
               <label>
+                <span className="mb-2 block text-sm font-bold text-slate-600 dark:text-slate-300">Data do gasto</span>
+                <input
+                  type="date"
+                  value={expenseDate}
+                  onChange={(event) => setExpenseDate(event.target.value)}
+                  onInput={(event) => setExpenseDate(event.currentTarget.value)}
+                  required
+                  className="h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 font-semibold text-slate-900 outline-none transition focus:border-teal-400 focus:ring-4 focus:ring-teal-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-50 dark:focus:border-emerald-400 dark:focus:ring-emerald-400/20"
+                />
+              </label>
+
+              <label>
                 <span className="mb-2 block text-sm font-bold text-slate-600 dark:text-slate-300">Moeda</span>
                 <select
                   value={currency}
@@ -306,6 +375,40 @@ export function ExpenseFormModal({
                   className="h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 font-semibold text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-teal-400 focus:ring-4 focus:ring-teal-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-50 dark:placeholder:text-slate-500 dark:focus:border-emerald-400 dark:focus:ring-emerald-400/20"
                 />
               </label>
+
+              {isAccommodation ? (
+                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-800/70 md:col-span-2">
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <label>
+                      <span className="mb-2 block text-sm font-bold text-slate-600 dark:text-slate-300">Check-in</span>
+                      <input
+                        type="date"
+                        value={checkInDate}
+                        onChange={(event) => setCheckInDate(event.target.value)}
+                        onInput={(event) => setCheckInDate(event.currentTarget.value)}
+                        required={isAccommodation}
+                        className="h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 font-semibold text-slate-900 outline-none transition focus:border-teal-400 focus:ring-4 focus:ring-teal-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-50 dark:focus:border-emerald-400 dark:focus:ring-emerald-400/20"
+                      />
+                    </label>
+                    <label>
+                      <span className="mb-2 block text-sm font-bold text-slate-600 dark:text-slate-300">Check-out</span>
+                      <input
+                        type="date"
+                        value={checkOutDate}
+                        onChange={(event) => setCheckOutDate(event.target.value)}
+                        onInput={(event) => setCheckOutDate(event.currentTarget.value)}
+                        required={isAccommodation}
+                        className="h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 font-semibold text-slate-900 outline-none transition focus:border-teal-400 focus:ring-4 focus:ring-teal-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-50 dark:focus:border-emerald-400 dark:focus:ring-emerald-400/20"
+                      />
+                    </label>
+                  </div>
+                  <p className="mt-3 text-sm font-black text-slate-700 dark:text-slate-200">
+                    {nights
+                      ? `${nights} ${nights === 1 ? 'noite' : 'noites'}${averageNightAmount !== null ? ` · media ${formatMoney(averageNightAmount, currency)} por noite` : ''}`
+                      : 'Informe entrada e saida para calcular as noites.'}
+                  </p>
+                </div>
+              ) : null}
 
               <div className="rounded-2xl bg-slate-50 px-4 py-3 dark:bg-slate-800 md:col-span-2">
                 <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-400 dark:text-slate-500">Conversão estimada</p>

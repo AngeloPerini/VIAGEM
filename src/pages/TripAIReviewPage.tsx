@@ -37,6 +37,7 @@ import type {
   TravelCurrencyCode,
 } from '../types';
 import { TRAVEL_CURRENCIES } from '../services/currencyService';
+import { getStayNightCount, getTodayDateInputValue, isAccommodationCategory, toDateInputValue } from '../utils/expenseDates';
 import { formatRange, getExpenseCurrency, getExpenseOriginalRange } from '../utils/money';
 
 const typeLabels: Record<string, string> = {
@@ -121,6 +122,9 @@ const createExpense = (): Expense => ({
   links: [],
   isPaid: false,
   paidAt: null,
+  expenseDate: getTodayDateInputValue(),
+  checkInDate: null,
+  checkOutDate: null,
 });
 
 const createAttraction = (): Attraction => ({
@@ -509,7 +513,11 @@ function PlanEditor({ plan, onChange }: { plan: TripAIPlan; onChange: (plan: Tri
             Adicionar
           </button>
         </div>
-        {plan.expenses.map((expense, index) => (
+        {plan.expenses.map((expense, index) => {
+          const isAccommodation = isAccommodationCategory(expense.category);
+          const nights = getStayNightCount(expense.checkInDate, expense.checkOutDate);
+
+          return (
           <article key={expense.id} className="rounded-3xl bg-white p-4 dark:bg-slate-800">
             <div className="grid gap-3 md:grid-cols-4">
               <EditorField label="Categoria">
@@ -539,6 +547,43 @@ function PlanEditor({ plan, onChange }: { plan: TripAIPlan; onChange: (plan: Tri
                   className={inputClass}
                 />
               </EditorField>
+              <EditorField label="Data do gasto">
+                <input
+                  type="date"
+                  value={toDateInputValue(expense.expenseDate) || getTodayDateInputValue()}
+                  onChange={(event) =>
+                    updatePlan({ expenses: updateListItem(plan.expenses, index, { expenseDate: event.target.value }) })
+                  }
+                  className={inputClass}
+                />
+              </EditorField>
+              {isAccommodation ? (
+                <>
+                  <EditorField label="Check-in">
+                    <input
+                      type="date"
+                      value={toDateInputValue(expense.checkInDate)}
+                      onChange={(event) =>
+                        updatePlan({ expenses: updateListItem(plan.expenses, index, { checkInDate: event.target.value }) })
+                      }
+                      className={inputClass}
+                    />
+                  </EditorField>
+                  <EditorField label="Check-out">
+                    <input
+                      type="date"
+                      value={toDateInputValue(expense.checkOutDate)}
+                      onChange={(event) =>
+                        updatePlan({ expenses: updateListItem(plan.expenses, index, { checkOutDate: event.target.value }) })
+                      }
+                      className={inputClass}
+                    />
+                  </EditorField>
+                  <div className="flex min-h-11 items-center rounded-2xl bg-slate-50 px-4 text-sm font-black text-slate-600 dark:bg-slate-900 dark:text-slate-300">
+                    {nights ? `${nights} ${nights === 1 ? 'noite' : 'noites'}` : 'Informe o periodo'}
+                  </div>
+                </>
+              ) : null}
               <EditorField label="Detalhes" className="md:col-span-4">
                 <textarea
                   value={expense.detail ?? ''}
@@ -624,7 +669,8 @@ function PlanEditor({ plan, onChange }: { plan: TripAIPlan; onChange: (plan: Tri
               </button>
             </div>
           </article>
-        ))}
+          );
+        })}
       </div>
 
       <div className="space-y-3">

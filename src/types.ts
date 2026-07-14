@@ -39,6 +39,9 @@ export type Expense = {
   links?: LinkItem[];
   isPaid?: boolean;
   paidAt?: string | null;
+  expenseDate?: string | null;
+  checkInDate?: string | null;
+  checkOutDate?: string | null;
   createdAt?: string;
 };
 

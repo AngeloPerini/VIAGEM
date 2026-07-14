@@ -70,6 +70,13 @@ import type {
   TravelCurrencyCode,
 } from './types';
 import {
+  formatExpenseDateLabel,
+  getDateInputTimestamp,
+  getExpenseDateDisplay,
+  getExpenseDateExportLabel,
+  getExpensePrimaryTimestamp,
+} from './utils/expenseDates';
+import {
   calculateCategoryTotal,
   calculateExpensesTotal,
   formatOriginalCurrencyBreakdown,
@@ -155,17 +162,8 @@ const parseNumberFilter = (value: string) => {
   return Number.isFinite(parsed) ? parsed : null;
 };
 
-const getExpenseTimestamp = (expense: Expense) => {
-  if (!expense.createdAt) return 0;
-  const timestamp = Date.parse(expense.createdAt);
-  return Number.isFinite(timestamp) ? timestamp : 0;
-};
-
-const getDateInputTimestamp = (value: string, endOfDay = false) => {
-  if (!value) return null;
-  const timestamp = Date.parse(`${value}T${endOfDay ? '23:59:59.999' : '00:00:00.000'}`);
-  return Number.isFinite(timestamp) ? timestamp : null;
-};
+const getExpenseTimestamp = (expense: Expense, categories: CategoryMeta[] = []) =>
+  getExpensePrimaryTimestamp(expense, categories);
 
 const buildExpenseFileSlug = (value?: string) =>
   normalizeText(value || 'viagem')
@@ -173,15 +171,7 @@ const buildExpenseFileSlug = (value?: string) =>
     .replace(/(^-|-$)/g, '') || 'viagem';
 
 const formatExpenseDate = (value?: string) => {
-  if (!value) return 'Sem data';
-  const date = /^\d{4}-\d{2}-\d{2}$/.test(value) ? new Date(`${value}T00:00:00`) : new Date(value);
-  if (Number.isNaN(date.getTime())) return 'Sem data';
-
-  return new Intl.DateTimeFormat('pt-BR', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-  }).format(date);
+  return formatExpenseDateLabel(value);
 };
 
 const buildDonutGradient = (items: Array<{ color: string; value: number }>) => {
@@ -565,7 +555,7 @@ function TravelWorkspace({ groupId }: { groupId: string }) {
       if (expenseCategoryFilter !== 'all' && expense.category !== expenseCategoryFilter) return false;
       if (expenseCurrencyFilter !== 'all' && getExpenseCurrency(expense) !== expenseCurrencyFilter) return false;
 
-      const timestamp = getExpenseTimestamp(expense);
+      const timestamp = getExpenseTimestamp(expense, categoriesForDisplay);
       if (fromTimestamp !== null && (!timestamp || timestamp < fromTimestamp)) return false;
       if (toTimestamp !== null && (!timestamp || timestamp > toTimestamp)) return false;
 
@@ -677,12 +667,12 @@ function TravelWorkspace({ groupId }: { groupId: string }) {
         if (expenseViewType === 'highest') {
           return rangeMidpoint(getExpenseRealRange(b, exchangeRates)) - rangeMidpoint(getExpenseRealRange(a, exchangeRates));
         }
-        return getExpenseTimestamp(b) - getExpenseTimestamp(a);
+        return getExpenseTimestamp(b, categoriesForDisplay) - getExpenseTimestamp(a, categoriesForDisplay);
       });
 
       return expenseViewType === 'recent' ? sorted.slice(0, 8) : sorted;
     },
-    [exchangeRates, expenseViewType, filteredExpenses],
+    [categoriesForDisplay, exchangeRates, expenseViewType, filteredExpenses],
   );
   const visibleTransactions = showAllTransactions ? recentTransactions : recentTransactions.slice(0, 5);
   const selectedTotalLabel = formatRange(filteredGrandTotal.real, 'BRL', true);
@@ -914,7 +904,7 @@ function TravelWorkspace({ groupId }: { groupId: string }) {
       body: recentTransactions.map((expense) => {
         const category = categoryById.get(expense.category);
         return [
-          formatExpenseDate(expense.createdAt),
+          getExpenseDateExportLabel(expense, categoriesForDisplay),
           countryNames[normalizeCountryId(expense.country)] ?? expense.country ?? 'Internacional',
           category?.name ?? expense.category,
           expense.title,
@@ -1343,6 +1333,7 @@ function TravelWorkspace({ groupId }: { groupId: string }) {
                             type="date"
                             value={expenseDateFromFilter}
                             onChange={(event) => setExpenseDateFromFilter(event.target.value)}
+                            onInput={(event) => setExpenseDateFromFilter(event.currentTarget.value)}
                             className="h-11 w-full rounded-xl border border-[#dfe5ee] bg-white px-3 text-sm font-semibold text-[#0b1326] outline-none transition focus:border-[#007c68] dark:border-slate-700 dark:bg-slate-900 dark:text-slate-50 dark:focus:border-emerald-400"
                           />
                         </label>
@@ -1353,6 +1344,7 @@ function TravelWorkspace({ groupId }: { groupId: string }) {
                             type="date"
                             value={expenseDateToFilter}
                             onChange={(event) => setExpenseDateToFilter(event.target.value)}
+                            onInput={(event) => setExpenseDateToFilter(event.currentTarget.value)}
                             className="h-11 w-full rounded-xl border border-[#dfe5ee] bg-white px-3 text-sm font-semibold text-[#0b1326] outline-none transition focus:border-[#007c68] dark:border-slate-700 dark:bg-slate-900 dark:text-slate-50 dark:focus:border-emerald-400"
                           />
                         </label>
@@ -1546,6 +1538,7 @@ function TravelWorkspace({ groupId }: { groupId: string }) {
                               const value = realValueMode === 'converted'
                                 ? formatRange(getExpenseRealRange(expense, exchangeRates), 'BRL')
                                 : formatRange(getExpenseOriginalRange(expense), getExpenseCurrency(expense));
+                              const dateDisplay = getExpenseDateDisplay(expense, [category]);
 
                               return (
                                 <tr key={expense.id} className="border-t border-[#eef2f7] dark:border-slate-800">
@@ -1573,7 +1566,10 @@ function TravelWorkspace({ groupId }: { groupId: string }) {
                                       {category.name}
                                     </span>
                                   </td>
-                                  <td className="whitespace-nowrap px-4 py-2.5 text-sm font-semibold text-[#45464d] dark:text-slate-300">{formatExpenseDate(expense.createdAt)}</td>
+                                  <td className="whitespace-nowrap px-4 py-2.5 text-sm font-semibold text-[#45464d] dark:text-slate-300">
+                                    <span className="block">{dateDisplay.label}</span>
+                                    <span className="block text-xs font-bold text-[#8c8f9a] dark:text-slate-500">{dateDisplay.detail}</span>
+                                  </td>
                                   <td className="px-4 py-2.5 text-right text-sm font-black text-[#0b1326] dark:text-slate-50">{value}</td>
                                   <td className="px-4 py-2.5">
                                     <button
@@ -1635,6 +1631,7 @@ function TravelWorkspace({ groupId }: { groupId: string }) {
                           const value = realValueMode === 'converted'
                             ? formatRange(getExpenseRealRange(expense, exchangeRates), 'BRL')
                             : formatRange(getExpenseOriginalRange(expense), getExpenseCurrency(expense));
+                          const dateDisplay = getExpenseDateDisplay(expense, [category]);
 
                           return (
                             <article key={expense.id} className="rounded-2xl border border-[#e8ecf4] bg-[#f8fafc] p-4 dark:border-slate-700 dark:bg-slate-800/70">
@@ -1647,7 +1644,8 @@ function TravelWorkspace({ groupId }: { groupId: string }) {
                                 </span>
                                 <div className="min-w-0 flex-1">
                                   <p className="font-black text-[#0b1326] dark:text-slate-50">{expense.title}</p>
-                                  <p className="mt-1 text-sm font-semibold text-[#667085] dark:text-slate-400">{category.name} · {formatExpenseDate(expense.createdAt)}</p>
+                                  <p className="mt-1 text-sm font-semibold text-[#667085] dark:text-slate-400">{category.name} · {dateDisplay.label}</p>
+                                  <p className="mt-0.5 text-xs font-bold text-[#8c8f9a] dark:text-slate-500">{dateDisplay.detail}</p>
                                   <p className="mt-3 text-xl font-black text-[#0b1326] dark:text-slate-50">{value}</p>
                                 </div>
                               </div>
@@ -1777,6 +1775,8 @@ function TravelWorkspace({ groupId }: { groupId: string }) {
         countryOptions={expenseCountryOptions}
         exchangeRates={exchangeRates}
         defaultCurrency={originCurrency}
+        tripStartDate={activeGroup?.startDate}
+        tripEndDate={activeGroup?.endDate}
         errorMessage={expenseFormError}
         isSaving={isExpenseSaving}
         onClose={() => {
