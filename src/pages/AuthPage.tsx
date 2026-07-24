@@ -13,8 +13,9 @@ import {
   Ticket,
   UserPlus,
 } from 'lucide-react';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { FormEvent } from 'react';
+import { AppFooter } from '../components/AppFooter';
 import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useTheme } from '../contexts/ThemeContext';
@@ -27,6 +28,12 @@ type AuthPageProps = {
   initialInviteCode?: string | null;
 };
 
+const GOOGLE_AUTH_PENDING_KEY = 'tripflow:google-oauth-pending';
+const GOOGLE_AUTH_TIMEOUT_MS = 30000;
+const GOOGLE_AUTH_RESUME_GRACE_MS = 800;
+const GOOGLE_AUTH_CANCELLED_MESSAGE =
+  'Login com Google cancelado. Voce pode tentar novamente ou entrar com e-mail.';
+
 const travelHeroImage =
   'https://lh3.googleusercontent.com/aida-public/AB6AXuCM6rhDSvqhuD-HpbmgtmEiUAKiTDS1QIKN8krmV7IqkXSWD3ZcNdbS2zNCYsDpEjmqdew1DTSzH4QkSBSk264Kv6K2P4dITmxa8imu0ZS2dAaMbJSaQR1LFBqF9AMEwwki4JWl7hMPBxanunISEng3Jo6rk0WOmGdVSx3N_7VgBvraAsb7T0ifRCAaBUVsqXiGPGnjwUeeO3PqOpo9-pNOyhzhovCcW7tvI6MkWT7yE5abchq9tVG2edFkf23WEfRxP75n5WhDGkV4';
 
@@ -35,9 +42,9 @@ const sharedInputClass =
 const iconInputClass = `${sharedInputClass} pl-12`;
 const passwordInputClass = `${iconInputClass} pr-12`;
 const primaryButtonClass =
-  'inline-flex h-12 w-full items-center justify-center gap-3 rounded-xl bg-black px-6 text-sm font-extrabold text-white shadow-[0_14px_28px_rgba(15,23,42,0.16)] transition hover:-translate-y-0.5 hover:bg-[#131b2e] hover:shadow-[0_18px_34px_rgba(15,23,42,0.2)] active:translate-y-0 disabled:cursor-not-allowed disabled:opacity-70 disabled:hover:translate-y-0 dark:bg-emerald-400 dark:text-emerald-950 dark:shadow-black/30 dark:hover:bg-emerald-300';
+  'inline-flex min-h-12 w-full min-w-0 items-center justify-center gap-3 rounded-xl bg-black px-4 py-3 text-center text-sm font-extrabold leading-tight text-white shadow-[0_14px_28px_rgba(15,23,42,0.16)] transition hover:-translate-y-0.5 hover:bg-[#131b2e] hover:shadow-[0_18px_34px_rgba(15,23,42,0.2)] active:translate-y-0 disabled:cursor-not-allowed disabled:opacity-70 disabled:hover:translate-y-0 dark:bg-emerald-400 dark:text-emerald-950 dark:shadow-black/30 dark:hover:bg-emerald-300 sm:px-6';
 const secondaryButtonClass =
-  'inline-flex h-11 w-full items-center justify-center gap-3 rounded-xl border border-[#c6c6cd] bg-white px-6 text-sm font-bold text-[#0b1c30] transition hover:border-[#131b2e]/35 hover:bg-[#eff4ff] disabled:cursor-not-allowed disabled:opacity-70 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:hover:border-emerald-400 dark:hover:bg-slate-700 sm:h-12 lg:h-11 xl:h-12';
+  'inline-flex min-h-11 w-full min-w-0 items-center justify-center gap-3 rounded-xl border border-[#c6c6cd] bg-white px-4 py-2.5 text-center text-sm font-bold leading-tight text-[#0b1c30] transition hover:border-[#131b2e]/35 hover:bg-[#eff4ff] disabled:cursor-not-allowed disabled:opacity-70 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:hover:border-emerald-400 dark:hover:bg-slate-700 sm:min-h-12 sm:px-6 lg:min-h-11 xl:min-h-12';
 
 const friendlyAuthError = (message: string) => {
   const normalized = message.toLowerCase();
@@ -64,6 +71,24 @@ const friendlyAuthError = (message: string) => {
 const getOAuthErrorFromUrl = () => {
   const params = new URLSearchParams(window.location.search);
   return params.get('error_description') ?? params.get('error') ?? null;
+};
+
+const hasOAuthResponseInUrl = () => {
+  const searchParams = new URLSearchParams(window.location.search);
+  const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+
+  return (
+    searchParams.has('code')
+    || searchParams.has('error')
+    || searchParams.has('error_description')
+    || hashParams.has('access_token')
+    || hashParams.has('error')
+    || hashParams.has('error_description')
+  );
+};
+
+const removeGoogleAuthPending = () => {
+  window.sessionStorage.removeItem(GOOGLE_AUTH_PENDING_KEY);
 };
 
 function GoogleIcon() {
@@ -127,6 +152,59 @@ export function AuthPage({ initialInviteCode }: AuthPageProps) {
   });
   const [loadingAction, setLoadingAction] = useState<LoadingAction>(null);
 
+  const clearGoogleLoading = useCallback((showCancelledMessage: boolean) => {
+    removeGoogleAuthPending();
+    setLoadingAction((current) => (current === 'google' ? null : current));
+
+    if (showCancelledMessage) {
+      setMessage(null);
+      setError(GOOGLE_AUTH_CANCELLED_MESSAGE);
+    }
+  }, []);
+
+  useEffect(() => {
+    const urlError = getOAuthErrorFromUrl();
+    if (!urlError) return;
+
+    removeGoogleAuthPending();
+    setLoadingAction((current) => (current === 'google' ? null : current));
+    setError(friendlyAuthError(urlError));
+  }, []);
+
+  useEffect(() => {
+    if (loadingAction !== 'google') return undefined;
+
+    let resumeTimer: number | undefined;
+
+    const finishIfStillWaiting = () => {
+      if (hasOAuthResponseInUrl()) return;
+      clearGoogleLoading(true);
+    };
+
+    const scheduleResumeCheck = () => {
+      window.clearTimeout(resumeTimer);
+      resumeTimer = window.setTimeout(finishIfStillWaiting, GOOGLE_AUTH_RESUME_GRACE_MS);
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') scheduleResumeCheck();
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', scheduleResumeCheck);
+    window.addEventListener('pageshow', scheduleResumeCheck);
+
+    const timeoutId = window.setTimeout(finishIfStillWaiting, GOOGLE_AUTH_TIMEOUT_MS);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+      window.clearTimeout(resumeTimer);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', scheduleResumeCheck);
+      window.removeEventListener('pageshow', scheduleResumeCheck);
+    };
+  }, [clearGoogleLoading, loadingAction]);
+
   const normalizedInviteCode = useMemo(() => normalizeInviteToken(inviteCode), [inviteCode]);
   const modeContent = useMemo(
     () => ({
@@ -160,12 +238,15 @@ export function AuthPage({ initialInviteCode }: AuthPageProps) {
 
   const handleGoogle = useCallback(async () => {
     setError(null);
+    setMessage(null);
     rememberInvite();
+    window.sessionStorage.setItem(GOOGLE_AUTH_PENDING_KEY, String(Date.now()));
     setLoadingAction('google');
 
     try {
       await signIn();
     } catch (caughtError) {
+      removeGoogleAuthPending();
       setError(friendlyAuthError(caughtError instanceof Error ? caughtError.message : 'Falha ao abrir o Google.'));
       setLoadingAction(null);
     }
@@ -259,7 +340,7 @@ export function AuthPage({ initialInviteCode }: AuthPageProps) {
 
   return (
     <main
-      className="relative flex min-h-svh items-start justify-center overflow-x-hidden px-4 py-3 text-[#0b1c30] dark:text-slate-100 sm:px-6 md:items-center lg:px-8 lg:py-3"
+      className="relative flex min-h-svh flex-col items-center justify-start gap-4 overflow-x-hidden px-4 py-3 text-[#0b1c30] dark:text-slate-100 sm:px-6 md:justify-center lg:px-8 lg:py-3"
       style={{
         background: theme === 'dark'
           ? 'radial-gradient(circle at top left, rgba(16,185,129,0.16) 0%, #0f172a 44%, #111827 100%)'
@@ -276,7 +357,7 @@ export function AuthPage({ initialInviteCode }: AuthPageProps) {
         {theme === 'dark' ? 'Escuro' : 'Claro'}
       </button>
       <motion.section
-        className="mt-12 grid w-full max-w-[1060px] grid-cols-1 overflow-hidden rounded-[1.75rem] border border-white/70 bg-white shadow-[0_24px_70px_rgba(15,23,42,0.12)] dark:border-slate-700 dark:bg-slate-900 dark:shadow-black/40 md:mt-0 lg:h-[min(660px,calc(100svh-1.5rem))] lg:grid-cols-[0.95fr_1.05fr]"
+        className="mt-12 grid w-full max-w-[1060px] grid-cols-1 overflow-hidden rounded-[1.75rem] border border-white/70 bg-white shadow-[0_24px_70px_rgba(15,23,42,0.12)] dark:border-slate-700 dark:bg-slate-900 dark:shadow-black/40 md:mt-0 lg:h-[min(620px,calc(100svh-7rem))] lg:grid-cols-[0.95fr_1.05fr]"
         initial={{ opacity: 0, y: 18 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
@@ -579,7 +660,7 @@ export function AuthPage({ initialInviteCode }: AuthPageProps) {
             <button
               type="submit"
               disabled={isBusy || !normalizedInviteCode}
-              className="mt-2 inline-flex h-10 w-full items-center justify-center gap-2 rounded-xl border border-[#c6c6cd] bg-white px-4 text-sm font-extrabold text-[#0b1c30] transition hover:bg-[#f8f9ff] disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:hover:bg-slate-800"
+              className="mt-2 inline-flex min-h-10 w-full min-w-0 items-center justify-center gap-2 rounded-xl border border-[#c6c6cd] bg-white px-4 py-2 text-center text-sm font-extrabold leading-tight text-[#0b1c30] transition hover:bg-[#f8f9ff] disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:hover:bg-slate-800"
             >
               {loadingAction === 'invite' ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : <Route className="h-4 w-4" aria-hidden="true" />}
               {loadingAction === 'invite' ? t('auth.inviteSaving') : t('auth.inviteSubmit')}
@@ -599,16 +680,9 @@ export function AuthPage({ initialInviteCode }: AuthPageProps) {
             ) : null}
           </div>
 
-          <div className="mt-auto pt-3">
-            <div className="h-px bg-[#c6c6cd]/35 dark:bg-slate-700" />
-            <nav className="flex flex-wrap justify-center gap-x-5 gap-y-2 pt-2 text-xs font-semibold text-[#45464d] dark:text-slate-400">
-              <a className="transition hover:text-[#0b1c30] dark:hover:text-slate-100" href="#privacidade">Privacidade</a>
-              <a className="transition hover:text-[#0b1c30] dark:hover:text-slate-100" href="#termos">Termos de Uso</a>
-              <a className="transition hover:text-[#0b1c30] dark:hover:text-slate-100" href="mailto:suporte@tripflow.online">Suporte</a>
-            </nav>
-          </div>
         </section>
       </motion.section>
+      <AppFooter compact className="max-w-[1060px] border-white/45 text-[#45464d] dark:border-slate-700/80 dark:text-slate-400" />
     </main>
   );
 }
