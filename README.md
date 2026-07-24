@@ -33,6 +33,12 @@ npm run build
 npm run preview
 ```
 
+## PWA e Capacitor
+
+O foco atual do TripFlow e PWA e responsividade web/mobile. O site pode ser adicionado a tela inicial pelo Safari no iPhone ou pelo Chrome no Android.
+
+O Capacitor esta pausado temporariamente enquanto o TripFlow prioriza PWA e responsividade web/mobile. A pasta `android/`, `capacitor.config.ts` e as dependencias existentes foram mantidas para retomada futura.
+
 ## Editar dados iniciais
 
 Os dados ficam em `src/data/initialExpenses.ts`.

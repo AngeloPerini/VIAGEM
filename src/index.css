@@ -84,26 +84,69 @@
 }
 
 html {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
   scroll-behavior: smooth;
 }
 
 body {
   margin: 0;
-  min-width: 320px;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  min-height: 100svh;
+  overflow-x: hidden;
   background: var(--background);
   color: var(--foreground);
+  -webkit-tap-highlight-color: transparent;
 }
 
 #root {
-  min-height: 100vh;
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
+  min-height: 100svh;
   background: var(--background);
   color: var(--foreground);
 }
 
 button,
 input,
+textarea,
 select {
   font: inherit;
+}
+
+img,
+svg,
+video,
+canvas {
+  max-width: 100%;
+}
+
+button,
+a {
+  max-width: 100%;
+}
+
+@media (max-width: 639px) {
+  button:not([aria-label]) {
+    min-width: 0;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    text-align: center;
+    line-height: 1.2;
+  }
+
+  button[class*="h-10"]:not([aria-label]),
+  button[class*="h-11"]:not([aria-label]),
+  button[class*="h-12"]:not([aria-label]) {
+    height: auto;
+    min-height: 2.5rem;
+    padding-top: 0.55rem;
+    padding-bottom: 0.55rem;
+  }
 }
 
 ::selection {

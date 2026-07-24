@@ -275,7 +275,7 @@ export function Navbar({ activeView, onNavigate, onNavigateToProfilePath }: Navb
 
   return (
     <motion.nav
-      className="sticky top-0 z-50 w-full max-w-full overflow-visible border-b border-[#e8ecf4] bg-white/94 shadow-[0_14px_40px_rgba(15,23,42,0.06)] backdrop-blur-xl dark:border-slate-800 dark:bg-[#071121]/94 dark:shadow-black/30"
+      className="sticky top-0 z-50 w-full max-w-full overflow-visible border-b border-[#e8ecf4] bg-white/94 pt-[env(safe-area-inset-top)] shadow-[0_14px_40px_rgba(15,23,42,0.06)] backdrop-blur-xl dark:border-slate-800 dark:bg-[#071121]/94 dark:shadow-black/30"
       initial={{ opacity: 0, y: -12 }}
       animate={{ opacity: 1, y: 0 }}
     >

@@ -7,6 +7,10 @@ import { GroupProvider } from './contexts/GroupContext';
 import { LanguageProvider } from './contexts/LanguageContext';
 import { ThemeProvider } from './contexts/ThemeContext';
 import './index.css';
+import { PwaInstallHint } from './components/PwaInstallHint';
+import { registerTripFlowPwa } from './pwa';
+
+registerTripFlowPwa();
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
@@ -16,6 +20,7 @@ createRoot(document.getElementById('root')!).render(
           <AuthProvider>
             <GroupProvider>
               <App />
+              <PwaInstallHint />
             </GroupProvider>
           </AuthProvider>
         </ThemeProvider>

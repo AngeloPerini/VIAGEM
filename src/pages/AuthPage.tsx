@@ -340,7 +340,7 @@ export function AuthPage({ initialInviteCode }: AuthPageProps) {
 
   return (
     <main
-      className="relative flex min-h-svh flex-col items-center justify-start gap-4 overflow-x-hidden px-4 py-3 text-[#0b1c30] dark:text-slate-100 sm:px-6 md:justify-center lg:px-8 lg:py-3"
+      className="relative flex min-h-svh flex-col items-center justify-start gap-4 overflow-x-hidden px-4 pb-[calc(0.75rem+env(safe-area-inset-bottom))] pt-[calc(0.75rem+env(safe-area-inset-top))] text-[#0b1c30] dark:text-slate-100 sm:px-6 md:justify-center lg:px-8"
       style={{
         background: theme === 'dark'
           ? 'radial-gradient(circle at top left, rgba(16,185,129,0.16) 0%, #0f172a 44%, #111827 100%)'

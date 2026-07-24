@@ -429,11 +429,11 @@ export function AttractionsPage({
           </div>
 
           <div className="flex flex-wrap gap-2 lg:justify-end">
-            <span className="inline-flex h-11 items-center gap-2 rounded-full bg-black px-4 text-sm font-black text-white dark:bg-emerald-400 dark:text-emerald-950">
+            <span className="inline-flex min-h-10 items-center gap-2 rounded-full bg-black px-4 py-2 text-sm font-black leading-tight text-white dark:bg-emerald-400 dark:text-emerald-950 sm:min-h-11">
               <CheckCircle2 className="h-4 w-4" />
               Visitados {totalVisitedCount}/{totalAttractionsCount}
             </span>
-            <span className="inline-flex h-11 items-center gap-2 rounded-full border border-[#cfd6e2] bg-white px-4 text-sm font-black text-[#45464d] dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300">
+            <span className="inline-flex min-h-10 items-center gap-2 rounded-full border border-[#cfd6e2] bg-white px-4 py-2 text-sm font-black leading-tight text-[#45464d] dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 sm:min-h-11">
               <Camera className="h-4 w-4 text-[#007c68]" />
               Fotos {totalPhotoCount}
             </span>
@@ -457,7 +457,7 @@ export function AttractionsPage({
               <button
                 type="button"
                 onClick={() => void restoreDefaults()}
-                className="inline-flex h-11 items-center justify-center gap-2 rounded-full border border-[#dfe5ee] bg-white px-4 text-sm font-black text-[#45464d] transition hover:border-[#007c68] hover:text-[#007c68] dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:border-emerald-400 dark:hover:text-emerald-300"
+                className="inline-flex min-h-11 min-w-0 items-center justify-center gap-2 rounded-full border border-[#dfe5ee] bg-white px-4 py-2 text-center text-sm font-black leading-tight text-[#45464d] transition hover:border-[#007c68] hover:text-[#007c68] dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:border-emerald-400 dark:hover:text-emerald-300"
               >
                 <RotateCcw className="h-4 w-4" />
                 Restaurar padrão
@@ -466,7 +466,7 @@ export function AttractionsPage({
             <button
               type="button"
               onClick={() => setEditingAttraction(blankAttraction(defaultCountry))}
-              className="inline-flex h-11 items-center justify-center gap-2 rounded-full bg-black px-5 text-sm font-black text-white shadow-[0_12px_28px_rgba(15,23,42,0.16)] transition hover:bg-[#111827] dark:bg-emerald-400 dark:text-emerald-950 dark:shadow-black/30 dark:hover:bg-emerald-300"
+              className="inline-flex min-h-11 min-w-0 items-center justify-center gap-2 rounded-full bg-black px-5 py-2 text-center text-sm font-black leading-tight text-white shadow-[0_12px_28px_rgba(15,23,42,0.16)] transition hover:bg-[#111827] dark:bg-emerald-400 dark:text-emerald-950 dark:shadow-black/30 dark:hover:bg-emerald-300"
             >
               <Plus className="h-4 w-4" />
               Novo ponto turístico
@@ -538,7 +538,7 @@ export function AttractionsPage({
           </AnimatePresence>
         </motion.div>
       ) : (
-        <section className="rounded-[1.65rem] border border-dashed border-[#cfd6e2] bg-white px-5 py-12 text-center shadow-[0_12px_30px_rgba(15,23,42,0.04)] dark:border-slate-700 dark:bg-slate-900 dark:shadow-black/30">
+        <section className="rounded-[1.65rem] border border-dashed border-[#cfd6e2] bg-white px-4 py-9 text-center shadow-[0_12px_30px_rgba(15,23,42,0.04)] dark:border-slate-700 dark:bg-slate-900 dark:shadow-black/30 sm:px-5 sm:py-12">
           <Camera className="mx-auto h-10 w-10 text-[#007c68]" />
           <h2 className="mt-4 text-xl font-black text-[#0b1326] dark:text-slate-50">
             {totalAttractionsCount ? 'Nenhum ponto turístico encontrado para este país.' : 'Nenhum ponto turístico cadastrado ainda.'}
@@ -551,7 +551,7 @@ export function AttractionsPage({
           <button
             type="button"
             onClick={() => setEditingAttraction(blankAttraction(defaultCountry))}
-            className="mt-5 inline-flex h-11 items-center justify-center gap-2 rounded-full bg-black px-5 text-sm font-black text-white transition hover:bg-[#111827] dark:bg-emerald-400 dark:text-emerald-950 dark:hover:bg-emerald-300"
+            className="mt-5 inline-flex min-h-11 w-full min-w-0 max-w-sm items-center justify-center gap-2 rounded-full bg-black px-4 py-3 text-center text-sm font-black leading-tight text-white transition hover:bg-[#111827] dark:bg-emerald-400 dark:text-emerald-950 dark:hover:bg-emerald-300 sm:w-auto sm:px-5"
           >
             <Plus className="h-4 w-4" />
             Adicionar primeiro ponto turístico

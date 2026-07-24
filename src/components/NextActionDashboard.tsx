@@ -185,7 +185,7 @@ function BottomCard({
   title: string;
 }) {
   return (
-    <section className="relative min-h-[360px] rounded-xl border border-[#e0e5ee] bg-white p-6 shadow-[0_10px_28px_rgba(15,23,42,0.055)] dark:border-slate-700 dark:bg-slate-900 dark:shadow-black/30">
+    <section className="relative min-h-[360px] min-w-0 rounded-xl border border-[#e0e5ee] bg-white p-4 shadow-[0_10px_28px_rgba(15,23,42,0.055)] dark:border-slate-700 dark:bg-slate-900 dark:shadow-black/30 sm:p-6">
       <div className="mb-6 flex items-center justify-between gap-4">
         <h2 className="text-xl font-bold leading-tight text-[#070d1f] dark:text-slate-50">{title}</h2>
         {action ?? (Icon ? <Icon className="h-6 w-6 text-[#171a26] dark:text-slate-200" /> : null)}
@@ -576,7 +576,7 @@ export function NextActionDashboard({
   return (
     <motion.div
       key="dashboard"
-      className="space-y-6"
+      className="w-full max-w-full space-y-6 overflow-x-hidden"
       initial={{ opacity: 0, y: 14 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -10 }}
@@ -598,16 +598,16 @@ export function NextActionDashboard({
         ) : null}
       </header>
 
-      <section className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_480px]">
+      <section className="grid min-w-0 gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(22rem,480px)]">
         <article className="relative min-h-[16rem] overflow-hidden rounded-xl bg-[#101827] shadow-[0_14px_34px_rgba(15,23,42,0.13)] md:min-h-[19rem]">
           <img src={dashboardHeroImage} alt="" className="absolute inset-0 h-full w-full object-cover" />
           <div className="absolute inset-0 bg-black/28" />
-          <div className="relative flex min-h-[16rem] flex-col justify-center p-6 md:min-h-[19rem] md:p-8">
-            <span className="mb-5 inline-flex w-fit items-center rounded-full bg-[#56f5d0] px-4 py-2 text-sm font-black uppercase text-[#05352f]">
+          <div className="relative flex min-h-[16rem] flex-col justify-center p-5 md:min-h-[19rem] md:p-8">
+            <span className="mb-4 inline-flex w-fit items-center rounded-full bg-[#56f5d0] px-4 py-2 text-sm font-black uppercase text-[#05352f] md:mb-5">
               Próxima ação
             </span>
             <div className="max-w-2xl">
-              <h2 className="text-[2.55rem] font-black leading-[1.05] text-white md:text-[3rem]">
+              <h2 className="max-w-full text-3xl font-black leading-[1.08] text-white sm:text-[2.55rem] md:text-[3rem]">
                 Continue seu
                 <br />
                 planejamento
@@ -615,7 +615,7 @@ export function NextActionDashboard({
               <button
                 type="button"
                 onClick={() => handleTarget(nextAction.target)}
-                className="mt-5 inline-flex h-12 min-w-64 items-center justify-center rounded-lg bg-black px-8 text-base font-black text-white shadow-[0_12px_24px_rgba(0,0,0,0.2)] transition hover:bg-[#111827] dark:bg-emerald-400 dark:text-emerald-950 dark:hover:bg-emerald-300"
+                className="mt-5 inline-flex min-h-12 w-full max-w-sm min-w-0 items-center justify-center rounded-lg bg-black px-5 py-3 text-center text-sm font-black leading-tight text-white shadow-[0_12px_24px_rgba(0,0,0,0.2)] transition hover:bg-[#111827] dark:bg-emerald-400 dark:text-emerald-950 dark:hover:bg-emerald-300 sm:w-auto sm:min-w-64 sm:px-8 sm:text-base"
               >
                 {nextAction.cta}
               </button>
@@ -623,11 +623,11 @@ export function NextActionDashboard({
           </div>
         </article>
 
-        <article className="min-h-[16rem] rounded-xl bg-[#121b2d] p-6 text-white shadow-[0_14px_34px_rgba(15,23,42,0.15)] md:min-h-[19rem] md:p-8">
+        <article className="min-h-[16rem] min-w-0 rounded-xl bg-[#121b2d] p-5 text-white shadow-[0_14px_34px_rgba(15,23,42,0.15)] md:min-h-[19rem] md:p-8">
           <div className="flex items-start justify-between gap-4">
-            <div>
+            <div className="min-w-0">
               <p className="text-base font-medium uppercase text-[#8c96ab]">Custo estimado</p>
-              <h2 className="mt-3 text-[clamp(1.75rem,2.4vw,2.2rem)] font-black leading-tight text-white md:whitespace-nowrap">
+              <h2 className="mt-3 break-words text-[clamp(1.45rem,7vw,2.2rem)] font-black leading-tight text-white md:whitespace-nowrap">
                 {formatRange(grandTotal.real, 'BRL', true)}
               </h2>
             </div>
@@ -652,9 +652,9 @@ export function NextActionDashboard({
         </article>
       </section>
 
-      <section className="grid items-center gap-6 rounded-xl border border-[#dfe5ee] bg-white p-6 shadow-[0_10px_26px_rgba(15,23,42,0.05)] lg:grid-cols-[auto_minmax(0,1fr)_170px_140px_auto] dark:border-slate-700 dark:bg-slate-900 dark:shadow-black/30">
-        <span className="grid h-16 w-16 place-items-center rounded-full bg-[#dbe8ff] text-[#0b1326] dark:bg-sky-400/15 dark:text-sky-200">
-          <PlaneTakeoff className="h-8 w-8" />
+      <section className="grid min-w-0 items-center gap-5 rounded-xl border border-[#dfe5ee] bg-white p-4 shadow-[0_10px_26px_rgba(15,23,42,0.05)] lg:grid-cols-[auto_minmax(0,1fr)_170px_140px_auto] lg:p-6 dark:border-slate-700 dark:bg-slate-900 dark:shadow-black/30">
+        <span className="grid h-12 w-12 place-items-center rounded-full bg-[#dbe8ff] text-[#0b1326] dark:bg-sky-400/15 dark:text-sky-200 sm:h-16 sm:w-16">
+          <PlaneTakeoff className="h-6 w-6 sm:h-8 sm:w-8" />
         </span>
         <div className="min-w-0">
           {userGroups.length > 1 && activeGroup ? (
@@ -677,9 +677,9 @@ export function NextActionDashboard({
               {activeGroup?.name ?? 'Sem viagem ativa'}
             </h2>
           )}
-          <p className="mt-1 flex items-center gap-2 text-base font-medium text-[#2c3242] dark:text-slate-300">
+          <p className="mt-1 flex min-w-0 items-start gap-2 text-base font-medium text-[#2c3242] dark:text-slate-300">
             <MapPin className="h-4 w-4 text-[#007c68] dark:text-emerald-300" />
-            <span>{tripCountries}</span>
+            <span className="min-w-0 break-words">{tripCountries}</span>
           </p>
         </div>
         <div className="border-[#e4e8f0] lg:border-l lg:pl-10 dark:border-slate-700">
@@ -692,7 +692,7 @@ export function NextActionDashboard({
             {tripDayCount ? `${tripDayCount} dias` : 'A definir'}
           </p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           <button
             type="button"
             aria-label="Editar viagem"
@@ -704,7 +704,7 @@ export function NextActionDashboard({
           <button
             type="button"
             onClick={() => onNavigate('itinerary')}
-            className="inline-flex h-14 items-center justify-center gap-3 rounded-xl bg-black px-7 text-base font-semibold text-white transition hover:bg-[#111827] dark:bg-emerald-400 dark:text-emerald-950 dark:hover:bg-emerald-300"
+            className="inline-flex min-h-12 min-w-0 items-center justify-center gap-3 rounded-xl bg-black px-5 py-3 text-center text-sm font-semibold leading-tight text-white transition hover:bg-[#111827] dark:bg-emerald-400 dark:text-emerald-950 dark:hover:bg-emerald-300 sm:min-h-14 sm:px-7 sm:text-base"
           >
             Ver Roteiro
             <ArrowRight className="h-5 w-5" />
@@ -816,8 +816,8 @@ export function NextActionDashboard({
           <div className="space-y-4">
             {recentExpenses.length ? (
               recentExpenses.slice(0, 3).map((expense) => (
-                <div key={expense.id} className="grid grid-cols-[44px_minmax(0,1fr)_auto] items-center gap-3">
-                  <span className="grid h-11 w-11 place-items-center rounded-full bg-[#dce8ff] text-[#0b1326] dark:bg-slate-800 dark:text-slate-100">
+                <div key={expense.id} className="grid grid-cols-[40px_minmax(0,1fr)] items-start gap-3 sm:grid-cols-[44px_minmax(0,1fr)_auto] sm:items-center">
+                  <span className="grid h-10 w-10 place-items-center rounded-full bg-[#dce8ff] text-[#0b1326] dark:bg-slate-800 dark:text-slate-100 sm:h-11 sm:w-11">
                     <Plane className="h-5 w-5" />
                   </span>
                   <div className="min-w-0">
@@ -827,7 +827,7 @@ export function NextActionDashboard({
                     </p>
                     <p className="text-xs font-medium text-[#6b7285] dark:text-slate-400">{formatExpenseDate(expense.createdAt)}</p>
                   </div>
-                  <p className="text-right text-base font-medium text-[#1f2430] dark:text-slate-100">
+                  <p className="col-start-2 min-w-0 break-words text-left text-base font-medium leading-tight text-[#1f2430] dark:text-slate-100 sm:col-auto sm:text-right">
                     {formatRange(getExpenseRealRange(expense), 'BRL', true)}
                   </p>
                 </div>
@@ -839,14 +839,14 @@ export function NextActionDashboard({
               />
             )}
           </div>
-          <div className="mt-7 border-t border-[#e2e7f0] pt-4 dark:border-slate-700">
+          <div className="mt-7 border-t border-[#e2e7f0] pt-4 pr-14 dark:border-slate-700 sm:pr-16">
             <p className="text-xs font-medium uppercase text-[#2c3242] dark:text-slate-400">Total gasto até agora</p>
-            <p className="mt-2 text-2xl font-black text-[#0b1326] dark:text-slate-50">{formatRange(grandTotal.real, 'BRL', true)}</p>
+            <p className="mt-2 break-words text-[1.35rem] font-black leading-tight text-[#0b1326] dark:text-slate-50 sm:text-2xl">{formatRange(grandTotal.real, 'BRL', true)}</p>
           </div>
           <button
             type="button"
             onClick={onAddExpense}
-            className="absolute bottom-7 right-4 inline-flex h-14 w-14 items-center justify-center rounded-full bg-black text-white shadow-[0_18px_36px_rgba(15,23,42,0.2)] transition hover:bg-[#111827] dark:bg-emerald-400 dark:text-emerald-950 dark:hover:bg-emerald-300"
+            className="absolute bottom-4 right-4 inline-flex h-12 w-12 items-center justify-center rounded-full bg-black text-white shadow-[0_18px_36px_rgba(15,23,42,0.2)] transition hover:bg-[#111827] dark:bg-emerald-400 dark:text-emerald-950 dark:hover:bg-emerald-300 sm:bottom-7 sm:h-14 sm:w-14"
           >
             <Plus className="h-7 w-7" />
           </button>
